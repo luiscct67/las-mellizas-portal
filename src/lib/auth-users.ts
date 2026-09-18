@@ -3,7 +3,7 @@ export interface UsuarioCredencial {
   email: string;
   nombre: string;
   passwordHash: string; // En demo guardamos el valor de verificación
-  rol: "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN";
+  rol: "RECEPCION_CAJA" | "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN";
   sede: "Independencia" | "Vivanco" | "Todas las Sedes";
   colegiatura?: string; // CMP o COP
   especialidad?: string;
@@ -169,7 +169,7 @@ export function cambiarPasswordUsuario(email: string, nuevaClave: string): boole
 export function crearNuevoUsuarioPorAdmin(datos: {
   email: string;
   nombre: string;
-  rol: "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN";
+  rol: "RECEPCION_CAJA" | "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN";
   sede: "Independencia" | "Vivanco" | "Todas las Sedes";
   colegiatura?: string;
   especialidad?: string;
@@ -225,7 +225,7 @@ export function actualizarUsuarioPorAdmin(
   datos: {
     nombre: string;
     email: string;
-    rol: "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN";
+    rol: UsuarioCredencial["rol"];
     sede: "Independencia" | "Vivanco" | "Todas las Sedes";
     colegiatura?: string;
     especialidad?: string;

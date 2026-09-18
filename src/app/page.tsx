@@ -38,37 +38,29 @@ export default function HomePage() {
           Plataforma moderna para la coordinación de atenciones, redacción confidencial de notas médicas y control de caja en las sedes de Huamanga.
         </p>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full text-left">
+        <div className="grid sm:grid-cols-3 gap-5 w-full text-left">
           <div className="bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-sm hover:shadow-md transition-shadow">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
               <UserCheck className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-neutral-900 mb-1">Recepción</h3>
-            <p className="text-xs text-neutral-500">Admisión rápida, padrón de pacientes y asignación de turno en sala.</p>
+            <h3 className="font-bold text-neutral-900 mb-1">Admisión & Caja Unificada</h3>
+            <p className="text-xs text-neutral-500">Flujo de 1 paso: registro de paciente, asignación de turno y cobro instantáneo (Yape, Plin, POS, Efectivo).</p>
           </div>
 
           <div className="bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-sm hover:shadow-md transition-shadow">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
               <Stethoscope className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-neutral-900 mb-1">Consultorio Médico</h3>
-            <p className="text-xs text-neutral-500">HCE estructurada con autoguardado, diagnóstico CIE-10 y adendas firmadas.</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-sm hover:shadow-md transition-shadow">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
-              <ReceiptText className="w-5 h-5" />
-            </div>
-            <h3 className="font-bold text-neutral-900 mb-1">Caja y Cobros</h3>
-            <p className="text-xs text-neutral-500">Cobros por Yape, Plin, Tarjeta y Efectivo con aislamiento clínico total.</p>
+            <h3 className="font-bold text-neutral-900 mb-1">Consultorio HCE Enterprise</h3>
+            <p className="text-xs text-neutral-500">Historia clínica estructurada de alta densidad con autoguardado silencioso de 3s, CIE-10 y galería ecográfica.</p>
           </div>
 
           <div className="bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-sm hover:shadow-md transition-shadow">
             <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-4">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-neutral-900 mb-1">Supervisión</h3>
-            <p className="text-xs text-neutral-500">Trazabilidad en tiempo real, auditoría append-only y cumplimiento normativo.</p>
+            <h3 className="font-bold text-neutral-900 mb-1">Supervisión & Gobernanza</h3>
+            <p className="text-xs text-neutral-500">Auditoría inmutable con RLS, administración de personal y aislamiento visual Zero Trust.</p>
           </div>
         </div>
       </main>

@@ -39,7 +39,7 @@ export default function SupervisionPage() {
   const [showNewUserModal, setShowNewUserModal] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoEmail, setNuevoEmail] = useState("");
-  const [nuevoRol, setNuevoRol] = useState<"RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION">("PROFESIONAL");
+  const [nuevoRol, setNuevoRol] = useState<"RECEPCION_CAJA" | "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION">("PROFESIONAL");
   const [nuevaSede, setNuevaSede] = useState<"Independencia" | "Vivanco">("Independencia");
   const [nuevaColegiatura, setNuevaColegiatura] = useState("");
   const [nuevaEspecialidad, setNuevaEspecialidad] = useState("");
@@ -49,7 +49,7 @@ export default function SupervisionPage() {
   const [usuarioEditando, setUsuarioEditando] = useState<UsuarioCredencial | null>(null);
   const [editNombre, setEditNombre] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [editRol, setEditRol] = useState<"RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN">("PROFESIONAL");
+  const [editRol, setEditRol] = useState<"RECEPCION_CAJA" | "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN">("PROFESIONAL");
   const [editSede, setEditSede] = useState<"Independencia" | "Vivanco" | "Todas las Sedes">("Independencia");
   const [editColegiatura, setEditColegiatura] = useState("");
   const [editEspecialidad, setEditEspecialidad] = useState("");

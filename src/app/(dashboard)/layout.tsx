@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { UserCheck, Stethoscope, ReceiptText, ShieldCheck, MapPin, LogOut, ShieldAlert, Lock, ArrowLeft } from "lucide-react";
+import {
+  Stethoscope,
+  ShieldCheck,
+  LogOut,
+  MapPin,
+  Lock,
+  ChevronLeft,
+  ChevronRight,
+  ShieldAlert,
+  ArrowLeft,
+  DollarSign,
+  UserCheck,
+} from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -12,19 +24,27 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [rol, setRol] = useState<string>("RECEPCION");
-  const [user, setUser] = useState<string>("usuario@lasmellizasperu.com");
+
+  const [rol, setRol] = useState<string>("RECEPCION_CAJA");
+  const [user, setUser] = useState<string>("operador@lasmellizasperu.com");
   const [sede, setSede] = useState<string>("Independencia");
   const [nombre, setNombre] = useState<string>("");
   const [colegiatura, setColegiatura] = useState<string>("");
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
 
   useEffect(() => {
-    const r = sessionStorage.getItem("lm_rol") || "RECEPCION";
-    const u = sessionStorage.getItem("lm_user") || "usuario@lasmellizasperu.com";
+    let r = sessionStorage.getItem("lm_rol") || "RECEPCION_CAJA";
+    // Normalizar roles legados a la arquitectura unificada
+    if (r === "RECEPCION" || r === "CAJA") {
+      r = "RECEPCION_CAJA";
+    }
+
+    const u = sessionStorage.getItem("lm_user") || "operador@lasmellizasperu.com";
     const s = sessionStorage.getItem("lm_sede") || "Independencia";
     const nom = sessionStorage.getItem("lm_nombre") || "";
     const col = sessionStorage.getItem("lm_colegiatura") || "";
+
     setRol(r);
     setUser(u);
     setSede(s);
@@ -35,212 +55,239 @@ export default function DashboardLayout({
 
   const handleLogout = () => {
     sessionStorage.clear();
+    // Limpiar cookies de sesión
+    document.cookie = "lm_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "lm_auth_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     router.push("/login");
   };
 
-  const isGlobalSupervisor = rol === "SUPERVISION" || rol === "ADMIN";
+  // ============================================================================
+  // ARQUITECTURA "CERO CURIOSIDAD": EVALUACIÓN ESTRICTA EN EL DOM
+  // Si el usuario no tiene el rol, los items NO SE RENDERIZAN en el DOM.
+  // ============================================================================
+  interface NavItem {
+    href: string;
+    label: string;
+    icon: any;
+    badge?: string;
+  }
 
-  const navItems = [
-    { href: "/recepcion", label: "Admisión & Recepción", icon: UserCheck, roles: ["RECEPCION", "SUPERVISION", "ADMIN"] },
-    { href: "/hce", label: "Consultorio Médico (HCE)", icon: Stethoscope, roles: ["PROFESIONAL", "SUPERVISION", "ADMIN"] },
-    { href: "/caja", label: "Caja & Cobros", icon: ReceiptText, roles: ["CAJA", "SUPERVISION", "ADMIN"] },
-    { href: "/supervision", label: "Supervisión & Auditoría", icon: ShieldCheck, roles: ["SUPERVISION", "ADMIN"] },
-  ];
+  const getAuthorizedNavItems = (): NavItem[] => {
+    const items: NavItem[] = [];
 
-  // Matriz de permisos estrictos por ruta (Defensa en Profundidad)
+    // Admisión y Caja Unificada
+    if (rol === "RECEPCION_CAJA" || rol === "ADMIN") {
+      items.push({
+        href: "/admision-caja",
+        label: "Admisión & Caja",
+        icon: DollarSign,
+      });
+    }
+
+    // Consultorio Médico / HCE
+    if (rol === "PROFESIONAL" || rol === "SUPERVISION" || rol === "ADMIN") {
+      items.push({
+        href: "/hce",
+        label: "Consultorio HCE",
+        icon: Stethoscope,
+      });
+    }
+
+    // Supervisión, Auditoría y Personal
+    if (rol === "SUPERVISION" || rol === "ADMIN") {
+      items.push({
+        href: "/supervision",
+        label: "Supervisión & Auditoría",
+        icon: ShieldCheck,
+      });
+    }
+
+    return items;
+  };
+
+  const authorizedNavItems = getAuthorizedNavItems();
+
+  // Guardián contra manipulación forzada de URLs
   const routePermissions: Record<string, string[]> = {
-    "/recepcion": ["RECEPCION", "SUPERVISION", "ADMIN"],
+    "/admision-caja": ["RECEPCION_CAJA", "ADMIN"],
     "/hce": ["PROFESIONAL", "SUPERVISION", "ADMIN"],
-    "/caja": ["CAJA", "SUPERVISION", "ADMIN"],
     "/supervision": ["SUPERVISION", "ADMIN"],
   };
 
-  const currentPrefix = "/" + pathname.split("/")[1];
-  const allowedRolesForCurrentRoute = routePermissions[currentPrefix];
-  const isAuthorizedCurrentRoute = !allowedRolesForCurrentRoute || allowedRolesForCurrentRoute.includes(rol);
+  const currentPrefix = "/" + (pathname.split("/")[1] || "admision-caja");
+  const allowedRoles = routePermissions[currentPrefix];
+  const isAuthorizedCurrentRoute = !allowedRoles || allowedRoles.includes(rol);
 
   const getAuthorizedHome = () => {
-    if (rol === "RECEPCION") return "/recepcion";
+    if (rol === "RECEPCION_CAJA") return "/admision-caja";
     if (rol === "PROFESIONAL") return "/hce";
-    if (rol === "CAJA") return "/caja";
     return "/supervision";
   };
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-50">
-        <div className="w-8 h-8 border-4 border-brand-700 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-900">
+        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#faf6f8]">
-      {/* Barra superior de gobernanza y sede */}
-      <header className="bg-white border-b border-neutral-200/80 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-3">
+    <div className="min-h-screen flex bg-[#f8f9fa] text-neutral-900 antialiased font-sans">
+      {/* ==================================================================== */}
+      {/* COLUMNA 1: SIDEBAR IZQUIERDO MINIMALISTA ("CERO CURIOSIDAD")          */}
+      {/* ==================================================================== */}
+      <aside
+        className={`${
+          isCollapsed ? "w-16" : "w-60"
+        } bg-neutral-950 text-neutral-300 border-r border-neutral-800 flex flex-col justify-between transition-all duration-200 sticky top-0 h-screen select-none shrink-0 z-40`}
+      >
+        <div>
+          {/* Cabecera del Sidebar */}
+          <div className="h-14 flex items-center justify-between px-3.5 border-b border-neutral-800">
+            <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
               <img
                 src="/logo.png"
-                alt="Las Mellizas Perú"
-                className="w-10 h-10 object-contain rounded-xl drop-shadow-sm"
+                alt="Logo Las Mellizas"
+                className="w-7 h-7 object-contain shrink-0"
               />
-              <div>
-                <span className="font-black text-brand-950 text-sm tracking-tight block leading-tight">
-                  Las Mellizas Perú
-                </span>
-                <span className="text-[10px] text-brand-700 font-bold block leading-tight">
-                  Consultorio Obstétrico Ecográfico
-                </span>
-              </div>
+              {!isCollapsed && (
+                <div className="truncate">
+                  <span className="font-bold text-xs text-white block leading-none truncate">
+                    Las Mellizas
+                  </span>
+                  <span className="text-[10px] text-neutral-400 font-mono block mt-0.5">
+                    Enterprise HCE
+                  </span>
+                </div>
+              )}
             </Link>
 
-            {/* Aislamiento de Sede: Fijo para roles operativos, selector solo para supervisión */}
-            {isGlobalSupervisor ? (
-              <div className="hidden sm:flex items-center gap-1.5 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-200 text-xs font-semibold text-purple-900">
-                <MapPin className="w-3.5 h-3.5 text-purple-700" />
-                <span>Vista Sede:</span>
-                <select
-                  value={sede}
-                  onChange={(e) => {
-                    setSede(e.target.value);
-                    sessionStorage.setItem("lm_sede", e.target.value);
-                    window.dispatchEvent(new Event("storage"));
-                  }}
-                  className="bg-transparent font-extrabold text-purple-900 focus:outline-none cursor-pointer"
-                >
-                  <option value="Independencia">Sede Independencia</option>
-                  <option value="Vivanco">Sede Vivanco</option>
-                  <option value="Todas las Sedes">Todas las Sedes (Consolidado)</option>
-                </select>
-              </div>
-            ) : (
-              <div className="hidden sm:flex items-center gap-1.5 bg-neutral-100/90 px-3 py-1.5 rounded-xl border border-neutral-200 text-xs font-semibold text-neutral-700">
-                <MapPin className="w-3.5 h-3.5 text-brand-700" />
-                <span>Sede:</span>
-                <span className="font-extrabold text-brand-900">{sede}</span>
-                <span className="inline-flex items-center gap-0.5 ml-1 text-[10px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-300/50" title="Aislamiento normativo: Usuario asignado exclusivamente a esta sede">
-                  <Lock className="w-2.5 h-2.5" /> Fija
-                </span>
-              </div>
-            )}
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-1 rounded hover:bg-neutral-800 text-neutral-400 hover:text-white transition"
+              title={isCollapsed ? "Expandir menú" : "Colapsar menú"}
+            >
+              {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+            </button>
           </div>
 
-          {/* Navegación por módulos estrictamente compartimentada */}
-          <nav className="hidden md:flex items-center gap-1.5">
-            {navItems.map((item) => {
+          {/* Sede Operativa Fija */}
+          {!isCollapsed && (
+            <div className="px-3.5 py-2.5 border-b border-neutral-800/80 bg-neutral-900/40 text-[11px] flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-medium text-neutral-400">
+                <MapPin className="w-3 h-3 text-neutral-400" />
+                <span>Sede {sede}</span>
+              </span>
+              <span className="text-[9px] font-mono text-neutral-400 uppercase bg-neutral-800 px-1 py-0.5 rounded">
+                Zero Trust
+              </span>
+            </div>
+          )}
+
+          {/* Navegación Estricta Filtrada (Sin enlaces prohibidos en el DOM) */}
+          <nav className="p-2 space-y-1">
+            {authorizedNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname.startsWith(item.href);
-              const isAllowed = item.roles.includes(rol);
-
-              // Si el usuario NO tiene permiso, NO se crea enlace navegable
-              if (!isAllowed) {
-                return (
-                  <div
-                    key={item.href}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-neutral-400 bg-neutral-50/70 border border-neutral-200/50 cursor-not-allowed select-none"
-                    title={`Bloqueo de Seguridad: Tu rol (${rol}) no tiene acceso al módulo ${item.label}`}
-                  >
-                    <Lock className="w-3 h-3 text-neutral-400" />
-                    <span className="opacity-50 line-through">{item.label}</span>
-                  </div>
-                );
-              }
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
                     isActive
-                      ? "bg-brand-700 text-white shadow-sm"
-                      : "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900"
+                      ? "bg-white text-neutral-950 shadow-sm"
+                      : "text-neutral-400 hover:text-white hover:bg-neutral-900"
                   }`}
+                  title={isCollapsed ? item.label : undefined}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {!isCollapsed && <span className="truncate">{item.label}</span>}
                 </Link>
               );
             })}
           </nav>
+        </div>
 
-          {/* Datos de usuario y Salir */}
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <span className="text-xs font-bold text-neutral-900 block leading-tight">
+        {/* Footer del Sidebar: Identidad & Cierre */}
+        <div className="p-2 border-t border-neutral-800">
+          {!isCollapsed && (
+            <div className="px-2 py-1.5 mb-1.5">
+              <span className="text-xs font-bold text-white block truncate leading-tight">
                 {nombre || user.split("@")[0]}
               </span>
-              <div className="flex items-center gap-1.5 justify-end mt-0.5">
+              <div className="flex items-center gap-1.5 mt-0.5">
                 {colegiatura && (
-                  <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                    {colegiatura}
+                  <span className="text-[9px] font-mono text-blue-400 bg-blue-950/80 px-1 py-0.2 rounded border border-blue-900">
+                    {colegiatura.split("/")[0]}
                   </span>
                 )}
-                <span className="text-[10px] uppercase tracking-wider font-extrabold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200/60 inline-block">
+                <span className="text-[10px] font-mono text-neutral-400 uppercase">
                   {rol}
                 </span>
               </div>
             </div>
+          )}
 
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-xl text-neutral-500 hover:bg-rose-50 hover:text-rose-600 transition"
-              title="Cerrar sesión"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-neutral-400 hover:text-rose-400 hover:bg-rose-950/20 transition"
+            title="Cerrar sesión"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!isCollapsed && <span>Cerrar Sesión</span>}
+          </button>
         </div>
-      </header>
+      </aside>
 
-      {/* Contenido principal con GUARDIA ESTRICTA de autorización */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
-        {isAuthorizedCurrentRoute ? (
-          children
-        ) : (
-          <div className="max-w-xl mx-auto my-12 bg-white rounded-3xl border border-rose-200 p-8 shadow-xl text-center space-y-5">
-            <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mx-auto shadow-inner">
-              <ShieldAlert className="w-8 h-8" />
-            </div>
+      {/* ==================================================================== */}
+      {/* COLUMNA 2: WORKSPACE DERECHO DINÁMICO & FLUIDO                      */}
+      {/* ==================================================================== */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Topbar Ultra-Compacto (44px) */}
+        <header className="h-11 bg-white border-b border-neutral-200 px-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 text-xs text-neutral-500 font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="font-sans font-medium text-neutral-700">Conexión Cifrada TLS 1.3</span>
+            <span>&bull;</span>
+            <span>Sede: {sede}</span>
+          </div>
 
-            <div>
-              <h2 className="text-2xl font-black text-rose-950">Acceso Restringido por Rol</h2>
-              <p className="text-xs text-rose-700 font-semibold mt-1">
-                Aislamiento Clínico Activo &bull; Ley N.º 26842 (Secreto Médico)
-              </p>
-            </div>
+          <div className="flex items-center gap-2 text-[11px] text-neutral-400">
+            <Lock className="w-3 h-3 text-neutral-400" />
+            <span>Ley N.º 26842 (Secreto Médico) &bull; Ley N.º 29733 (ANPD)</span>
+          </div>
+        </header>
 
-            <div className="bg-rose-50/80 border border-rose-200/80 rounded-2xl p-4 text-left text-xs text-rose-900 space-y-2">
-              <p>
-                <strong>Motivo de Bloqueo:</strong> Tu cuenta actual está autenticada con el rol <strong>{rol}</strong>, el cual <strong>no tiene autorización</strong> para ver o manipular información de esta sección ({currentPrefix.toUpperCase()}).
-              </p>
-              <p className="text-[11px] text-rose-700">
-                La normativa médica peruana prohíbe terminantemente el acceso de personal administrativo a historias clínicas, diagnósticos o cajas no asignadas.
-              </p>
-              <p className="font-mono text-[10px] text-rose-600 pt-1 border-t border-rose-200/60">
-                Seguridad: Evento de acceso denegado registrado en auditoría inmutable.
-              </p>
-            </div>
+        {/* Contenido Principal con Guardia de Seguridad */}
+        <main className="flex-1 p-5 overflow-y-auto">
+          {isAuthorizedCurrentRoute ? (
+            children
+          ) : (
+            <div className="max-w-md mx-auto my-16 bg-white border border-rose-200 rounded-2xl p-6 text-center space-y-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
 
-            <div className="pt-2">
+              <div>
+                <h2 className="text-base font-bold text-neutral-900">Acceso No Autorizado</h2>
+                <p className="text-xs text-neutral-500 mt-1">
+                  Tu rol ({rol}) no tiene privilegios para visualizar el recurso solicitado.
+                </p>
+              </div>
+
               <Link
                 href={getAuthorizedHome()}
-                className="inline-flex items-center justify-center gap-2 bg-neutral-900 hover:bg-black text-white font-bold text-xs px-6 py-3 rounded-xl shadow transition"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-lg transition"
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Volver a mi módulo asignado</span>
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Volver a mi módulo</span>
               </Link>
             </div>
-          </div>
-        )}
-      </main>
-
-      {/* Footer de confidencialidad */}
-      <footer className="border-t border-neutral-200 bg-white/70 py-3 px-6 text-center text-[11px] text-neutral-500 flex items-center justify-center gap-2">
-        <ShieldAlert className="w-3.5 h-3.5 text-brand-700" />
-        <span>Compartimentación de Seguridad Activa &bull; Cumplimiento Ley N.º 26842 (Secreto Médico) y Ley N.º 29733 (ANPD)</span>
-      </footer>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

@@ -94,7 +94,12 @@ export default function LoginPage() {
   };
 
   const completarInicioSesion = (usr: UsuarioCredencial) => {
-    sessionStorage.setItem("lm_rol", usr.rol);
+    // Cookies de sesión validadas en el servidor por Next.js middleware.ts
+    const effectiveRole = usr.rol === "RECEPCION" || usr.rol === "CAJA" ? "RECEPCION_CAJA" : usr.rol;
+    document.cookie = `lm_auth_user=${encodeURIComponent(usr.email)}; path=/; max-age=86400; SameSite=Lax`;
+    document.cookie = `lm_auth_role=${encodeURIComponent(effectiveRole)}; path=/; max-age=86400; SameSite=Lax`;
+
+    sessionStorage.setItem("lm_rol", effectiveRole);
     sessionStorage.setItem("lm_user", usr.email);
     sessionStorage.setItem("lm_sede", usr.sede);
     sessionStorage.setItem("lm_nombre", usr.nombre);
@@ -102,9 +107,8 @@ export default function LoginPage() {
 
     setTimeout(() => {
       setLoading(false);
-      if (usr.rol === "RECEPCION") router.push("/recepcion");
+      if (effectiveRole === "RECEPCION_CAJA") router.push("/admision-caja");
       else if (usr.rol === "PROFESIONAL") router.push("/hce");
-      else if (usr.rol === "CAJA") router.push("/caja");
       else router.push("/supervision");
     }, 400);
   };

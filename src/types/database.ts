@@ -1,4 +1,4 @@
-export type RolUsuario = 'RECEPCION' | 'PROFESIONAL' | 'CAJA' | 'SUPERVISION' | 'ADMIN';
+export type RolUsuario = 'RECEPCION_CAJA' | 'RECEPCION' | 'CAJA' | 'PROFESIONAL' | 'SUPERVISION' | 'ADMIN';
 export type EstadoEncuentro = 'EN_ESPERA' | 'EN_ATENCION' | 'ATENDIDO' | 'CANCELADO';
 export type EstadoOrden = 'PENDIENTE' | 'PAGADO' | 'ANULADO';
 export type MedioPago = 'EFECTIVO' | 'YAPE' | 'PLIN' | 'TARJETA_POS' | 'TRANSFERENCIA';
@@ -31,6 +31,8 @@ export interface Paciente {
   email?: string;
   fecha_nacimiento?: string;
   direccion?: string;
+  alergias?: string;
+  grupo_sanguineo?: string;
   activo: boolean;
   created_at: string;
 }
@@ -47,6 +49,29 @@ export interface Encuentro {
   sede?: Sede;
 }
 
+export interface TriajeVital {
+  pa: string; // Presión arterial (mmHg)
+  fc: string; // Frecuencia cardíaca (lpm)
+  fr: string; // Frecuencia respiratoria (rpm)
+  temp: string; // Temperatura (°C)
+  sato2: string; // Saturación O2 (%)
+  peso: string; // Peso (kg)
+  talla: string; // Talla (m)
+  imc: string; // IMC calculado
+}
+
+export interface PerfilObstetrico {
+  formula_g: string; // G_
+  formula_p: string; // P____
+  fur: string; // Fecha última regla
+  fpp: string; // Fecha probable de parto
+  eg: string; // Edad gestacional
+  au: string; // Altura uterina (cm)
+  lcf: string; // Latidos cardiofetales (lpm)
+  presentacion: string; // Cefálica, etc.
+  movimientos: string;
+}
+
 export interface NotaClinica {
   id: string;
   encuentro_id: string;
@@ -58,51 +83,44 @@ export interface NotaClinica {
   diagnostico_cie10: string;
   plan_trabajo?: string;
   tratamiento?: string;
+  triaje?: TriajeVital;
+  obstetricia?: PerfilObstetrico;
   cerrada: boolean;
   fecha_cierre?: string;
-  hash_firma?: string;
+  firma_hash?: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface Adenda {
-  id: string;
-  nota_id: string;
-  profesional_id: string;
-  texto: string;
-  fecha_hora: string;
-  hash_firma?: string;
-}
-
 export interface OrdenPago {
   id: string;
-  encuentro_id: string;
+  encuentro_id?: string;
   paciente_id: string;
   site_id: string;
-  servicio: string;
   monto: number;
   estado: EstadoOrden;
+  concepto: string;
   created_at: string;
-  paciente?: Paciente;
 }
 
 export interface Pago {
   id: string;
   orden_id: string;
-  cajero_id: string;
   medio_pago: MedioPago;
   monto: number;
-  referencia?: string;
-  fecha_hora: string;
+  numero_operacion?: string;
+  cajero_id: string;
+  created_at: string;
 }
 
-export interface Auditoria {
+export interface AuditoriaEvento {
   id: string;
-  fecha_hora: string;
-  usuario_id?: string;
+  usuario_id: string;
   site_id?: string;
   accion: string;
   entidad: string;
-  entidad_id?: string;
-  detalle?: Record<string, any>;
+  entidad_id: string;
+  detalle?: string;
+  ip?: string;
+  created_at: string;
 }
