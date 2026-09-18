@@ -17,18 +17,23 @@ import {
   Building2,
   MapPin,
   Award,
+  Edit3,
+  CheckCircle2,
+  ShieldAlert,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   getUsuarios,
   crearNuevoUsuarioPorAdmin,
   resetearPasswordTemporalPorAdmin,
+  actualizarUsuarioPorAdmin,
   UsuarioCredencial,
 } from "@/lib/auth-users";
 
 export default function SupervisionPage() {
-  const [activeTab, setActiveTab] = useState<"auditoria" | "personal">("personal");
+  const [activeTab, setActiveTab] = useState<"personal" | "auditoria">("personal");
   const [usuarios, setUsuarios] = useState<UsuarioCredencial[]>([]);
+  const [currentRole, setCurrentRole] = useState<string>("ADMIN");
 
   // Modal nuevo usuario
   const [showNewUserModal, setShowNewUserModal] = useState(false);
@@ -39,6 +44,17 @@ export default function SupervisionPage() {
   const [nuevaColegiatura, setNuevaColegiatura] = useState("");
   const [nuevaEspecialidad, setNuevaEspecialidad] = useState("");
   const [nuevoCargo, setNuevoCargo] = useState("Médico Especialista");
+
+  // Modal editar usuario (Exclusivo Admin General)
+  const [usuarioEditando, setUsuarioEditando] = useState<UsuarioCredencial | null>(null);
+  const [editNombre, setEditNombre] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRol, setEditRol] = useState<"RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN">("PROFESIONAL");
+  const [editSede, setEditSede] = useState<"Independencia" | "Vivanco" | "Todas las Sedes">("Independencia");
+  const [editColegiatura, setEditColegiatura] = useState("");
+  const [editEspecialidad, setEditEspecialidad] = useState("");
+  const [editCargo, setEditCargo] = useState("");
+  const [editActivo, setEditActivo] = useState(true);
 
   // Modal credencial temporal generada
   const [credencialGenerada, setCredencialGenerada] = useState<{
@@ -53,7 +69,11 @@ export default function SupervisionPage() {
 
   useEffect(() => {
     setUsuarios(getUsuarios());
+    const r = sessionStorage.getItem("lm_rol") || "ADMIN";
+    setCurrentRole(r);
   }, []);
+
+  const isAdmin = currentRole === "ADMIN";
 
   const eventos = [
     {
@@ -100,6 +120,8 @@ export default function SupervisionPage() {
 
   const handleCrearUsuario = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
+
     const res = crearNuevoUsuarioPorAdmin({
       email: nuevoEmail,
       nombre: nuevoNombre,
@@ -113,7 +135,6 @@ export default function SupervisionPage() {
     setUsuarios(getUsuarios());
     setShowNewUserModal(false);
 
-    // Mostrar credencial temporal generada para entregarla al colaborador
     setCredencialGenerada({
       nombre: nuevoNombre,
       email: nuevoEmail,
@@ -122,14 +143,46 @@ export default function SupervisionPage() {
       sede: nuevaSede,
     });
 
-    // Limpiar form
     setNuevoNombre("");
     setNuevoEmail("");
     setNuevaColegiatura("");
     setNuevaEspecialidad("");
   };
 
+  const handleAbrirEditar = (usr: UsuarioCredencial) => {
+    if (!isAdmin) return;
+    setUsuarioEditando(usr);
+    setEditNombre(usr.nombre);
+    setEditEmail(usr.email);
+    setEditRol(usr.rol);
+    setEditSede(usr.sede);
+    setEditColegiatura(usr.colegiatura || "");
+    setEditEspecialidad(usr.especialidad || "");
+    setEditCargo(usr.cargo);
+    setEditActivo(usr.activo);
+  };
+
+  const handleGuardarEdicion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usuarioEditando || !isAdmin) return;
+
+    actualizarUsuarioPorAdmin(usuarioEditando.id, {
+      nombre: editNombre,
+      email: editEmail,
+      rol: editRol,
+      sede: editSede,
+      colegiatura: editColegiatura,
+      especialidad: editEspecialidad,
+      cargo: editCargo,
+      activo: editActivo,
+    });
+
+    setUsuarios(getUsuarios());
+    setUsuarioEditando(null);
+  };
+
   const handleResetearClave = (usr: UsuarioCredencial) => {
+    if (!isAdmin) return;
     const temp = resetearPasswordTemporalPorAdmin(usr.id);
     if (temp) {
       setUsuarios(getUsuarios());
@@ -155,14 +208,14 @@ export default function SupervisionPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Supervisión, Trazabilidad & Personal</h1>
+          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Supervisión, Personal & Auditoría</h1>
           <p className="text-xs text-neutral-500">
-            Administración de colaboradores, emisión de contraseñas de 1 solo uso y auditoría forense inmutable.
+            Gobernanza clínica, administración de colaboradores y trazabilidad criptográfica.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {activeTab === "personal" && (
+          {activeTab === "personal" && isAdmin && (
             <button
               onClick={() => setShowNewUserModal(true)}
               className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
@@ -173,6 +226,34 @@ export default function SupervisionPage() {
           )}
         </div>
       </div>
+
+      {/* Alerta de Perfil y Gobernanza */}
+      {isAdmin ? (
+        <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-xs text-emerald-900">
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0" />
+            <div>
+              <span className="font-extrabold">Modo Administrador General Activo:</span>
+              <span className="ml-1 text-emerald-800">
+                Tienes autorización para <strong>editar los datos sintéticos de cualquier colaborador</strong> (nombres reales, correos y colegiaturas CMP/COP) y emitir contraseñas temporales.
+              </span>
+            </div>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-300">
+            Control Total
+          </span>
+        </div>
+      ) : (
+        <div className="bg-purple-50 border border-purple-200 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs text-purple-900">
+          <ShieldAlert className="w-5 h-5 text-purple-700 shrink-0" />
+          <div>
+            <span className="font-extrabold">Perfil Auditor / Supervisión (Solo Lectura):</span>
+            <span className="ml-1 text-purple-800">
+              La edición de colaboradores y reseteo de claves está reservada exclusivamente a la <strong>Dirección General (ADMIN)</strong> para garantizar la segregación de funciones.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-neutral-200">
@@ -211,7 +292,7 @@ export default function SupervisionPage() {
                   Colaboradores Registrados por Sede y Rol
                 </h2>
                 <p className="text-xs text-neutral-400">
-                  Cada miembro tiene asignado su propio usuario y contraseña para asumir responsabilidad médica y administrativa individual.
+                  Reemplaza los datos sintéticos por la información verídica de tu personal (CMP, COP, nombres completos).
                 </p>
               </div>
             </div>
@@ -222,7 +303,7 @@ export default function SupervisionPage() {
                   <tr>
                     <th className="py-3 px-4">Colaborador</th>
                     <th className="py-3 px-4">Rol Asignado</th>
-                    <th className="py-3 px-4">Sede</th>
+                    <th className="py-3 px-4">Sede Asignada</th>
                     <th className="py-3 px-4">Colegiatura / Especialidad</th>
                     <th className="py-3 px-4">Estado Clave</th>
                     <th className="py-3 px-4 text-right">Acciones</th>
@@ -232,7 +313,14 @@ export default function SupervisionPage() {
                   {usuarios.map((usr) => (
                     <tr key={usr.id} className="hover:bg-neutral-50/80 transition">
                       <td className="py-3.5 px-4">
-                        <span className="font-bold text-neutral-900 block leading-tight">{usr.nombre}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-neutral-900 block leading-tight">{usr.nombre}</span>
+                          {!usr.activo && (
+                            <span className="text-[9px] font-bold bg-rose-100 text-rose-800 px-1.5 py-0.2 rounded">
+                              Inactivo
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[11px] font-mono text-neutral-500">{usr.email}</span>
                       </td>
                       <td className="py-3.5 px-4">
@@ -282,14 +370,27 @@ export default function SupervisionPage() {
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => handleResetearClave(usr)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition"
-                          title="Generar nueva contraseña temporal de 1 solo uso"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          <span>Resetear Clave</span>
-                        </button>
+                        {isAdmin ? (
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleAbrirEditar(usr)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-brand-800 bg-brand-50 hover:bg-brand-100 rounded-lg border border-brand-200 transition"
+                              title="Editar datos reales del colaborador"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Editar</span>
+                            </button>
+                            <button
+                              onClick={() => handleResetearClave(usr)}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-lg transition"
+                              title="Generar nueva clave de 1 solo uso"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-neutral-400 font-medium">Solo Lectura</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -349,6 +450,158 @@ export default function SupervisionPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Colaborador (Exclusivo Administrador General) */}
+      {usuarioEditando && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-neutral-200">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-black text-brand-900">Editar Datos del Colaborador</h3>
+              <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">
+                Admin General
+              </span>
+            </div>
+            <p className="text-xs text-neutral-500 mb-4">
+              Actualiza la información sintética por los nombres, correo institucional y colegiatura oficial (CMP/COP) del trabajador.
+            </p>
+
+            <form onSubmit={handleGuardarEdicion} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Nombres y Apellidos Reales *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editNombre}
+                  onChange={(e) => setEditNombre(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-bold focus:ring-2 focus:ring-brand-700"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">
+                    Correo Institucional Real *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-brand-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">
+                    Sede Asignada *
+                  </label>
+                  <select
+                    value={editSede}
+                    onChange={(e) => setEditSede(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-brand-700"
+                  >
+                    <option value="Independencia">Sede Independencia</option>
+                    <option value="Vivanco">Sede Vivanco</option>
+                    <option value="Todas las Sedes">Todas las Sedes (Central)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">
+                    Rol Asignado *
+                  </label>
+                  <select
+                    value={editRol}
+                    onChange={(e) => setEditRol(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-brand-700"
+                  >
+                    <option value="PROFESIONAL">PROFESIONAL (Médico/Obstetra)</option>
+                    <option value="RECEPCION">RECEPCION (Admisión/Citas)</option>
+                    <option value="CAJA">CAJA (Cobros/Facturación)</option>
+                    <option value="SUPERVISION">SUPERVISION (Auditoría)</option>
+                    <option value="ADMIN">ADMIN (Dirección General)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">
+                    Cargo o Puesto
+                  </label>
+                  <input
+                    type="text"
+                    value={editCargo}
+                    onChange={(e) => setEditCargo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-brand-700"
+                  />
+                </div>
+              </div>
+
+              {(editRol === "PROFESIONAL" || editColegiatura) && (
+                <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50/70 rounded-xl border border-blue-200">
+                  <div>
+                    <label className="block text-xs font-bold text-blue-900 mb-1">
+                      Colegiatura Oficial (CMP / COP)
+                    </label>
+                    <input
+                      type="text"
+                      value={editColegiatura}
+                      onChange={(e) => setEditColegiatura(e.target.value)}
+                      placeholder="Ej. CMP 54321 o COP 12890"
+                      className="w-full px-3 py-2 rounded-xl border border-blue-300 text-xs bg-white focus:ring-2 focus:ring-blue-700 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-blue-900 mb-1">
+                      Especialidad / RNE
+                    </label>
+                    <input
+                      type="text"
+                      value={editEspecialidad}
+                      onChange={(e) => setEditEspecialidad(e.target.value)}
+                      placeholder="Ej. Ginecología y Obstetricia"
+                      className="w-full px-3 py-2 rounded-xl border border-blue-300 text-xs bg-white focus:ring-2 focus:ring-blue-700"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="chkActivo"
+                  checked={editActivo}
+                  onChange={(e) => setEditActivo(e.target.checked)}
+                  className="rounded text-brand-700 focus:ring-brand-700"
+                />
+                <label htmlFor="chkActivo" className="text-xs font-bold text-neutral-700 cursor-pointer">
+                  Cuenta activa (Desmarcar para suspender acceso por cese de personal)
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => setUsuarioEditando(null)}
+                  className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl shadow"
+                >
+                  Guardar Cambios Oficiales
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

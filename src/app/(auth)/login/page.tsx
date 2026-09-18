@@ -139,12 +139,17 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 via-white to-brand-100/50 p-4">
       <div className="w-full max-w-xl bg-white rounded-3xl border border-brand-200/70 p-8 shadow-xl shadow-brand-900/5">
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-brand-700 text-white flex items-center justify-center font-extrabold text-xl mx-auto mb-3 shadow-lg shadow-brand-700/25">
-            LM
-          </div>
-          <h2 className="text-2xl font-black text-brand-900">Portal Clínico &bull; Las Mellizas</h2>
+          <img
+            src="/logo.png"
+            alt="Las Mellizas Perú"
+            className="w-24 h-24 object-contain mx-auto mb-2 drop-shadow-md"
+          />
+          <h2 className="text-2xl font-black text-brand-900">Las Mellizas Perú</h2>
+          <p className="text-xs font-black text-brand-700 uppercase tracking-wide">
+            Consultorio Obstétrico Ecográfico
+          </p>
           <p className="text-xs text-neutral-500 mt-1">
-            Autenticación institucional con responsabilidad individual y secreto profesional.
+            Portal Clínico &bull; Autenticación con responsabilidad médica individual y secreto profesional.
           </p>
         </div>
 

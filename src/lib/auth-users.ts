@@ -219,3 +219,37 @@ export function resetearPasswordTemporalPorAdmin(id: string): string | null {
   saveUsuarios(usuarios);
   return nuevaTemporal;
 }
+
+export function actualizarUsuarioPorAdmin(
+  id: string,
+  datos: {
+    nombre: string;
+    email: string;
+    rol: "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN";
+    sede: "Independencia" | "Vivanco" | "Todas las Sedes";
+    colegiatura?: string;
+    especialidad?: string;
+    cargo: string;
+    activo: boolean;
+  }
+): boolean {
+  const usuarios = getUsuarios();
+  const index = usuarios.findIndex((item) => item.id === id);
+  if (index === -1) return false;
+
+  usuarios[index] = {
+    ...usuarios[index],
+    nombre: datos.nombre.trim(),
+    email: datos.email.trim().toLowerCase(),
+    rol: datos.rol,
+    sede: datos.sede,
+    colegiatura: datos.colegiatura?.trim() || undefined,
+    especialidad: datos.especialidad?.trim() || undefined,
+    cargo: datos.cargo.trim(),
+    activo: datos.activo,
+  };
+
+  saveUsuarios(usuarios);
+  return true;
+}
+

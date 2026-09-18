@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { Shield, ArrowRight, UserCheck, Stethoscope, ReceiptText, ShieldCheck } from "lucide-react";
 
 export default function HomePage() {
@@ -6,12 +6,14 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col justify-between bg-gradient-to-br from-brand-50 via-white to-brand-100/30">
       <header className="border-b border-brand-200/60 bg-white/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-700 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-brand-700/20">
-            LM
-          </div>
+          <img
+            src="/logo.png"
+            alt="Las Mellizas Perú"
+            className="w-12 h-12 object-contain drop-shadow-sm"
+          />
           <div>
-            <h1 className="font-extrabold text-brand-900 text-lg leading-tight">Las Mellizas Perú S.A.C.</h1>
-            <p className="text-xs text-neutral-500">Portal Clínico & Administrativo v1.0</p>
+            <h1 className="font-black text-brand-950 text-lg leading-tight">Las Mellizas Perú S.A.C.</h1>
+            <p className="text-xs font-bold text-brand-700">Consultorio Obstétrico Ecográfico &bull; Portal Clínico</p>
           </div>
         </div>
         <Link

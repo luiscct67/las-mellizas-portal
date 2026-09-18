@@ -80,13 +80,19 @@ export default function DashboardLayout({
       <header className="bg-white border-b border-neutral-200/80 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-brand-700 text-white flex items-center justify-center font-black text-sm shadow">
-                LM
-              </div>
+            <Link href="/" className="flex items-center gap-3">
+              <img
+                src="/logo.png"
+                alt="Las Mellizas Perú"
+                className="w-10 h-10 object-contain rounded-xl drop-shadow-sm"
+              />
               <div>
-                <span className="font-extrabold text-brand-900 text-sm tracking-tight block">Las Mellizas Perú</span>
-                <span className="text-[10px] text-neutral-400 font-medium block">Portal Clínico 2.0</span>
+                <span className="font-black text-brand-950 text-sm tracking-tight block leading-tight">
+                  Las Mellizas Perú
+                </span>
+                <span className="text-[10px] text-brand-700 font-bold block leading-tight">
+                  Consultorio Obstétrico Ecográfico
+                </span>
               </div>
             </Link>
 

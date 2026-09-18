@@ -373,10 +373,15 @@ export default function CajaPage() {
                 <div className="space-y-4">
                   <div className="p-4 border-2 border-dashed border-neutral-300 rounded-2xl bg-neutral-50/70 text-xs font-mono space-y-2">
                     <div className="text-center pb-2 border-b border-neutral-200">
-                      <p className="font-extrabold text-sm text-neutral-900">LAS MELLIZAS PERÚ S.A.C.</p>
+                      <img
+                        src="/logo.png"
+                        alt="Logo"
+                        className="w-12 h-12 object-contain mx-auto mb-1"
+                      />
+                      <p className="font-black text-sm text-neutral-900">LAS MELLIZAS PERÚ S.A.C.</p>
                       <p className="text-[10px] text-neutral-500">RUC: 20611827335</p>
                       <p className="text-[10px] text-neutral-500">{direccionSede}</p>
-                      <p className="text-[10px] font-bold text-brand-800 mt-1">SEDE {selectedOrden.sede.toUpperCase()}</p>
+                      <p className="text-[10px] font-bold text-brand-800 mt-0.5">SEDE {selectedOrden.sede.toUpperCase()}</p>
                     </div>
 
                     <div className="space-y-1 pt-1 text-[11px]">
