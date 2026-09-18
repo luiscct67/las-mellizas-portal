@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
-import { useState } from "react";
-import { Search, UserPlus, Users, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, UserPlus, Users, Clock, CheckCircle2, AlertCircle, MapPin, Lock } from "lucide-react";
 
 interface PacienteMock {
   id: string;
@@ -10,6 +10,7 @@ interface PacienteMock {
   apellidos: string;
   telefono: string;
   ultimaVisita: string;
+  sedeRegistro: string;
 }
 
 interface EncuentroMock {
@@ -17,44 +18,94 @@ interface EncuentroMock {
   paciente: string;
   dni: string;
   servicio: string;
+  sede: "Independencia" | "Vivanco";
   turno: string;
   estado: "EN_ESPERA" | "EN_ATENCION" | "ATENDIDO";
   horaIngreso: string;
 }
 
 export default function RecepcionPage() {
+  const [sede, setSede] = useState<string>("Independencia");
   const [searchTerm, setSearchTerm] = useState("");
   const [showNewModal, setShowNewModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"espera" | "padron">("espera");
 
-  // Pacientes en sala de espera
+  useEffect(() => {
+    const s = sessionStorage.getItem("lm_sede") || "Independencia";
+    setSede(s);
+
+    const handleStorageChange = () => {
+      const updatedSede = sessionStorage.getItem("lm_sede") || "Independencia";
+      setSede(updatedSede);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  // Encuentros particionados estrictamente por sede
   const [encuentros, setEncuentros] = useState<EncuentroMock[]>([
+    // Sede Independencia
     {
-      id: "enc-001",
+      id: "enc-ind-001",
       paciente: "Carla Mendoza Quispe",
       dni: "45892147",
       servicio: "Control Prenatal Reenfocado",
+      sede: "Independencia",
       turno: "Mañana",
       estado: "EN_ESPERA",
       horaIngreso: "08:15 a. m.",
     },
     {
-      id: "enc-002",
+      id: "enc-ind-002",
       paciente: "Yolanda Flores Huamán",
       dni: "71245896",
       servicio: "Ecografía Especializada (4D)",
+      sede: "Independencia",
       turno: "Mañana",
       estado: "EN_ATENCION",
       horaIngreso: "08:30 a. m.",
     },
     {
-      id: "enc-003",
+      id: "enc-ind-003",
       paciente: "María Elena Paucar Rojas",
       dni: "10568942",
       servicio: "Salud Integral de la Mujer",
+      sede: "Independencia",
       turno: "Mañana",
       estado: "ATENDIDO",
       horaIngreso: "07:45 a. m.",
+    },
+    // Sede Vivanco
+    {
+      id: "enc-viv-001",
+      paciente: "Roxana Palomino Quispe",
+      dni: "42198754",
+      servicio: "Control Prenatal Reenfocado",
+      sede: "Vivanco",
+      turno: "Mañana",
+      estado: "EN_ESPERA",
+      horaIngreso: "08:20 a. m.",
+    },
+    {
+      id: "enc-viv-002",
+      paciente: "Diana Huamán Cárdenas",
+      dni: "70541298",
+      servicio: "Planificación Familiar Integral",
+      sede: "Vivanco",
+      turno: "Mañana",
+      estado: "EN_ATENCION",
+      horaIngreso: "08:40 a. m.",
+    },
+    {
+      id: "enc-viv-003",
+      paciente: "Lucía Cárdenas Bautista",
+      dni: "44890123",
+      servicio: "Prevención Cáncer Cervical",
+      sede: "Vivanco",
+      turno: "Mañana",
+      estado: "ATENDIDO",
+      horaIngreso: "07:50 a. m.",
     },
   ]);
 
@@ -65,13 +116,23 @@ export default function RecepcionPage() {
   const [nuevoTelefono, setNuevoTelefono] = useState("");
   const [nuevoServicio, setNuevoServicio] = useState("Control Prenatal Reenfocado");
 
+  // Filtrado estricto por sede
+  const encuentrosVisibles = encuentros.filter((e) => {
+    const coincideSede = sede === "Todas las Sedes" || e.sede === sede;
+    const coincideTexto =
+      e.paciente.toLowerCase().includes(searchTerm.toLowerCase()) || e.dni.includes(searchTerm);
+    return coincideSede && coincideTexto;
+  });
+
   const handleCrearAdmision = (e: React.FormEvent) => {
     e.preventDefault();
+    const sedeAsignada = (sede === "Todas las Sedes" ? "Independencia" : sede) as "Independencia" | "Vivanco";
     const nuevo: EncuentroMock = {
       id: `enc-${Date.now().toString().slice(-3)}`,
       paciente: `${nuevoNombres} ${nuevoApellidos}`,
       dni: nuevoDni,
       servicio: nuevoServicio,
+      sede: sedeAsignada,
       turno: "Mañana",
       estado: "EN_ESPERA",
       horaIngreso: new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
@@ -89,8 +150,16 @@ export default function RecepcionPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Módulo de Admisión & Recepción</h1>
-          <p className="text-xs text-neutral-500">Gestión de pacientes, sala de espera y registro rápido de citas presenciales.</p>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-black text-neutral-900 tracking-tight">Módulo de Admisión & Recepción</h1>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-brand-50 text-brand-800 px-2.5 py-1 rounded-lg border border-brand-200">
+              <MapPin className="w-3 h-3 text-brand-700" />
+              <span>Sede {sede}</span>
+            </span>
+          </div>
+          <p className="text-xs text-neutral-500">
+            Aislamiento multisede activo: Sólo se muestran los pacientes registrados para atención en {sede}.
+          </p>
         </div>
 
         <button
@@ -98,7 +167,7 @@ export default function RecepcionPage() {
           className="inline-flex items-center justify-center gap-2 bg-brand-700 hover:bg-brand-800 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-sm transition"
         >
           <UserPlus className="w-4 h-4" />
-          <span>Nueva Admisión</span>
+          <span>Nueva Admisión ({sede})</span>
         </button>
       </div>
 
@@ -113,7 +182,7 @@ export default function RecepcionPage() {
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>Sala de Espera Hoy ({encuentros.filter(e => e.estado !== "ATENDIDO").length})</span>
+          <span>Sala de Espera Hoy ({encuentrosVisibles.filter(e => e.estado !== "ATENDIDO").length})</span>
         </button>
 
         <button
@@ -125,7 +194,7 @@ export default function RecepcionPage() {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Búsqueda en Padrón de Pacientes</span>
+          <span>Padrón de Pacientes</span>
         </button>
       </div>
 
@@ -136,7 +205,7 @@ export default function RecepcionPage() {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar por DNI, Nombres o Teléfono..."
+          placeholder={`Buscar paciente en Sede ${sede} por DNI, Nombres o Teléfono...`}
           className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-700/50"
         />
       </div>
@@ -145,7 +214,9 @@ export default function RecepcionPage() {
       {activeTab === "espera" && (
         <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-neutral-100 flex items-center justify-between">
-            <h2 className="font-bold text-sm text-neutral-800">Cola de Atención en Consultorio</h2>
+            <h2 className="font-bold text-sm text-neutral-800">
+              Cola de Atención en Consultorio &bull; {sede}
+            </h2>
             <span className="text-xs text-neutral-400 font-medium">Actualización en tiempo real</span>
           </div>
 
@@ -157,20 +228,33 @@ export default function RecepcionPage() {
                   <th className="py-3 px-4">Paciente</th>
                   <th className="py-3 px-4">DNI</th>
                   <th className="py-3 px-4">Servicio Requerido</th>
+                  {sede === "Todas las Sedes" && <th className="py-3 px-4">Sede</th>}
                   <th className="py-3 px-4">Turno</th>
                   <th className="py-3 px-4">Estado</th>
                   <th className="py-3 px-4 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {encuentros
-                  .filter(e => e.paciente.toLowerCase().includes(searchTerm.toLowerCase()) || e.dni.includes(searchTerm))
-                  .map((item) => (
+                {encuentrosVisibles.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-xs text-neutral-400">
+                      No hay pacientes en sala de espera para la Sede {sede}.
+                    </td>
+                  </tr>
+                ) : (
+                  encuentrosVisibles.map((item) => (
                     <tr key={item.id} className="hover:bg-neutral-50/80 transition">
                       <td className="py-3.5 px-4 font-mono text-xs text-neutral-500">{item.horaIngreso}</td>
                       <td className="py-3.5 px-4 font-bold text-neutral-900">{item.paciente}</td>
                       <td className="py-3.5 px-4 font-mono text-xs text-neutral-600">{item.dni}</td>
                       <td className="py-3.5 px-4 text-neutral-700 text-xs font-semibold">{item.servicio}</td>
+                      {sede === "Todas las Sedes" && (
+                        <td className="py-3.5 px-4">
+                          <span className="text-[10px] font-bold bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded">
+                            {item.sede}
+                          </span>
+                        </td>
+                      )}
                       <td className="py-3.5 px-4 text-xs text-neutral-500">{item.turno}</td>
                       <td className="py-3.5 px-4">
                         <span
@@ -194,7 +278,8 @@ export default function RecepcionPage() {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -205,8 +290,15 @@ export default function RecepcionPage() {
       {showNewModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-neutral-200">
-            <h3 className="text-lg font-black text-brand-900 mb-1">Nueva Admisión Presencial</h3>
-            <p className="text-xs text-neutral-500 mb-4">Ingresa los datos para incorporar a la paciente a la sala de espera.</p>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-black text-brand-900">Nueva Admisión Presencial</h3>
+              <span className="text-xs font-bold text-brand-800 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200">
+                Sede: {sede}
+              </span>
+            </div>
+            <p className="text-xs text-neutral-500 mb-4">
+              Ingresa los datos para registrar a la paciente en la sala de espera de {sede}.
+            </p>
 
             <form onSubmit={handleCrearAdmision} className="space-y-3.5">
               <div className="grid grid-cols-2 gap-3">
@@ -288,7 +380,7 @@ export default function RecepcionPage() {
                   type="submit"
                   className="px-5 py-2 text-sm font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl shadow"
                 >
-                  Registrar en Sala de Espera
+                  Registrar en Sala ({sede})
                 </button>
               </div>
             </form>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -15,15 +15,21 @@ export default function DashboardLayout({
   const [rol, setRol] = useState<string>("RECEPCION");
   const [user, setUser] = useState<string>("usuario@lasmellizasperu.com");
   const [sede, setSede] = useState<string>("Independencia");
+  const [nombre, setNombre] = useState<string>("");
+  const [colegiatura, setColegiatura] = useState<string>("");
   const [mounted, setMounted] = useState<boolean>(false);
 
   useEffect(() => {
     const r = sessionStorage.getItem("lm_rol") || "RECEPCION";
     const u = sessionStorage.getItem("lm_user") || "usuario@lasmellizasperu.com";
     const s = sessionStorage.getItem("lm_sede") || "Independencia";
+    const nom = sessionStorage.getItem("lm_nombre") || "";
+    const col = sessionStorage.getItem("lm_colegiatura") || "";
     setRol(r);
     setUser(u);
     setSede(s);
+    setNombre(nom);
+    setColegiatura(col);
     setMounted(true);
   }, []);
 
@@ -31,6 +37,8 @@ export default function DashboardLayout({
     sessionStorage.clear();
     router.push("/login");
   };
+
+  const isGlobalSupervisor = rol === "SUPERVISION" || rol === "ADMIN";
 
   const navItems = [
     { href: "/recepcion", label: "Admisión & Recepción", icon: UserCheck, roles: ["RECEPCION", "SUPERVISION", "ADMIN"] },
@@ -47,9 +55,9 @@ export default function DashboardLayout({
     "/supervision": ["SUPERVISION", "ADMIN"],
   };
 
-  const currentPrefix = "/" + (pathname.split("/")[1] || "");
-  const allowedRoles = routePermissions[currentPrefix] || [];
-  const isAuthorizedCurrentRoute = allowedRoles.length === 0 || allowedRoles.includes(rol);
+  const currentPrefix = "/" + pathname.split("/")[1];
+  const allowedRolesForCurrentRoute = routePermissions[currentPrefix];
+  const isAuthorizedCurrentRoute = !allowedRolesForCurrentRoute || allowedRolesForCurrentRoute.includes(rol);
 
   const getAuthorizedHome = () => {
     if (rol === "RECEPCION") return "/recepcion";
@@ -60,7 +68,7 @@ export default function DashboardLayout({
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#faf6f8]">
+      <div className="min-h-screen flex items-center justify-center bg-brand-50">
         <div className="w-8 h-8 border-4 border-brand-700 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -82,22 +90,35 @@ export default function DashboardLayout({
               </div>
             </Link>
 
-            {/* Selector de Sede */}
-            <div className="hidden sm:flex items-center gap-1.5 bg-neutral-100/80 px-3 py-1.5 rounded-xl border border-neutral-200 text-xs font-semibold text-neutral-700">
-              <MapPin className="w-3.5 h-3.5 text-brand-700" />
-              <span>Sede:</span>
-              <select
-                value={sede}
-                onChange={(e) => {
-                  setSede(e.target.value);
-                  sessionStorage.setItem("lm_sede", e.target.value);
-                }}
-                className="bg-transparent font-bold text-brand-900 focus:outline-none cursor-pointer"
-              >
-                <option value="Independencia">Independencia (Av. Independencia 247)</option>
-                <option value="Vivanco">Vivanco (Jr. Carlos F. Vivanco 265)</option>
-              </select>
-            </div>
+            {/* Aislamiento de Sede: Fijo para roles operativos, selector solo para supervisión */}
+            {isGlobalSupervisor ? (
+              <div className="hidden sm:flex items-center gap-1.5 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-200 text-xs font-semibold text-purple-900">
+                <MapPin className="w-3.5 h-3.5 text-purple-700" />
+                <span>Vista Sede:</span>
+                <select
+                  value={sede}
+                  onChange={(e) => {
+                    setSede(e.target.value);
+                    sessionStorage.setItem("lm_sede", e.target.value);
+                    window.dispatchEvent(new Event("storage"));
+                  }}
+                  className="bg-transparent font-extrabold text-purple-900 focus:outline-none cursor-pointer"
+                >
+                  <option value="Independencia">Sede Independencia</option>
+                  <option value="Vivanco">Sede Vivanco</option>
+                  <option value="Todas las Sedes">Todas las Sedes (Consolidado)</option>
+                </select>
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center gap-1.5 bg-neutral-100/90 px-3 py-1.5 rounded-xl border border-neutral-200 text-xs font-semibold text-neutral-700">
+                <MapPin className="w-3.5 h-3.5 text-brand-700" />
+                <span>Sede:</span>
+                <span className="font-extrabold text-brand-900">{sede}</span>
+                <span className="inline-flex items-center gap-0.5 ml-1 text-[10px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-300/50" title="Aislamiento normativo: Usuario asignado exclusivamente a esta sede">
+                  <Lock className="w-2.5 h-2.5" /> Fija
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Navegación por módulos estrictamente compartimentada */}
@@ -141,10 +162,19 @@ export default function DashboardLayout({
           {/* Datos de usuario y Salir */}
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <span className="text-xs font-bold text-neutral-800 block leading-tight">{user.split("@")[0]}</span>
-              <span className="text-[10px] uppercase tracking-wider font-extrabold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200/60 inline-block mt-0.5">
-                {rol}
+              <span className="text-xs font-bold text-neutral-900 block leading-tight">
+                {nombre || user.split("@")[0]}
               </span>
+              <div className="flex items-center gap-1.5 justify-end mt-0.5">
+                {colegiatura && (
+                  <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                    {colegiatura}
+                  </span>
+                )}
+                <span className="text-[10px] uppercase tracking-wider font-extrabold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200/60 inline-block">
+                  {rol}
+                </span>
+              </div>
             </div>
 
             <button

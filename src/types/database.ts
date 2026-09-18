@@ -1,4 +1,4 @@
-﻿export type RolUsuario = 'RECEPCION' | 'PROFESIONAL' | 'CAJA' | 'SUPERVISION' | 'ADMIN';
+export type RolUsuario = 'RECEPCION' | 'PROFESIONAL' | 'CAJA' | 'SUPERVISION' | 'ADMIN';
 export type EstadoEncuentro = 'EN_ESPERA' | 'EN_ATENCION' | 'ATENDIDO' | 'CANCELADO';
 export type EstadoOrden = 'PENDIENTE' | 'PAGADO' | 'ANULADO';
 export type MedioPago = 'EFECTIVO' | 'YAPE' | 'PLIN' | 'TARJETA_POS' | 'TRANSFERENCIA';
@@ -17,6 +17,8 @@ export interface PerfilUsuario {
   nombre_completo: string;
   rol: RolUsuario;
   site_id?: string;
+  colegiatura?: string; // CMP o COP obligatorio según NTS N° 139-MINSA
+  especialidad?: string;
   activo: boolean;
 }
 
