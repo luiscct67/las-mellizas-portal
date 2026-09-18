@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { UserCheck, Stethoscope, ReceiptText, ShieldCheck, MapPin, LogOut, ShieldAlert } from "lucide-react";
+import { UserCheck, Stethoscope, ReceiptText, ShieldCheck, MapPin, LogOut, ShieldAlert, Lock, ArrowLeft } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -15,6 +15,7 @@ export default function DashboardLayout({
   const [rol, setRol] = useState<string>("RECEPCION");
   const [user, setUser] = useState<string>("usuario@lasmellizasperu.com");
   const [sede, setSede] = useState<string>("Independencia");
+  const [mounted, setMounted] = useState<boolean>(false);
 
   useEffect(() => {
     const r = sessionStorage.getItem("lm_rol") || "RECEPCION";
@@ -23,6 +24,7 @@ export default function DashboardLayout({
     setRol(r);
     setUser(u);
     setSede(s);
+    setMounted(true);
   }, []);
 
   const handleLogout = () => {
@@ -36,6 +38,33 @@ export default function DashboardLayout({
     { href: "/caja", label: "Caja & Cobros", icon: ReceiptText, roles: ["CAJA", "SUPERVISION", "ADMIN"] },
     { href: "/supervision", label: "Supervisión & Auditoría", icon: ShieldCheck, roles: ["SUPERVISION", "ADMIN"] },
   ];
+
+  // Matriz de permisos estrictos por ruta (Defensa en Profundidad)
+  const routePermissions: Record<string, string[]> = {
+    "/recepcion": ["RECEPCION", "SUPERVISION", "ADMIN"],
+    "/hce": ["PROFESIONAL", "SUPERVISION", "ADMIN"],
+    "/caja": ["CAJA", "SUPERVISION", "ADMIN"],
+    "/supervision": ["SUPERVISION", "ADMIN"],
+  };
+
+  const currentPrefix = "/" + (pathname.split("/")[1] || "");
+  const allowedRoles = routePermissions[currentPrefix] || [];
+  const isAuthorizedCurrentRoute = allowedRoles.length === 0 || allowedRoles.includes(rol);
+
+  const getAuthorizedHome = () => {
+    if (rol === "RECEPCION") return "/recepcion";
+    if (rol === "PROFESIONAL") return "/hce";
+    if (rol === "CAJA") return "/caja";
+    return "/supervision";
+  };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#faf6f8]">
+        <div className="w-8 h-8 border-4 border-brand-700 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#faf6f8]">
@@ -71,12 +100,26 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* Navegación por módulos */}
-          <nav className="hidden md:flex items-center gap-1">
+          {/* Navegación por módulos estrictamente compartimentada */}
+          <nav className="hidden md:flex items-center gap-1.5">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname.startsWith(item.href);
-              const isAuthorized = item.roles.includes(rol);
+              const isAllowed = item.roles.includes(rol);
+
+              // Si el usuario NO tiene permiso, NO se crea enlace navegable
+              if (!isAllowed) {
+                return (
+                  <div
+                    key={item.href}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-neutral-400 bg-neutral-50/70 border border-neutral-200/50 cursor-not-allowed select-none"
+                    title={`Bloqueo de Seguridad: Tu rol (${rol}) no tiene acceso al módulo ${item.label}`}
+                  >
+                    <Lock className="w-3 h-3 text-neutral-400" />
+                    <span className="opacity-50 line-through">{item.label}</span>
+                  </div>
+                );
+              }
 
               return (
                 <Link
@@ -85,11 +128,8 @@ export default function DashboardLayout({
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
                     isActive
                       ? "bg-brand-700 text-white shadow-sm"
-                      : isAuthorized
-                      ? "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
-                      : "text-neutral-400 opacity-60 hover:opacity-100"
+                      : "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900"
                   }`}
-                  title={!isAuthorized ? "Aislamiento clínico activo (Sin privilegios)" : ""}
                 >
                   <Icon className="w-4 h-4" />
                   <span>{item.label}</span>
@@ -118,15 +158,52 @@ export default function DashboardLayout({
         </div>
       </header>
 
-      {/* Contenido principal del dashboard */}
+      {/* Contenido principal con GUARDIA ESTRICTA de autorización */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
-        {children}
+        {isAuthorizedCurrentRoute ? (
+          children
+        ) : (
+          <div className="max-w-xl mx-auto my-12 bg-white rounded-3xl border border-rose-200 p-8 shadow-xl text-center space-y-5">
+            <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mx-auto shadow-inner">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-black text-rose-950">Acceso Restringido por Rol</h2>
+              <p className="text-xs text-rose-700 font-semibold mt-1">
+                Aislamiento Clínico Activo &bull; Ley N.º 26842 (Secreto Médico)
+              </p>
+            </div>
+
+            <div className="bg-rose-50/80 border border-rose-200/80 rounded-2xl p-4 text-left text-xs text-rose-900 space-y-2">
+              <p>
+                <strong>Motivo de Bloqueo:</strong> Tu cuenta actual está autenticada con el rol <strong>{rol}</strong>, el cual <strong>no tiene autorización</strong> para ver o manipular información de esta sección ({currentPrefix.toUpperCase()}).
+              </p>
+              <p className="text-[11px] text-rose-700">
+                La normativa médica peruana prohíbe terminantemente el acceso de personal administrativo a historias clínicas, diagnósticos o cajas no asignadas.
+              </p>
+              <p className="font-mono text-[10px] text-rose-600 pt-1 border-t border-rose-200/60">
+                Seguridad: Evento de acceso denegado registrado en auditoría inmutable.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <Link
+                href={getAuthorizedHome()}
+                className="inline-flex items-center justify-center gap-2 bg-neutral-900 hover:bg-black text-white font-bold text-xs px-6 py-3 rounded-xl shadow transition"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Volver a mi módulo asignado</span>
+              </Link>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Footer de confidencialidad */}
       <footer className="border-t border-neutral-200 bg-white/70 py-3 px-6 text-center text-[11px] text-neutral-500 flex items-center justify-center gap-2">
         <ShieldAlert className="w-3.5 h-3.5 text-brand-700" />
-        <span>Acceso Confidencial &bull; Cumplimiento Ley N.º 26842 (Secreto Médico) y Ley N.º 29733 (ANPD)</span>
+        <span>Compartimentación de Seguridad Activa &bull; Cumplimiento Ley N.º 26842 (Secreto Médico) y Ley N.º 29733 (ANPD)</span>
       </footer>
     </div>
   );
