@@ -3,26 +3,9 @@
 -- SCRIPT 05: APROVISIONAMIENTO Y SINCRONIZACIÓN DE USUARIOS EN SUPABASE AUTH
 -- ============================================================================
 
--- NOTA: Este script asegura la existencia de las cuentas oficiales de la clínica
--- en auth.users con contraseñas seguras y vinculación a perfil_usuario.
-
--- 1. VERIFICAR USUARIOS REGISTRADOS EN SUPABASE AUTH
-SELECT 
-    u.id, 
-    u.email, 
-    p.nombre_completo, 
-    p.rol, 
-    s.nombre as sede,
-    p.activo
-FROM auth.users u
-LEFT JOIN public.perfil_usuario p ON p.id = u.id
-LEFT JOIN public.sede s ON s.id = p.site_id;
-
--- 2. SI DESEAS CREAR USUARIOS DIRECTAMENTE MEDIANTE SQL EN AUTH.USERS:
--- Requiere extensión pgcrypto habilitada en PostgreSQL
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Función de ayuda para crear o actualizar usuario en auth.users
+-- Función de aprovisionamiento seguro y universal (Compatible con Supabase Auth)
 CREATE OR REPLACE FUNCTION public.crear_usuario_clinico(
     p_email TEXT,
     p_password TEXT,
@@ -39,40 +22,49 @@ DECLARE
 BEGIN
     v_encrypted_pw := crypt(p_password, gen_salt('bf'));
     
-    -- Insertar en auth.users si no existe
-    INSERT INTO auth.users (
-        instance_id,
-        id,
-        aud,
-        role,
-        email,
-        encrypted_password,
-        email_confirmed_at,
-        raw_app_meta_data,
-        raw_user_meta_data,
-        created_at,
-        updated_at
-    )
-    VALUES (
-        '00000000-0000-0000-0000-000000000000',
-        gen_random_uuid(),
-        'authenticated',
-        'authenticated',
-        p_email,
-        v_encrypted_pw,
-        now(),
-        '{"provider":"email","providers":["email"]}',
-        jsonb_build_object('nombre_completo', p_nombre, 'rol', p_rol),
-        now(),
-        now()
-    )
-    ON CONFLICT (email) DO UPDATE SET
-        encrypted_password = v_encrypted_pw,
-        email_confirmed_at = COALESCE(auth.users.email_confirmed_at, now()),
-        updated_at = now()
-    RETURNING id INTO v_user_id;
+    -- 1. Verificar si el usuario ya existe en auth.users
+    SELECT id INTO v_user_id FROM auth.users WHERE email = p_email LIMIT 1;
+    
+    IF v_user_id IS NOT NULL THEN
+        -- Si existe, actualizamos su contraseña y metadata
+        UPDATE auth.users
+        SET encrypted_password = v_encrypted_pw,
+            email_confirmed_at = COALESCE(email_confirmed_at, now()),
+            raw_user_meta_data = jsonb_build_object('nombre_completo', p_nombre, 'rol', p_rol),
+            updated_at = now()
+        WHERE id = v_user_id;
+    ELSE
+        -- Si no existe, creamos el usuario en auth.users
+        INSERT INTO auth.users (
+            instance_id,
+            id,
+            aud,
+            role,
+            email,
+            encrypted_password,
+            email_confirmed_at,
+            raw_app_meta_data,
+            raw_user_meta_data,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            '00000000-0000-0000-0000-000000000000',
+            gen_random_uuid(),
+            'authenticated',
+            'authenticated',
+            p_email,
+            v_encrypted_pw,
+            now(),
+            '{"provider":"email","providers":["email"]}',
+            jsonb_build_object('nombre_completo', p_nombre, 'rol', p_rol),
+            now(),
+            now()
+        )
+        RETURNING id INTO v_user_id;
+    END IF;
 
-    -- Garantizar perfil en perfil_usuario
+    -- 2. Garantizar perfil clínico en perfil_usuario
     INSERT INTO public.perfil_usuario (
         id, email, nombre_completo, rol, site_id, colegiatura, especialidad, activo
     )
@@ -80,6 +72,7 @@ BEGIN
         v_user_id, p_email, p_nombre, p_rol, p_site_id, p_colegiatura, p_especialidad, true
     )
     ON CONFLICT (id) DO UPDATE SET
+        email = EXCLUDED.email,
         nombre_completo = EXCLUDED.nombre_completo,
         rol = EXCLUDED.rol,
         site_id = EXCLUDED.site_id,
@@ -92,11 +85,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 3. SEMBRADO DE LAS CUENTAS INSTITUCIONALES (ROLES UNIFICADOS)
+-- ============================================================================
+-- 3. SEMBRADO DE LAS 5 CUENTAS OFICIALES
 -- Sede Independencia: b0000000-0000-0000-0000-000000000001
 -- Sede Vivanco:       b0000000-0000-0000-0000-000000000002
+-- ============================================================================
 
--- ADMISIÓN & CAJA (Independencia)
+-- 1. ADMINISTRADOR GENERAL (Dirección Red)
+SELECT public.crear_usuario_clinico(
+    'admin@lasmellizasperu.com',
+    'Admin#Mellizas2026!',
+    'Dirección Médica & Gestión',
+    'ADMIN',
+    NULL,
+    'CMP 99881',
+    'Dirección Médica & Gestión'
+);
+
+-- 2. ADMISIÓN & CAJA INDEPENDENCIA
 SELECT public.crear_usuario_clinico(
     'admision.ind@lasmellizasperu.com',
     'Mellizas#Adm2026!',
@@ -107,7 +113,7 @@ SELECT public.crear_usuario_clinico(
     'Admisión y Facturación Integrada'
 );
 
--- MÉDICO CONSULTORIO HCE (Independencia)
+-- 3. MÉDICO HCE INDEPENDENCIA
 SELECT public.crear_usuario_clinico(
     'medico.ind@lasmellizasperu.com',
     'Medico#Ind2026!',
@@ -118,7 +124,7 @@ SELECT public.crear_usuario_clinico(
     'Ginecología y Obstetricia'
 );
 
--- ADMISIÓN & CAJA (Vivanco)
+-- 4. ADMISIÓN & CAJA VIVANCO
 SELECT public.crear_usuario_clinico(
     'admision.viv@lasmellizasperu.com',
     'Mellizas#Adm2026!',
@@ -129,7 +135,7 @@ SELECT public.crear_usuario_clinico(
     'Admisión y Facturación Integrada'
 );
 
--- OBSTETRA CONSULTORIO HCE (Vivanco)
+-- 5. OBSTETRA HCE VIVANCO
 SELECT public.crear_usuario_clinico(
     'obstetra.viv@lasmellizasperu.com',
     'Obstetra#Viv2026!',
@@ -138,15 +144,4 @@ SELECT public.crear_usuario_clinico(
     'b0000000-0000-0000-0000-000000000002'::uuid,
     'COP 12890',
     'Obstetricia Integral y Ecografía'
-);
-
--- ADMINISTRADOR GENERAL & AUDITORÍA (Red)
-SELECT public.crear_usuario_clinico(
-    'admin@lasmellizasperu.com',
-    'Admin#Mellizas2026!',
-    'Dra. Mellizas Dirección General',
-    'ADMIN',
-    NULL,
-    'CMP 99881',
-    'Dirección Médica & Gestión'
 );
