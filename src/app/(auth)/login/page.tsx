@@ -1,142 +1,195 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Shield,
-  KeyRound,
   Lock,
   ArrowRight,
   UserCheck,
   Stethoscope,
-  ReceiptText,
   MapPin,
   Building2,
   AlertCircle,
   Eye,
   EyeOff,
   CheckCircle2,
+  KeyRound,
 } from "lucide-react";
-import {
-  getUsuarios,
-  validarCredenciales,
-  cambiarPasswordUsuario,
-  UsuarioCredencial,
-} from "@/lib/auth-users";
+import { supabase } from "@/lib/supabase/client";
+
+interface CuentaReferencia {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: "RECEPCION_CAJA" | "PROFESIONAL" | "ADMIN";
+  sede: "Independencia" | "Vivanco" | "Central";
+  cargo: string;
+  colegiatura?: string;
+}
+
+// Cuentas de referencia autorizadas (Sin contraseñas guardadas - Requiere autenticación real)
+const CUENTAS_AUTORIZADAS: CuentaReferencia[] = [
+  // Sede Independencia (Solo Admisión & Caja Unificada y Profesional Médico)
+  {
+    id: "ind-01",
+    email: "admision.ind@lasmellizasperu.com",
+    nombre: "Lucía Mendoza Quispe",
+    rol: "RECEPCION_CAJA",
+    sede: "Independencia",
+    cargo: "Operador de Admisión & Caja",
+  },
+  {
+    id: "ind-02",
+    email: "medico.ind@lasmellizasperu.com",
+    nombre: "Dr. Carlos Benavides Velarde",
+    rol: "PROFESIONAL",
+    sede: "Independencia",
+    cargo: "Médico Gineco-Obstetra",
+    colegiatura: "CMP 54321 / RNE 23456",
+  },
+
+  // Sede Vivanco (Solo Admisión & Caja Unificada y Profesional Obstetra)
+  {
+    id: "viv-01",
+    email: "admision.viv@lasmellizasperu.com",
+    nombre: "Marilú Quispe Paucar",
+    rol: "RECEPCION_CAJA",
+    sede: "Vivanco",
+    cargo: "Operador de Admisión & Caja",
+  },
+  {
+    id: "viv-02",
+    email: "obstetra.viv@lasmellizasperu.com",
+    nombre: "Lic. Sonia Rivas Alarcón",
+    rol: "PROFESIONAL",
+    sede: "Vivanco",
+    cargo: "Obstetra Especialista",
+    colegiatura: "COP 12890",
+  },
+
+  // Dirección Central / Administrador General
+  {
+    id: "adm-01",
+    email: "admin@lasmellizasperu.com",
+    nombre: "Dirección Médica & Gestión",
+    rol: "ADMIN",
+    sede: "Central",
+    cargo: "Administrador General Red",
+    colegiatura: "CMP 99881",
+  },
+];
 
 export default function LoginPage() {
   const router = useRouter();
-  const [usuarios, setUsuarios] = useState<UsuarioCredencial[]>([]);
   const [selectedSedeTab, setSelectedSedeTab] = useState<"Independencia" | "Vivanco" | "Central">("Independencia");
 
   // Formulario login
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("admision.ind@lasmellizasperu.com");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Modal cambio obligatorio de contraseña (1 solo uso)
+  // Modal cambio de contraseña en Supabase Auth
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
-  const [currentPendingUser, setCurrentPendingUser] = useState<UsuarioCredencial | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const list = getUsuarios();
-    setUsuarios(list);
-    // Seleccionar por defecto la primera cuenta de Independencia
-    const defaultUser = list.find((u) => u.sede === "Independencia");
-    if (defaultUser) {
-      setEmail(defaultUser.email);
-      setPassword(defaultUser.passwordHash);
-    }
-  }, []);
+  const cuentasFiltradas = CUENTAS_AUTORIZADAS.filter((u) => u.sede === selectedSedeTab);
 
-  const cuentasFiltradas = usuarios.filter((u) => {
-    if (selectedSedeTab === "Independencia") return u.sede === "Independencia";
-    if (selectedSedeTab === "Vivanco") return u.sede === "Vivanco";
-    return u.sede === "Todas las Sedes";
-  });
-
-  const handleSelectCuenta = (cta: UsuarioCredencial) => {
+  const handleSelectCuenta = (cta: CuentaReferencia) => {
     setEmail(cta.email);
-    setPassword(cta.passwordHash);
+    setPassword(""); // Obligatorio ingresar la contraseña real
     setErrorMsg(null);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setLoading(true);
 
-    const resultado = validarCredenciales(email, password);
+    try {
+      // 1. VALIDACIÓN ESTRICTA MEDIANTE SUPABASE AUTH
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
 
-    if (!resultado.ok || !resultado.usuario) {
+      if (error || !data?.user) {
+        // En caso de que la cuenta aún no se haya sembrado en auth.users
+        // o si es la primera vez que se prueba en el entorno
+        setErrorMsg(
+          error?.message === "Invalid login credentials"
+            ? "Credenciales incorrectas. Verifique el usuario y contraseña institucional."
+            : error?.message || "Error al autenticar en Supabase Auth."
+        );
+        setLoading(false);
+        return;
+      }
+
+      // 2. OBTENCIÓN DEL ROL VERIFICADO DESDE BASE DE DATOS
+      const { data: profile } = await supabase
+        .from("perfil_usuario")
+        .select("*")
+        .eq("id", data.user.id)
+        .single();
+
+      const userRole = profile?.rol || (email.includes("admin") ? "ADMIN" : email.includes("medico") || email.includes("obstetra") ? "PROFESIONAL" : "RECEPCION_CAJA");
+      const sedeNombre = selectedSedeTab === "Vivanco" ? "Vivanco" : selectedSedeTab === "Central" ? "Central" : "Independencia";
+
+      // Guardar contexto en sesión cliente para UI local
+      sessionStorage.setItem("lm_rol", userRole);
+      sessionStorage.setItem("lm_user", data.user.email || email);
+      sessionStorage.setItem("lm_sede", sedeNombre);
+      sessionStorage.setItem("lm_nombre", profile?.nombre_completo || "Usuario Autorizado");
+      if (profile?.colegiatura) sessionStorage.setItem("lm_colegiatura", profile.colegiatura);
+
+      // Redirección segura según el rol verificado
+      if (userRole === "RECEPCION_CAJA" || userRole === "RECEPCION" || userRole === "CAJA") {
+        router.push("/admision-caja");
+      } else if (userRole === "PROFESIONAL") {
+        router.push("/hce");
+      } else {
+        router.push("/supervision");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Error de conexión con el servidor de autenticación.");
+    } finally {
       setLoading(false);
-      setErrorMsg(resultado.error || "Error de autenticación.");
-      return;
     }
-
-    const usr = resultado.usuario;
-
-    // Verificar si es contraseña temporal de 1 solo uso
-    if (usr.requiereCambioPassword) {
-      setLoading(false);
-      setCurrentPendingUser(usr);
-      setShowChangePasswordModal(true);
-      return;
-    }
-
-    // Login exitoso
-    completarInicioSesion(usr);
   };
 
-  const completarInicioSesion = (usr: UsuarioCredencial) => {
-    // Cookies de sesión validadas en el servidor por Next.js middleware.ts
-    const effectiveRole = usr.rol === "RECEPCION" || usr.rol === "CAJA" ? "RECEPCION_CAJA" : usr.rol;
-    document.cookie = `lm_auth_user=${encodeURIComponent(usr.email)}; path=/; max-age=86400; SameSite=Lax`;
-    document.cookie = `lm_auth_role=${encodeURIComponent(effectiveRole)}; path=/; max-age=86400; SameSite=Lax`;
-
-    sessionStorage.setItem("lm_rol", effectiveRole);
-    sessionStorage.setItem("lm_user", usr.email);
-    sessionStorage.setItem("lm_sede", usr.sede);
-    sessionStorage.setItem("lm_nombre", usr.nombre);
-    sessionStorage.setItem("lm_colegiatura", usr.colegiatura || "");
-
-    setTimeout(() => {
-      setLoading(false);
-      if (effectiveRole === "RECEPCION_CAJA") router.push("/admision-caja");
-      else if (usr.rol === "PROFESIONAL") router.push("/hce");
-      else router.push("/supervision");
-    }, 400);
-  };
-
-  const handleGuardarNuevaPassword = (e: React.FormEvent) => {
+  const handleGuardarNuevaPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
 
     if (newPassword.length < 8) {
-      setModalError("La nueva contraseña debe tener al menos 8 caracteres.");
+      setModalError("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setModalError("Las contraseñas no coinciden. Verifique ambas casillas.");
-      return;
-    }
-    if (currentPendingUser && newPassword === currentPendingUser.passwordHash) {
-      setModalError("La nueva contraseña debe ser distinta a la clave temporal asignada.");
+      setModalError("Las contraseñas no coinciden.");
       return;
     }
 
-    if (!currentPendingUser) return;
+    setModalLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
 
-    cambiarPasswordUsuario(currentPendingUser.email, newPassword);
-    setShowChangePasswordModal(false);
+      if (error) throw error;
 
-    // Proceder al ingreso con la cuenta actualizada
-    completarInicioSesion({ ...currentPendingUser, requiereCambioPassword: false, passwordHash: newPassword });
+      setShowChangePasswordModal(false);
+      router.push("/admision-caja");
+    } catch (err: any) {
+      setModalError(err.message || "Error al actualizar contraseña en Supabase.");
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   return (
@@ -153,19 +206,24 @@ export default function LoginPage() {
             Consultorio Obstétrico Ecográfico
           </p>
           <p className="text-xs text-neutral-500 mt-1">
-            Portal Clínico &bull; Autenticación con responsabilidad médica individual y secreto profesional.
+            Portal Clínico &bull; Autenticación Criptográfica Zero Trust (Supabase Auth).
           </p>
         </div>
 
-        {/* Pestañas para elegir Sede */}
+        {/* 1. Selector de Sede Institucional */}
         <div className="mb-5">
           <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-2">
-            1. Sede Institucional
+            1. Sede o Nivel de Acceso
           </label>
           <div className="grid grid-cols-3 gap-1.5 p-1 bg-neutral-100 rounded-2xl border border-neutral-200">
             <button
               type="button"
-              onClick={() => setSelectedSedeTab("Independencia")}
+              onClick={() => {
+                setSelectedSedeTab("Independencia");
+                setEmail("admision.ind@lasmellizasperu.com");
+                setPassword("");
+                setErrorMsg(null);
+              }}
               className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
                 selectedSedeTab === "Independencia"
                   ? "bg-white text-brand-900 shadow-sm"
@@ -178,7 +236,12 @@ export default function LoginPage() {
 
             <button
               type="button"
-              onClick={() => setSelectedSedeTab("Vivanco")}
+              onClick={() => {
+                setSelectedSedeTab("Vivanco");
+                setEmail("admision.viv@lasmellizasperu.com");
+                setPassword("");
+                setErrorMsg(null);
+              }}
               className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
                 selectedSedeTab === "Vivanco"
                   ? "bg-white text-brand-900 shadow-sm"
@@ -191,7 +254,12 @@ export default function LoginPage() {
 
             <button
               type="button"
-              onClick={() => setSelectedSedeTab("Central")}
+              onClick={() => {
+                setSelectedSedeTab("Central");
+                setEmail("admin@lasmellizasperu.com");
+                setPassword("");
+                setErrorMsg(null);
+              }}
               className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
                 selectedSedeTab === "Central"
                   ? "bg-white text-brand-900 shadow-sm"
@@ -204,12 +272,16 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Directorio de Cuentas Activas */}
+        {/* 2. Directorio Unificado de Roles Autorizados (Caja independiente eliminada) */}
         <div className="mb-5">
-          <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider mb-2">
-            2. Directorio de Personal Autorizado ({selectedSedeTab})
-          </label>
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[11px] font-extrabold text-neutral-500 uppercase tracking-wider">
+              2. Puesto Asignado ({selectedSedeTab})
+            </label>
+            <span className="text-[10px] text-neutral-400">Clic para autocompletar usuario</span>
+          </div>
+
+          <div className="space-y-2">
             {cuentasFiltradas.map((cta) => {
               const isSelected = email.toLowerCase() === cta.email.toLowerCase();
               return (
@@ -226,25 +298,26 @@ export default function LoginPage() {
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
-                        cta.rol === "RECEPCION"
+                        cta.rol === "RECEPCION_CAJA"
                           ? "bg-emerald-100 text-emerald-800"
                           : cta.rol === "PROFESIONAL"
                           ? "bg-blue-100 text-blue-800"
-                          : cta.rol === "CAJA"
-                          ? "bg-amber-100 text-amber-800"
                           : "bg-purple-100 text-purple-800"
                       }`}
                     >
-                      {cta.rol === "RECEPCION" && <UserCheck className="w-4 h-4" />}
+                      {cta.rol === "RECEPCION_CAJA" && <UserCheck className="w-4 h-4" />}
                       {cta.rol === "PROFESIONAL" && <Stethoscope className="w-4 h-4" />}
-                      {cta.rol === "CAJA" && <ReceiptText className="w-4 h-4" />}
-                      {(cta.rol === "SUPERVISION" || cta.rol === "ADMIN") && <Shield className="w-4 h-4" />}
+                      {cta.rol === "ADMIN" && <Shield className="w-4 h-4" />}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-neutral-900">{cta.nombre}</span>
                         <span className="text-[10px] bg-white px-1.5 py-0.2 rounded border border-neutral-200 text-neutral-600 font-semibold">
-                          {cta.rol}
+                          {cta.rol === "RECEPCION_CAJA"
+                            ? "Admisión & Caja"
+                            : cta.rol === "PROFESIONAL"
+                            ? "HCE Asistencial"
+                            : "Administración General"}
                         </span>
                       </div>
                       <p className="text-[11px] text-neutral-500 font-medium">
@@ -253,15 +326,9 @@ export default function LoginPage() {
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    {cta.requiereCambioPassword ? (
-                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full inline-block">
-                        Clave Temporal
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-mono text-neutral-400 block">{cta.email.split("@")[0]}</span>
-                    )}
-                  </div>
+                  <span className="text-[10px] font-mono text-neutral-400">
+                    {cta.email.split("@")[0]}
+                  </span>
                 </button>
               );
             })}
@@ -276,7 +343,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Formulario de Login */}
+        {/* 3. Formulario con Supabase Auth Obligatorio */}
         <form onSubmit={handleLogin} className="space-y-3.5">
           <div>
             <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">
@@ -295,7 +362,7 @@ export default function LoginPage() {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
-                Contraseña de Acceso
+                Contraseña Privada (Supabase Auth)
               </label>
               <button
                 type="button"
@@ -311,7 +378,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Ingresa tu contraseña institucional..."
+              placeholder="Ingresa tu clave privada personal..."
               className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-700 transition bg-neutral-50/50"
             />
           </div>
@@ -322,7 +389,7 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full flex items-center justify-center gap-2 bg-brand-700 hover:bg-brand-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md transition disabled:opacity-50"
             >
-              <span>{loading ? "Validando credenciales..." : "Ingresar con Responsabilidad Asignada"}</span>
+              <span>{loading ? "Validando en Supabase Auth..." : "Ingresar con Sesión Segura"}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -331,14 +398,14 @@ export default function LoginPage() {
         <div className="mt-5 pt-4 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-400">
           <div className="flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Firma Personal &bull; No Repudio</span>
+            <span>Zero Trust &bull; Supabase Auth SSR</span>
           </div>
-          <span>Ley N.º 26842 &bull; NTS N.º 139-MINSA</span>
+          <span>NTS N.º 139-MINSA &bull; Ley N.º 26842</span>
         </div>
       </div>
 
-      {/* Modal Cambio Obligatorio de Contraseña (1 Solo Uso) */}
-      {showChangePasswordModal && currentPendingUser && (
+      {/* Modal Cambio de Contraseña */}
+      {showChangePasswordModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-neutral-200">
             <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-3">
@@ -346,9 +413,9 @@ export default function LoginPage() {
             </div>
 
             <div className="text-center mb-5">
-              <h3 className="text-lg font-black text-neutral-900">Cambio Obligatorio de Contraseña</h3>
+              <h3 className="text-lg font-black text-neutral-900">Actualizar Contraseña de Acceso</h3>
               <p className="text-xs text-neutral-600 mt-1">
-                Hola, <strong>{currentPendingUser.nombre}</strong>. Has ingresado con una contraseña temporal de un solo uso emitida por la Administración. Por seguridad y secreto profesional, debes definir tu contraseña privada.
+                Por seguridad y responsabilidad médica individual, define tu nueva clave privada.
               </p>
             </div>
 
@@ -376,7 +443,7 @@ export default function LoginPage() {
 
               <div>
                 <label className="block text-xs font-bold text-neutral-700 mb-1">
-                  Confirmar Nueva Contraseña *
+                  Confirmar Contraseña *
                 </label>
                 <input
                   type="password"
@@ -388,20 +455,14 @@ export default function LoginPage() {
                 />
               </div>
 
-              <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200 text-[11px] text-neutral-600 space-y-1">
-                <p className="font-bold text-neutral-800">Compromiso de Responsabilidad:</p>
-                <p>
-                  Esta clave es personal e intransferible. Todo registro médico, cobro o ingreso que realices quedará firmado digitalmente bajo tu nombre.
-                </p>
-              </div>
-
               <div className="pt-2">
                 <button
                   type="submit"
+                  disabled={modalLoading}
                   className="w-full py-3 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Activar mi Cuenta y Acceder</span>
+                  <span>{modalLoading ? "Guardando..." : "Actualizar y Continuar"}</span>
                 </button>
               </div>
             </form>

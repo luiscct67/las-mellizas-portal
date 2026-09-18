@@ -14,6 +14,16 @@ import {
   MapPin,
   RefreshCw,
   Plus,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Lock,
+  Unlock,
+  TrendingDown,
+  FileSpreadsheet,
+  X,
+  User,
+  ShieldCheck,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -37,6 +47,26 @@ interface TransaccionAtencion {
   sede: string;
 }
 
+interface EgresoCaja {
+  id: string;
+  hora: string;
+  tipo: "GASTO_MENOR" | "VIATICO" | "PAGO_COLABORADOR" | "INSUMOS_MEDICOS" | "OTRO";
+  concepto: string;
+  monto: number;
+  destinatario: string;
+  aprobadoPor: string;
+  comprobanteRef?: string;
+}
+
+interface TurnoCaja {
+  id: string;
+  estado: "ABIERTA" | "CERRADA";
+  fechaApertura: string;
+  montoApertura: number;
+  cajeroNombre: string;
+  sede: string;
+}
+
 const TARIFARIO_BASE: Record<string, number> = {
   "Control Prenatal Reenfocado": 70,
   "Ecografía Especializada (4D/5D)": 150,
@@ -49,8 +79,39 @@ const TARIFARIO_BASE: Record<string, number> = {
 
 export default function AdmisionCajaPage() {
   const [sede, setSede] = useState<string>("Independencia");
+  const [cajeroNombre, setCajeroNombre] = useState<string>("Operador de Ventanilla");
 
-  // Formulario transaccional unificado
+  // Control del Turno de Caja
+  const [turnoActivo, setTurnoActivo] = useState<TurnoCaja | null>({
+    id: "TURNO-001",
+    estado: "ABIERTA",
+    fechaApertura: "08:00 AM",
+    montoApertura: 150,
+    cajeroNombre: "Lucía Mendoza Quispe",
+    sede: "Independencia",
+  });
+
+  const [showAperturaModal, setShowAperturaModal] = useState(false);
+  const [montoAperturaInput, setMontoAperturaInput] = useState<number>(150);
+
+  // Estados de Acordeones Desplegables (Ergonomía Vertical)
+  const [openSection, setOpenSection] = useState<{
+    admision: boolean;
+    tarifario: boolean;
+    pago: boolean;
+    egresos: boolean;
+  }>({
+    admision: true,
+    tarifario: true,
+    pago: true,
+    egresos: false,
+  });
+
+  const toggleSection = (section: "admision" | "tarifario" | "pago" | "egresos") => {
+    setOpenSection((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  // Formulario Admisión & Cobro
   const [dni, setDni] = useState("");
   const [nombres, setNombres] = useState("");
   const [apellidos, setApellidos] = useState("");
@@ -59,10 +120,38 @@ export default function AdmisionCajaPage() {
   const [monto, setMonto] = useState<number>(70);
   const [medioPago, setMedioPago] = useState<"YAPE" | "PLIN" | "EFECTIVO" | "TARJETA_POS">("YAPE");
   const [referencia, setReferencia] = useState("");
+  const [efectivoRecibido, setEfectivoRecibido] = useState<number>(100);
   const [isProcessing, setIsProcessing] = useState(false);
   const [ticketEmitido, setTicketEmitido] = useState<TransaccionAtencion | null>(null);
 
-  // Registro de pacientes conocidos para autocompletado en 1 segundo
+  // Formulario Egresos y Pagos a Colaboradores
+  const [egresoTipo, setEgresoTipo] = useState<"GASTO_MENOR" | "VIATICO" | "PAGO_COLABORADOR" | "INSUMOS_MEDICOS" | "OTRO">("PAGO_COLABORADOR");
+  const [egresoConcepto, setEgresoConcepto] = useState("");
+  const [egresoMonto, setEgresoMonto] = useState<number>(0);
+  const [egresoDestinatario, setEgresoDestinatario] = useState("");
+  const [egresoAprobadoPor, setEgresoAprobadoPor] = useState("Dra. Mellizas (Dirección)");
+  const [egresoRef, setEgresoRef] = useState("");
+
+  const [egresos, setEgresos] = useState<EgresoCaja[]>([
+    {
+      id: "EGR-001",
+      hora: "09:15",
+      tipo: "PAGO_COLABORADOR",
+      concepto: "Adelanto por jornada asistencial de apoyo",
+      monto: 50,
+      destinatario: "Lic. Sonia Rivas",
+      aprobadoPor: "Dirección Médica",
+      comprobanteRef: "REC-012",
+    },
+  ]);
+
+  // Modal Arqueo y Cierre de Caja
+  const [showCierreModal, setShowCierreModal] = useState(false);
+  const [efectivoContado, setEfectivoContado] = useState<number>(0);
+  const [observacionesCierre, setObservacionesCierre] = useState("");
+  const [actaCierre, setActaCierre] = useState<any | null>(null);
+
+  // Padrón local rápido
   const padronPacientes: PacienteRegistrado[] = [
     { dni: "45892147", nombres: "Carla", apellidos: "Mendoza Quispe", telefono: "966 123 456" },
     { dni: "71245896", nombres: "Yolanda", apellidos: "Flores Huamán", telefono: "966 987 654" },
@@ -70,7 +159,7 @@ export default function AdmisionCajaPage() {
     { dni: "70541298", nombres: "Diana", apellidos: "Huamán Cárdenas", telefono: "966 555 777" },
   ];
 
-  // Listado de transacciones activas de la jornada
+  // Listado de atenciones de la jornada
   const [transacciones, setTransacciones] = useState<TransaccionAtencion[]>([
     {
       id: "OP-801",
@@ -98,28 +187,28 @@ export default function AdmisionCajaPage() {
     },
     {
       id: "OP-803",
-      hora: "08:20",
+      hora: "08:50",
       dni: "42198754",
       paciente: "Roxana Palomino Quispe",
-      servicio: "Control Prenatal Reenfocado",
-      monto: 70,
-      medioPago: "PLIN",
-      referencia: "PL-4412",
-      estadoConsultorio: "EN_ESPERA",
-      sede: "Vivanco",
+      servicio: "Consulta Médica Ginecológica",
+      monto: 80,
+      medioPago: "EFECTIVO",
+      estadoConsultorio: "ATENDIDO",
+      sede: "Independencia",
     },
   ]);
 
   useEffect(() => {
     const s = sessionStorage.getItem("lm_sede") || "Independencia";
+    const nom = sessionStorage.getItem("lm_nombre") || "Operador de Ventanilla";
     setSede(s);
+    setCajeroNombre(nom);
   }, []);
 
-  // Autocompletado de paciente si el DNI coincide con padrón
-  const handleDniChange = (val: string) => {
-    setDni(val);
-    if (val.length === 8) {
-      const match = padronPacientes.find((p) => p.dni === val);
+  const handleBuscarDNI = (numDni: string) => {
+    setDni(numDni);
+    if (numDni.length === 8) {
+      const match = padronPacientes.find((p) => p.dni === numDni);
       if (match) {
         setNombres(match.nombres);
         setApellidos(match.apellidos);
@@ -128,36 +217,44 @@ export default function AdmisionCajaPage() {
     }
   };
 
-  const handleServicioChange = (val: string) => {
-    setServicio(val);
-    if (TARIFARIO_BASE[val]) {
-      setMonto(TARIFARIO_BASE[val]);
-    }
+  const handleSelectServicio = (srv: string) => {
+    setServicio(srv);
+    setMonto(TARIFARIO_BASE[srv] || 70);
   };
 
-  // Procesamiento fluido en 1 solo paso
-  const handleSubmitAdmisionCaja = (e: React.FormEvent) => {
+  // Procesar Admisión & Cobro
+  const handleProcesarAtencionYCobro = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!dni || !nombres || !apellidos) return;
+    if (!dni || !nombres || !apellidos) {
+      alert("Por favor complete los datos obligatorios del paciente.");
+      return;
+    }
+
+    if (!turnoActivo || turnoActivo.estado === "CERRADA") {
+      alert("Debe realizar la Apertura de Caja antes de procesar cobros.");
+      return;
+    }
 
     setIsProcessing(true);
 
-    const nuevaTransaccion: TransaccionAtencion = {
-      id: `OP-${Date.now().toString().slice(-4)}`,
-      hora: new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
+    const now = new Date();
+    const horaStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const nuevaTx: TransaccionAtencion = {
+      id: `OP-${Math.floor(100 + Math.random() * 900)}`,
+      hora: horaStr,
       dni,
-      paciente: `${nombres.trim()} ${apellidos.trim()}`,
+      paciente: `${nombres} ${apellidos}`,
       servicio,
       monto,
       medioPago,
-      referencia: referencia.trim() || undefined,
+      referencia: referencia || (medioPago === "EFECTIVO" ? "EFECTIVO-VENTANILLA" : "OP-DIRECTA"),
       estadoConsultorio: "EN_ESPERA",
       sede,
     };
 
     setTimeout(() => {
-      setTransacciones([nuevaTransaccion, ...transacciones]);
-      setTicketEmitido(nuevaTransaccion);
+      setTransacciones([nuevaTx, ...transacciones]);
+      setTicketEmitido(nuevaTx);
       setIsProcessing(false);
 
       // Limpiar formulario para la siguiente paciente
@@ -166,341 +263,953 @@ export default function AdmisionCajaPage() {
       setApellidos("");
       setTelefono("");
       setReferencia("");
-      setMonto(70);
-      setServicio("Control Prenatal Reenfocado");
-    }, 300);
+    }, 400);
   };
 
-  const transaccionesSede = transacciones.filter(
-    (t) => sede === "Todas las Sedes" || t.sede === sede
-  );
+  // Registrar Salida / Gasto
+  const handleRegistrarEgreso = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (egresoMonto <= 0 || !egresoConcepto || !egresoDestinatario) {
+      alert("Complete los datos requeridos para la salida de dinero.");
+      return;
+    }
 
-  const totalRecaudado = transaccionesSede.reduce((acc, curr) => acc + curr.monto, 0);
-  const pacientesEnEspera = transaccionesSede.filter((t) => t.estadoConsultorio === "EN_ESPERA").length;
+    const now = new Date();
+    const horaStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    const nuevoEgreso: EgresoCaja = {
+      id: `EGR-${Math.floor(100 + Math.random() * 900)}`,
+      hora: horaStr,
+      tipo: egresoTipo,
+      concepto: egresoConcepto,
+      monto: egresoMonto,
+      destinatario: egresoDestinatario,
+      aprobadoPor: egresoAprobadoPor,
+      comprobanteRef: egresoRef || "RECIBO-INTERNO",
+    };
+
+    setEgresos([nuevoEgreso, ...egresos]);
+    setEgresoConcepto("");
+    setEgresoMonto(0);
+    setEgresoDestinatario("");
+    setEgresoRef("");
+    alert("Egreso de caja registrado y debitado del efectivo en ventanilla.");
+  };
+
+  // Cálculos Financieros del Turno
+  const totalEfectivoCobros = transacciones
+    .filter((t) => t.medioPago === "EFECTIVO")
+    .reduce((acc, t) => acc + t.monto, 0);
+
+  const totalDigitalCobros = transacciones
+    .filter((t) => t.medioPago !== "EFECTIVO")
+    .reduce((acc, t) => acc + t.monto, 0);
+
+  const totalEgresos = egresos.reduce((acc, eg) => acc + eg.monto, 0);
+
+  const fondoApertura = turnoActivo?.montoApertura || 0;
+  const efectivoNetoEsperado = fondoApertura + totalEfectivoCobros - totalEgresos;
+  const totalFacturadoBruto = totalEfectivoCobros + totalDigitalCobros;
+
+  // Apertura de Turno
+  const handleAbrirTurno = () => {
+    const now = new Date();
+    const horaStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    setTurnoActivo({
+      id: `TURNO-${Date.now().toString().slice(-4)}`,
+      estado: "ABIERTA",
+      fechaApertura: horaStr,
+      montoApertura: montoAperturaInput,
+      cajeroNombre,
+      sede,
+    });
+    setShowAperturaModal(false);
+  };
+
+  // Cierre y Arqueo
+  const handleEjecutarArqueo = () => {
+    const diferencia = efectivoContado - efectivoNetoEsperado;
+    const now = new Date();
+
+    setActaCierre({
+      fecha: now.toLocaleDateString(),
+      hora: now.toLocaleTimeString(),
+      turnoId: turnoActivo?.id || "TURNO-001",
+      cajero: cajeroNombre,
+      sede,
+      fondoInicial: fondoApertura,
+      efectivoCobros: totalEfectivoCobros,
+      egresosTotales: totalEgresos,
+      efectivoEsperado: efectivoNetoEsperado,
+      efectivoContado: efectivoContado,
+      diferencia,
+      digitalCobros: totalDigitalCobros,
+      totalBruto: totalFacturadoBruto,
+      observaciones: observacionesCierre,
+    });
+
+    if (turnoActivo) {
+      setTurnoActivo({ ...turnoActivo, estado: "CERRADA" });
+    }
+  };
+
+  const calcularVuelto = () => {
+    if (medioPago !== "EFECTIVO") return 0;
+    const v = efectivoRecibido - monto;
+    return v > 0 ? v : 0;
+  };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
-      {/* Header Compacto */}
-      <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
+    <div className="space-y-6">
+      {/* 1. Header de Estado del Módulo & Barra de Turno */}
+      <div className="bg-white rounded-3xl p-5 border border-brand-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center font-bold text-xs">
-            OP
+          <div className="w-12 h-12 rounded-2xl bg-brand-50 text-brand-700 flex items-center justify-center font-bold">
+            <DollarSign className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-neutral-900 leading-tight">
-              Admisión & Caja Unificada
-            </h1>
-            <p className="text-[11px] text-neutral-500 flex items-center gap-1.5">
-              <MapPin className="w-3 h-3 text-neutral-400" />
-              <span>Sede {sede} &bull; Operador Único de Ventanilla</span>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black text-brand-900">Admisión & Caja Unificada</h1>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                <MapPin className="w-3 h-3" /> Sede {sede}
+              </span>
+            </div>
+            <p className="text-xs text-neutral-500">
+              Operador: <strong>{cajeroNombre}</strong> &bull; Flujo asistencial continuo sin fricción
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-xs font-mono">
-          <div className="text-right">
-            <span className="text-[10px] text-neutral-400 uppercase tracking-wider block font-sans">
-              Recaudación Turno
-            </span>
-            <span className="font-bold text-neutral-900 text-sm">{formatCurrency(totalRecaudado)}</span>
-          </div>
-          <div className="text-right border-l border-neutral-200 pl-4">
-            <span className="text-[10px] text-neutral-400 uppercase tracking-wider block font-sans">
-              En Sala Espera
-            </span>
-            <span className="font-bold text-brand-700 text-sm">{pacientesEnEspera}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid de Operación Transaccional */}
-      <div className="grid lg:grid-cols-12 gap-5">
-        {/* Cuadrante Izquierdo: Formulario Transaccional Unificado (5 columnas) */}
-        <div className="lg:col-span-5 bg-white rounded-xl border border-neutral-200 p-4 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-neutral-100 pb-2.5">
-            <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
-              <Plus className="w-3.5 h-3.5 text-neutral-900" />
-              Nueva Atención & Cobro Inmediato
-            </span>
-            <span className="text-[10px] bg-neutral-100 px-2 py-0.5 rounded text-neutral-600 font-mono">
-              Flujo de 1 Paso
-            </span>
-          </div>
-
-          <form onSubmit={handleSubmitAdmisionCaja} className="space-y-3 text-xs">
-            {/* DNI con autocompletado */}
-            <div>
-              <label className="block font-semibold text-neutral-700 mb-1">
-                DNI del Paciente *
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  maxLength={8}
-                  value={dni}
-                  onChange={(e) => handleDniChange(e.target.value)}
-                  placeholder="8 dígitos..."
-                  className="w-full pl-8 pr-3 py-2 rounded-lg border border-neutral-300 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                />
-                <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+        <div className="flex items-center gap-2">
+          {turnoActivo && turnoActivo.estado === "ABIERTA" ? (
+            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-2xl">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                <Unlock className="w-4 h-4 text-emerald-600" />
+                <span>Caja Abierta (Fondo: {formatCurrency(fondoApertura)})</span>
               </div>
-            </div>
-
-            {/* Nombres y Apellidos */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-semibold text-neutral-700 mb-1">Nombres *</label>
-                <input
-                  type="text"
-                  required
-                  value={nombres}
-                  onChange={(e) => setNombres(e.target.value)}
-                  placeholder="Nombres"
-                  className="w-full px-2.5 py-2 rounded-lg border border-neutral-300 text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-neutral-700 mb-1">Apellidos *</label>
-                <input
-                  type="text"
-                  required
-                  value={apellidos}
-                  onChange={(e) => setApellidos(e.target.value)}
-                  placeholder="Apellidos"
-                  className="w-full px-2.5 py-2 rounded-lg border border-neutral-300 text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-
-            {/* Teléfono */}
-            <div>
-              <label className="block font-semibold text-neutral-700 mb-1">Teléfono Móvil</label>
-              <input
-                type="tel"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                placeholder="999 999 999"
-                className="w-full px-2.5 py-2 rounded-lg border border-neutral-300 text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900"
-              />
-            </div>
-
-            {/* Servicio y Tarifa */}
-            <div>
-              <label className="block font-semibold text-neutral-700 mb-1">Servicio Asistencial *</label>
-              <select
-                value={servicio}
-                onChange={(e) => handleServicioChange(e.target.value)}
-                className="w-full px-2.5 py-2 rounded-lg border border-neutral-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-neutral-900"
+              <button
+                type="button"
+                onClick={() => {
+                  setEfectivoContado(efectivoNetoEsperado);
+                  setShowCierreModal(true);
+                }}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow transition flex items-center gap-1"
               >
-                {Object.keys(TARIFARIO_BASE).map((k) => (
-                  <option key={k} value={k}>
-                    {k} &bull; S/ {TARIFARIO_BASE[k]}.00
-                  </option>
-                ))}
-              </select>
+                <Lock className="w-3.5 h-3.5" />
+                <span>Arqueo & Cierre</span>
+              </button>
             </div>
-
-            {/* Monto y Medios de Pago */}
-            <div className="pt-1 border-t border-neutral-100">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="font-semibold text-neutral-700">Monto a Cobrar (PEN)</label>
-                <span className="font-mono text-sm font-black text-neutral-900">S/ {monto}.00</span>
-              </div>
-
-              <div className="grid grid-cols-4 gap-1.5 mb-2.5">
-                <button
-                  type="button"
-                  onClick={() => setMedioPago("YAPE")}
-                  className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition ${
-                    medioPago === "YAPE"
-                      ? "border-purple-600 bg-purple-50 text-purple-900 ring-1 ring-purple-600"
-                      : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                  }`}
-                >
-                  <Smartphone className="w-3 h-3 text-purple-600" />
-                  <span>Yape</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMedioPago("PLIN")}
-                  className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition ${
-                    medioPago === "PLIN"
-                      ? "border-cyan-600 bg-cyan-50 text-cyan-900 ring-1 ring-cyan-600"
-                      : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                  }`}
-                >
-                  <Smartphone className="w-3 h-3 text-cyan-600" />
-                  <span>Plin</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMedioPago("EFECTIVO")}
-                  className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition ${
-                    medioPago === "EFECTIVO"
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-600"
-                      : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                  }`}
-                >
-                  <DollarSign className="w-3 h-3 text-emerald-600" />
-                  <span>Efectivo</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMedioPago("TARJETA_POS")}
-                  className={`py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition ${
-                    medioPago === "TARJETA_POS"
-                      ? "border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600"
-                      : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                  }`}
-                >
-                  <CreditCard className="w-3 h-3 text-blue-600" />
-                  <span>POS</span>
-                </button>
-              </div>
-
-              <div>
-                <input
-                  type="text"
-                  value={referencia}
-                  onChange={(e) => setReferencia(e.target.value)}
-                  placeholder="N.º de Operación / Referencia (Opcional)"
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-300 text-[11px] focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-
-            {/* Botón de Ejecución de 1 Paso */}
+          ) : (
             <button
-              type="submit"
-              disabled={isProcessing}
-              className="w-full py-2.5 bg-neutral-900 hover:bg-black text-white font-bold rounded-lg transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+              type="button"
+              onClick={() => setShowAperturaModal(true)}
+              className="bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5"
             >
-              {isProcessing ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4" />
-              )}
-              <span>Admitir y Liquidar Cobro S/ {monto}.00</span>
+              <Unlock className="w-4 h-4" />
+              <span>Abrir Turno de Caja</span>
             </button>
-          </form>
-
-          {/* Ticket Térmico Rápido Emitido */}
-          {ticketEmitido && (
-            <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg space-y-1.5 font-mono text-[11px]">
-              <div className="flex items-center justify-between border-b border-neutral-200 pb-1 font-sans">
-                <span className="font-bold text-emerald-700 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Pago Confirmado
-                </span>
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-neutral-700 hover:underline"
-                >
-                  <Printer className="w-3 h-3" /> Imprimir
-                </button>
-              </div>
-              <p><strong>Comprobante:</strong> {ticketEmitido.id} &bull; {ticketEmitido.hora}</p>
-              <p><strong>Paciente:</strong> {ticketEmitido.paciente} (DNI {ticketEmitido.dni})</p>
-              <p><strong>Concepto:</strong> {ticketEmitido.servicio}</p>
-              <p><strong>Medio:</strong> {ticketEmitido.medioPago} &bull; S/ {ticketEmitido.monto}.00</p>
-              <p className="text-neutral-500 font-sans text-[10px]">
-                Paciente derivada a sala de espera de consultorio.
-              </p>
-            </div>
           )}
         </div>
+      </div>
 
-        {/* Cuadrante Derecho: Monitor de Turno & Transacciones (7 columnas) */}
-        <div className="lg:col-span-7 bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="p-3.5 border-b border-neutral-200 flex items-center justify-between bg-neutral-50/50">
-            <div>
-              <h2 className="font-bold text-xs text-neutral-800 uppercase tracking-wider">
-                Monitor de Pacientes en Turno &bull; Sede {sede}
-              </h2>
-              <span className="text-[11px] text-neutral-500">
-                Sincronización en tiempo real con Consultorio HCE
-              </span>
-            </div>
-            <span className="text-xs font-mono font-bold bg-white px-2 py-0.5 rounded border border-neutral-200 text-neutral-700">
-              {transaccionesSede.length} registros hoy
-            </span>
+      {/* 2. Layout Principal de Dos Columnas Fluidas */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* COLUMNA IZQUIERDA: Formulario Desplegable en Acordeones */}
+        <div className="lg:col-span-7 space-y-4">
+          
+          {/* ACORDEÓN 1: Admisión & Paciente */}
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleSection("admision")}
+              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center font-black text-xs">
+                  1
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                    Admisión del Paciente
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    {dni && nombres ? `${nombres} ${apellidos} (DNI: ${dni})` : "Identificación y filiación"}
+                  </p>
+                </div>
+              </div>
+              {openSection.admision ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+            </button>
+
+            {openSection.admision && (
+              <div className="p-5 space-y-4">
+                {/* Búsqueda por DNI */}
+                <div>
+                  <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-1">
+                    DNI / Carnet Extranjería (8 Dígitos) *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      maxLength={8}
+                      value={dni}
+                      onChange={(e) => handleBuscarDNI(e.target.value)}
+                      placeholder="Ingrese DNI (ej: 45892147)..."
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-300 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-brand-700 bg-white"
+                    />
+                    <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-1">
+                      Nombres Completos *
+                    </label>
+                    <input
+                      type="text"
+                      value={nombres}
+                      onChange={(e) => setNombres(e.target.value)}
+                      placeholder="Nombres de la paciente..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs focus:outline-none focus:ring-2 focus:ring-brand-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-1">
+                      Apellidos *
+                    </label>
+                    <input
+                      type="text"
+                      value={apellidos}
+                      onChange={(e) => setApellidos(e.target.value)}
+                      placeholder="Apellidos completos..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs focus:outline-none focus:ring-2 focus:ring-brand-700"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-1">
+                    Teléfono / WhatsApp de Contacto
+                  </label>
+                  <input
+                    type="text"
+                    value={telefono}
+                    onChange={(e) => setTelefono(e.target.value)}
+                    placeholder="999 000 111"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs focus:outline-none focus:ring-2 focus:ring-brand-700"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-neutral-50 text-neutral-500 text-[10px] font-bold uppercase tracking-wider border-b border-neutral-200">
-                <tr>
-                  <th className="py-2.5 px-3">Hora</th>
-                  <th className="py-2.5 px-3">Paciente</th>
-                  <th className="py-2.5 px-3">Servicio</th>
-                  <th className="py-2.5 px-3">Monto</th>
-                  <th className="py-2.5 px-3">Medio</th>
-                  <th className="py-2.5 px-3">Consultorio</th>
-                  <th className="py-2.5 px-3 text-right">Recibo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {transaccionesSede.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-neutral-400">
-                      Sin movimientos registrados en esta sede durante el turno actual.
-                    </td>
-                  </tr>
-                ) : (
-                  transaccionesSede.map((item) => (
-                    <tr key={item.id} className="hover:bg-neutral-50/60 transition">
-                      <td className="py-2.5 px-3 font-mono text-neutral-500">{item.hora}</td>
-                      <td className="py-2.5 px-3 font-semibold text-neutral-900">
-                        {item.paciente}
-                        <span className="block font-mono text-[10px] text-neutral-400 font-normal">
-                          {item.dni}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-neutral-600 truncate max-w-[160px]" title={item.servicio}>
-                        {item.servicio}
-                      </td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-neutral-900">
-                        S/ {item.monto}.00
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 bg-neutral-100 rounded text-neutral-700 font-semibold">
-                          {item.medioPago}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span
-                          className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            item.estadoConsultorio === "EN_ESPERA"
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : item.estadoConsultorio === "EN_ATENCION"
-                              ? "bg-blue-50 text-blue-700 border border-blue-200"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          }`}
-                        >
-                          <Clock className="w-2.5 h-2.5" />
-                          <span>{item.estadoConsultorio.replace("_", " ")}</span>
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <button
-                          onClick={() => setTicketEmitido(item)}
-                          className="p-1 hover:bg-neutral-100 rounded text-neutral-500 hover:text-neutral-900 transition"
-                          title="Ver / Reimprimir Comprobante"
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+          {/* ACORDEÓN 2: Tarifario Médico */}
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleSection("tarifario")}
+              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xs">
+                  2
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                    Tarifario & Servicio Médico
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Seleccionado: <strong>{servicio}</strong> &bull; {formatCurrency(monto)}
+                  </p>
+                </div>
+              </div>
+              {openSection.tarifario ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+            </button>
+
+            {openSection.tarifario && (
+              <div className="p-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {Object.entries(TARIFARIO_BASE).map(([srv, tarifa]) => {
+                    const isSelected = servicio === srv;
+                    return (
+                      <button
+                        key={srv}
+                        type="button"
+                        onClick={() => handleSelectServicio(srv)}
+                        className={`p-3 rounded-2xl border text-left transition flex items-center justify-between ${
+                          isSelected
+                            ? "border-brand-700 bg-brand-50/80 ring-2 ring-brand-700/20"
+                            : "border-neutral-200 bg-white hover:bg-neutral-50"
+                        }`}
+                      >
+                        <div>
+                          <p className="text-xs font-bold text-neutral-900">{srv}</p>
+                          <p className="text-[11px] font-extrabold text-brand-700">{formatCurrency(tarifa)}</p>
+                        </div>
+                        {isSelected && <CheckCircle2 className="w-4 h-4 text-brand-700 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ACORDEÓN 3: Cobro Inmediato & Facturación */}
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleSection("pago")}
+              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">
+                  3
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                    Cobranza Inmediata & Emisión
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Medio: <strong>{medioPago}</strong> &bull; Total a pagar: {formatCurrency(monto)}
+                  </p>
+                </div>
+              </div>
+              {openSection.pago ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+            </button>
+
+            {openSection.pago && (
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-2">
+                    Medio de Pago
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMedioPago("YAPE")}
+                      className={`py-3 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
+                        medioPago === "YAPE"
+                          ? "border-purple-600 bg-purple-50 text-purple-900 ring-2 ring-purple-600/20 font-bold"
+                          : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
+                      }`}
+                    >
+                      <Smartphone className="w-4 h-4 text-purple-700" />
+                      <span className="text-xs">Yape</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMedioPago("PLIN")}
+                      className={`py-3 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
+                        medioPago === "PLIN"
+                          ? "border-sky-600 bg-sky-50 text-sky-900 ring-2 ring-sky-600/20 font-bold"
+                          : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
+                      }`}
+                    >
+                      <Smartphone className="w-4 h-4 text-sky-600" />
+                      <span className="text-xs">Plin</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMedioPago("EFECTIVO")}
+                      className={`py-3 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
+                        medioPago === "EFECTIVO"
+                          ? "border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-600/20 font-bold"
+                          : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
+                      }`}
+                    >
+                      <DollarSign className="w-4 h-4 text-emerald-600" />
+                      <span className="text-xs">Efectivo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMedioPago("TARJETA_POS")}
+                      className={`py-3 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
+                        medioPago === "TARJETA_POS"
+                          ? "border-amber-600 bg-amber-50 text-amber-900 ring-2 ring-amber-600/20 font-bold"
+                          : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
+                      }`}
+                    >
+                      <CreditCard className="w-4 h-4 text-amber-600" />
+                      <span className="text-xs">Tarjeta POS</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Si es Efectivo: Desglose de Vuelto */}
+                {medioPago === "EFECTIVO" && (
+                  <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200 grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-emerald-900 mb-1">
+                        Efectivo Recibido (S/)
+                      </label>
+                      <input
+                        type="number"
+                        value={efectivoRecibido}
+                        onChange={(e) => setEfectivoRecibido(Number(e.target.value))}
+                        className="w-full px-3 py-2 rounded-xl border border-emerald-300 text-xs font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-emerald-900 mb-1">
+                        Vuelto a Entregar
+                      </label>
+                      <div className="py-2 px-3 rounded-xl bg-white border border-emerald-200 text-xs font-mono font-black text-emerald-800">
+                        {formatCurrency(calcularVuelto())}
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </tbody>
-            </table>
+
+                {/* Si es Digital: Código de Referencia */}
+                {medioPago !== "EFECTIVO" && (
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-1">
+                      N° de Operación / Código Autorización
+                    </label>
+                    <input
+                      type="text"
+                      value={referencia}
+                      onChange={(e) => setReferencia(e.target.value)}
+                      placeholder="Ej: OP-981244 / Ref POS"
+                      className="w-full px-3.5 py-2 rounded-xl border border-neutral-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-700"
+                    />
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleProcesarAtencionYCobro}
+                    disabled={isProcessing}
+                    className="w-full py-3.5 bg-brand-700 hover:bg-brand-800 text-white font-black text-xs rounded-2xl shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>
+                      {isProcessing
+                        ? "Emitiendo Comprobante & Registrando..."
+                        : `Cobrar ${formatCurrency(monto)} & Enviar a Espera Médica`}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ACORDEÓN 4: Salidas de Dinero / Gastos & Pagos a Colaboradores */}
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleSection("egresos")}
+              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-black text-xs">
+                  <TrendingDown className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                    Egresos & Pagos a Colaboradores
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Salidas de caja autorizadas &bull; Total egresos: {formatCurrency(totalEgresos)}
+                  </p>
+                </div>
+              </div>
+              {openSection.egresos ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+            </button>
+
+            {openSection.egresos && (
+              <div className="p-5 space-y-4">
+                <form onSubmit={handleRegistrarEgreso} className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Tipo de Salida *
+                      </label>
+                      <select
+                        value={egresoTipo}
+                        onChange={(e) => setEgresoTipo(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                      >
+                        <option value="PAGO_COLABORADOR">Pago Directo a Colaborador</option>
+                        <option value="GASTO_MENOR">Gasto Menor / Mantenimiento</option>
+                        <option value="VIATICO">Viáticos / Movilidad</option>
+                        <option value="INSUMOS_MEDICOS">Insumos Médicos Urgentes</option>
+                        <option value="OTRO">Otro Egreso</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Monto a Entregar (S/) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        value={egresoMonto || ""}
+                        onChange={(e) => setEgresoMonto(Number(e.target.value))}
+                        placeholder="Monto en efectivo..."
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Destinatario / Colaborador *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={egresoDestinatario}
+                        onChange={(e) => setEgresoDestinatario(e.target.value)}
+                        placeholder="Nombre de quien recibe el dinero..."
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Aprobado por *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={egresoAprobadoPor}
+                        onChange={(e) => setEgresoAprobadoPor(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                      Concepto / Justificación *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={egresoConcepto}
+                      onChange={(e) => setEgresoConcepto(e.target.value)}
+                      placeholder="Motivo del pago o compra..."
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
+                  >
+                    <TrendingDown className="w-4 h-4" />
+                    <span>Registrar Salida de Efectivo</span>
+                  </button>
+                </form>
+
+                {/* Historial de egresos del turno */}
+                {egresos.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                      Egresos Registrados en este Turno ({egresos.length})
+                    </p>
+                    <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white text-xs">
+                      {egresos.map((eg) => (
+                        <div key={eg.id} className="p-3 flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-neutral-900">{eg.destinatario}</span>
+                              <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono">
+                                {eg.tipo}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-neutral-500">{eg.concepto}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-mono font-black text-rose-700">
+                              -{formatCurrency(eg.monto)}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 block">{eg.hora}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* COLUMNA DERECHA: Balanza Financiera & Monitor en Tiempo Real */}
+        <div className="lg:col-span-5 space-y-5">
+          
+          {/* Tarjeta 1: Balanza Financiera del Turno */}
+          <div className="bg-gradient-to-br from-brand-900 to-brand-950 text-white rounded-3xl p-5 shadow-xl border border-brand-800">
+            <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-brand-300">
+                  Balanza de Caja del Turno
+                </p>
+                <p className="text-xs text-white/70">
+                  {turnoActivo?.estado === "ABIERTA" ? "Turno Activo en Ventanilla" : "Caja Cerrada"}
+                </p>
+              </div>
+              <span className="text-xs font-mono px-2 py-1 rounded-lg bg-white/10 text-brand-200">
+                {sede}
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between py-1 text-white/80">
+                <span>(+) Fondo Inicial de Apertura:</span>
+                <span className="font-mono font-bold">{formatCurrency(fondoApertura)}</span>
+              </div>
+              <div className="flex justify-between py-1 text-emerald-300">
+                <span>(+) Cobros en Efectivo:</span>
+                <span className="font-mono font-bold">+{formatCurrency(totalEfectivoCobros)}</span>
+              </div>
+              <div className="flex justify-between py-1 text-rose-300">
+                <span>(-) Egresos / Pagos Realizados:</span>
+                <span className="font-mono font-bold">-{formatCurrency(totalEgresos)}</span>
+              </div>
+              
+              <div className="pt-2 border-t border-white/10 flex justify-between items-center text-sm font-black text-white">
+                <span>(=) Efectivo Neto a Rendir:</span>
+                <span className="font-mono text-base text-emerald-400">{formatCurrency(efectivoNetoEsperado)}</span>
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex justify-between py-1 text-purple-300 text-[11px]">
+                <span>Cobros Digitales (Yape / POS):</span>
+                <span className="font-mono font-bold">{formatCurrency(totalDigitalCobros)}</span>
+              </div>
+
+              <div className="flex justify-between py-1 text-brand-300 text-[11px] font-bold">
+                <span>Facturación Bruta de la Jornada:</span>
+                <span className="font-mono">{formatCurrency(totalFacturadoBruto)}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-white/10 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEfectivoContado(efectivoNetoEsperado);
+                  setShowCierreModal(true);
+                }}
+                className="w-full py-2.5 bg-white hover:bg-brand-50 text-brand-900 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Ejecutar Arqueo de Caja</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tarjeta 2: Monitor de Pacientes en Turno */}
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-brand-700" />
+                <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                  Pacientes en Turno ({transacciones.length})
+                </h3>
+              </div>
+              <span className="text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-bold">
+                Tiempo Real
+              </span>
+            </div>
+
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {transacciones.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="p-3 rounded-2xl border border-neutral-200/80 bg-neutral-50/50 hover:bg-white hover:border-neutral-300 transition flex items-center justify-between text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-neutral-900">{tx.paciente}</span>
+                      <span className="text-[10px] font-mono text-neutral-400">DNI: {tx.dni}</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">{tx.servicio}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] font-mono font-bold text-brand-700">
+                        {formatCurrency(tx.monto)} ({tx.medioPago})
+                      </span>
+                      <span className="text-[10px] text-neutral-400">&bull; {tx.hora}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span
+                      className={`text-[10px] font-black px-2 py-1 rounded-lg ${
+                        tx.estadoConsultorio === "EN_ESPERA"
+                          ? "bg-amber-100 text-amber-800"
+                          : tx.estadoConsultorio === "EN_ATENCION"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      {tx.estadoConsultorio.replace("_", " ")}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Ticket emitido de última atención */}
+          {ticketEmitido && (
+            <div className="bg-white rounded-3xl border border-emerald-200 p-5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between text-emerald-800">
+                <div className="flex items-center gap-1.5 text-xs font-black">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Ticket Emitido ({ticketEmitido.id})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="text-xs text-brand-700 font-bold hover:underline flex items-center gap-1"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir 80mm</span>
+                </button>
+              </div>
+
+              <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200 text-xs font-mono space-y-1 text-neutral-700">
+                <p className="font-bold text-neutral-900">LAS MELLIZAS PERÚ S.A.C.</p>
+                <p className="text-[10px] text-neutral-500">RUC: 20611827335 &bull; Sede {ticketEmitido.sede}</p>
+                <div className="border-t border-dashed border-neutral-300 my-1 pt-1">
+                  <p>PACIENTE: {ticketEmitido.paciente}</p>
+                  <p>DNI: {ticketEmitido.dni}</p>
+                  <p>SERVICIO: {ticketEmitido.servicio}</p>
+                  <p>IMPORTE: {formatCurrency(ticketEmitido.monto)}</p>
+                  <p>MEDIO: {ticketEmitido.medioPago}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
+
+      {/* Modal Apertura de Turno */}
+      {showAperturaModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-neutral-200 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
+              <Unlock className="w-6 h-6" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-base font-black text-neutral-900">Apertura de Turno de Caja</h3>
+              <p className="text-xs text-neutral-500 mt-1">
+                Sede {sede} &bull; Operador: <strong>{cajeroNombre}</strong>
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-neutral-700 mb-1">
+                Fondo Base de Efectivo (S/) *
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={montoAperturaInput}
+                onChange={(e) => setMontoAperturaInput(Number(e.target.value))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-sm font-mono font-bold"
+              />
+              <p className="text-[10px] text-neutral-400 mt-1">
+                Efectivo inicial en gaveta para dar vuelto.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAperturaModal(false)}
+                className="w-1/2 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold text-xs rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleAbrirTurno}
+                className="w-1/2 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cierre y Arqueo de Caja */}
+      {showCierreModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-neutral-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-brand-700" />
+                <h3 className="text-base font-black text-neutral-900">Arqueo y Cierre de Caja</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCierreModal(false)}
+                className="text-neutral-400 hover:text-neutral-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!actaCierre ? (
+              <div className="space-y-3">
+                <div className="bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200 text-xs space-y-1.5">
+                  <div className="flex justify-between">
+                    <span>Fondo Inicial:</span>
+                    <span className="font-mono font-bold">{formatCurrency(fondoApertura)}</span>
+                  </div>
+                  <div className="flex justify-between text-emerald-700">
+                    <span>(+) Cobros en Efectivo:</span>
+                    <span className="font-mono font-bold">+{formatCurrency(totalEfectivoCobros)}</span>
+                  </div>
+                  <div className="flex justify-between text-rose-700">
+                    <span>(-) Egresos y Pagos:</span>
+                    <span className="font-mono font-bold">-{formatCurrency(totalEgresos)}</span>
+                  </div>
+                  <div className="border-t border-neutral-200 pt-1.5 flex justify-between font-black text-neutral-900">
+                    <span>Efectivo Esperado a Rendir:</span>
+                    <span className="font-mono text-sm text-brand-900">{formatCurrency(efectivoNetoEsperado)}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">
+                    Efectivo Real Contado en Gaveta (S/) *
+                  </label>
+                  <input
+                    type="number"
+                    value={efectivoContado}
+                    onChange={(e) => setEfectivoContado(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-sm font-mono font-bold"
+                  />
+                  <div className="mt-1 flex items-center justify-between text-xs">
+                    <span className="text-neutral-500">Diferencia de Cuadre:</span>
+                    <span
+                      className={`font-mono font-black ${
+                        efectivoContado - efectivoNetoEsperado === 0
+                          ? "text-emerald-700"
+                          : efectivoContado - efectivoNetoEsperado > 0
+                          ? "text-blue-700"
+                          : "text-rose-700"
+                      }`}
+                    >
+                      {efectivoContado - efectivoNetoEsperado === 0
+                        ? "CUADRADO EXACTO (S/ 0.00)"
+                        : efectivoContado - efectivoNetoEsperado > 0
+                        ? `SOBRANTE: +${formatCurrency(efectivoContado - efectivoNetoEsperado)}`
+                        : `FALTANTE: ${formatCurrency(efectivoContado - efectivoNetoEsperado)}`}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">
+                    Observaciones del Cierre
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={observacionesCierre}
+                    onChange={(e) => setObservacionesCierre(e.target.value)}
+                    placeholder="Observaciones de auditoría o justificaciones..."
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs"
+                  />
+                </div>
+
+                <div className="pt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCierreModal(false)}
+                    className="w-1/2 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold text-xs rounded-xl"
+                  >
+                    Volver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleEjecutarArqueo}
+                    className="w-1/2 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow"
+                  >
+                    Generar Acta de Cierre
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Acta Oficial Generada */}
+                <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 font-mono text-xs space-y-2 text-neutral-800">
+                  <div className="text-center pb-2 border-b border-dashed border-neutral-300">
+                    <p className="font-bold">ACTA DE ARQUEO Y CIERRE DE CAJA</p>
+                    <p className="text-[10px] text-neutral-500">LAS MELLIZAS PERÚ S.A.C. &bull; RUC 20611827335</p>
+                    <p className="text-[10px] text-neutral-500">Sede {actaCierre.sede} &bull; {actaCierre.fecha} {actaCierre.hora}</p>
+                  </div>
+
+                  <div className="space-y-1 text-[11px]">
+                    <div className="flex justify-between"><span>Cajero(a):</span><span>{actaCierre.cajero}</span></div>
+                    <div className="flex justify-between"><span>Fondo Inicial:</span><span>{formatCurrency(actaCierre.fondoInicial)}</span></div>
+                    <div className="flex justify-between"><span>Cobros Efectivo:</span><span>+{formatCurrency(actaCierre.efectivoCobros)}</span></div>
+                    <div className="flex justify-between"><span>Cobros Digitales:</span><span>+{formatCurrency(actaCierre.digitalCobros)}</span></div>
+                    <div className="flex justify-between"><span>Egresos Totales:</span><span>-{formatCurrency(actaCierre.egresosTotales)}</span></div>
+                    <div className="border-t border-dashed border-neutral-300 pt-1 flex justify-between font-bold">
+                      <span>Efectivo Esperado:</span><span>{formatCurrency(actaCierre.efectivoEsperado)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                      <span>Efectivo Contado:</span><span>{formatCurrency(actaCierre.efectivoContado)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-emerald-800">
+                      <span>Diferencia:</span><span>{formatCurrency(actaCierre.diferencia)}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 grid grid-cols-2 gap-4 text-center text-[10px] border-t border-dashed border-neutral-300">
+                    <div>
+                      <p className="border-t border-neutral-400 mt-6 pt-1">Firma Cajero</p>
+                    </div>
+                    <div>
+                      <p className="border-t border-neutral-400 mt-6 pt-1">Firma Supervisor</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="w-1/2 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Imprimir Acta</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActaCierre(null);
+                      setShowCierreModal(false);
+                    }}
+                    className="w-1/2 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold text-xs rounded-xl"
+                  >
+                    Finalizar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

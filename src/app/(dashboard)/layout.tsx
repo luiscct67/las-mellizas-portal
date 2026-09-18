@@ -16,6 +16,7 @@ import {
   DollarSign,
   UserCheck,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
 export default function DashboardLayout({
   children,
@@ -53,7 +54,10 @@ export default function DashboardLayout({
     setMounted(true);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
     sessionStorage.clear();
     // Limpiar cookies de sesión
     document.cookie = "lm_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";

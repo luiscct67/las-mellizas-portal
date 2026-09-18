@@ -2,10 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse, user } = await updateSession(request);
+  const { supabaseResponse, user, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
-  // Rutas protegidas que requieren sesión activa verificada
+  // Rutas protegidas de grado clínico
   const protectedRoutes = [
     "/admision-caja",
     "/hce",
@@ -17,40 +17,96 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
   const isLoginPage = pathname === "/login";
 
-  // Redirección de legado: Si acceden a /recepcion o /caja, redirigir al módulo unificado
+  // Redirección de rutas legadas hacia el módulo unificado
   if (pathname.startsWith("/recepcion") || pathname.startsWith("/caja")) {
     const url = request.nextUrl.clone();
     url.pathname = "/admision-caja";
     return NextResponse.redirect(url);
   }
 
-  // Verificación de Autenticación: Cookie de Supabase Auth o Cookie de Sesión Verificada
-  const hasAuthCookie = !!user || request.cookies.has("lm_auth_user") || request.cookies.has("sb-access-token");
-
-  if (isProtectedRoute && !hasAuthCookie) {
+  // 1. DENEGACIÓN ESTRICTA (ZERO TRUST): Si no hay usuario autenticado en Supabase Auth
+  if (isProtectedRoute && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("from", pathname);
 
     const redirectResponse = NextResponse.redirect(redirectUrl);
-    // Limpieza de caché local para evitar persistencia en navegadores compartidos
+    // Purgar caché y almacenamiento local para impedir persistencia de datos sensibles
     redirectResponse.headers.set("Clear-Site-Data", '"cache", "storage"');
     return redirectResponse;
   }
 
-  // Si ya está autenticado e intenta ir a /login, redirigir al módulo asignado
-  if (isLoginPage && hasAuthCookie) {
-    const redirectUrl = request.nextUrl.clone();
-    // Leer rol de cookie si existe
-    const roleCookie = request.cookies.get("lm_auth_role")?.value;
-    if (roleCookie === "PROFESIONAL") {
-      redirectUrl.pathname = "/hce";
-    } else if (roleCookie === "SUPERVISION" || roleCookie === "ADMIN") {
-      redirectUrl.pathname = "/supervision";
-    } else {
-      redirectUrl.pathname = "/admision-caja";
+  // Si hay usuario autenticado, verificar su rol real en la base de datos
+  if (user) {
+    let userRole = "RECEPCION_CAJA";
+    let isActive = true;
+
+    try {
+      const { data: profile } = await supabase
+        .from("perfil_usuario")
+        .select("rol, activo")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        userRole = profile.rol;
+        isActive = profile.activo;
+      }
+    } catch {
+      // Fallback seguro en caso de latencia de red
+      userRole = "RECEPCION_CAJA";
     }
-    return NextResponse.redirect(redirectUrl);
+
+    // Cuenta inactiva o revocada
+    if (!isActive) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/login";
+      redirectUrl.searchParams.set("error", "cuenta_inactiva");
+      const redirectResponse = NextResponse.redirect(redirectUrl);
+      redirectResponse.headers.set("Clear-Site-Data", '"cache", "cookies", "storage"');
+      return redirectResponse;
+    }
+
+    // Si ya está autenticado e intenta ingresar a /login, redirigir a su módulo
+    if (isLoginPage) {
+      const redirectUrl = request.nextUrl.clone();
+      if (userRole === "PROFESIONAL") {
+        redirectUrl.pathname = "/hce";
+      } else if (userRole === "SUPERVISION" || userRole === "ADMIN") {
+        redirectUrl.pathname = "/supervision";
+      } else {
+        redirectUrl.pathname = "/admision-caja";
+      }
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // 2. CONTROL DE ACCESO BASADO EN ROL (ANTI-ACCESO CRUZADO / CERO CURIOSIDAD)
+    // Aislamiento de HCE: Solo Médicos, Obstetras, Auditores y Admin
+    if (pathname.startsWith("/hce")) {
+      if (userRole !== "PROFESIONAL" && userRole !== "SUPERVISION" && userRole !== "ADMIN") {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/admision-caja";
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
+
+    // Aislamiento de Supervisión y Auditoría: Solo Auditores y Admin General
+    if (pathname.startsWith("/supervision")) {
+      if (userRole !== "SUPERVISION" && userRole !== "ADMIN") {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = userRole === "PROFESIONAL" ? "/hce" : "/admision-caja";
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
+
+    // Aislamiento de Admisión & Caja: Médicos no deben ingresar a caja operativa
+    if (pathname.startsWith("/admision-caja")) {
+      if (userRole === "PROFESIONAL") {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/hce";
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
   }
 
   return supabaseResponse;
