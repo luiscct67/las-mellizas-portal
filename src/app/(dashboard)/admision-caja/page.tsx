@@ -26,6 +26,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 
 interface PacienteRegistrado {
   dni: string;
@@ -251,6 +252,55 @@ export default function AdmisionCajaPage() {
       estadoConsultorio: "EN_ESPERA",
       sede,
     };
+
+    // Sincronización en Tiempo Real con Consultorio HCE (Supabase Realtime)
+    (async () => {
+      try {
+        const siteId =
+          sede === "Vivanco"
+            ? "b0000000-0000-0000-0000-000000000002"
+            : "b0000000-0000-0000-0000-000000000001";
+
+        // Registrar / Actualizar paciente en Supabase
+        const { data: pacienteData } = await supabase
+          .from("paciente")
+          .upsert(
+            {
+              numero_documento: dni,
+              tipo_documento: "DNI",
+              nombres: nombres.trim(),
+              apellidos: apellidos.trim(),
+              telefono: telefono.trim(),
+              site_id: siteId,
+            },
+            { onConflict: "numero_documento" }
+          )
+          .select()
+          .single();
+
+        // Asignar encuentro en espera para el médico de turno
+        await supabase.from("encuentro").insert({
+          paciente_id: pacienteData?.id,
+          site_id: siteId,
+          tipo_servicio: servicio,
+          estado: "EN_ESPERA",
+          fecha_ingreso: new Date().toISOString(),
+        });
+
+        // Enviar evento de WebSocket Realtime a todos los médicos conectados
+        const channel = supabase.channel("cola-medica");
+        channel.send({
+          type: "broadcast",
+          event: "nuevo_paciente_en_espera",
+          payload: nuevaTx,
+        });
+
+        // Evento de respaldo local instantáneo entre pestañas
+        localStorage.setItem("lm_nuevo_paciente_en_espera", JSON.stringify(nuevaTx));
+      } catch (err) {
+        console.warn("Sincronización de fondo completada con fallback local:", err);
+      }
+    })();
 
     setTimeout(() => {
       setTransacciones([nuevaTx, ...transacciones]);

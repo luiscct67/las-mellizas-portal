@@ -23,12 +23,24 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
-  getUsuarios,
-  crearNuevoUsuarioPorAdmin,
-  resetearPasswordTemporalPorAdmin,
-  actualizarUsuarioPorAdmin,
-  UsuarioCredencial,
-} from "@/lib/auth-users";
+  registrarOActualizarColaboradorReal,
+  resetearPasswordColaboradorReal,
+  obtenerColaboradoresReales,
+} from "@/app/actions/admin-users";
+import { PADRON_OFICIAL_AUTORIZADO } from "@/lib/whitelist";
+
+export interface UsuarioCredencial {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: "RECEPCION_CAJA" | "PROFESIONAL" | "SUPERVISION" | "ADMIN";
+  sede: "Independencia" | "Vivanco" | "Todas las Sedes";
+  colegiatura?: string;
+  especialidad?: string;
+  cargo: string;
+  requiereCambioPassword?: boolean;
+  activo: boolean;
+}
 
 export default function SupervisionPage() {
   const [activeTab, setActiveTab] = useState<"personal" | "auditoria">("personal");
@@ -39,7 +51,7 @@ export default function SupervisionPage() {
   const [showNewUserModal, setShowNewUserModal] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoEmail, setNuevoEmail] = useState("");
-  const [nuevoRol, setNuevoRol] = useState<"RECEPCION_CAJA" | "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION">("PROFESIONAL");
+  const [nuevoRol, setNuevoRol] = useState<"RECEPCION_CAJA" | "PROFESIONAL" | "SUPERVISION">("PROFESIONAL");
   const [nuevaSede, setNuevaSede] = useState<"Independencia" | "Vivanco">("Independencia");
   const [nuevaColegiatura, setNuevaColegiatura] = useState("");
   const [nuevaEspecialidad, setNuevaEspecialidad] = useState("");
@@ -49,7 +61,7 @@ export default function SupervisionPage() {
   const [usuarioEditando, setUsuarioEditando] = useState<UsuarioCredencial | null>(null);
   const [editNombre, setEditNombre] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [editRol, setEditRol] = useState<"RECEPCION_CAJA" | "RECEPCION" | "PROFESIONAL" | "CAJA" | "SUPERVISION" | "ADMIN">("PROFESIONAL");
+  const [editRol, setEditRol] = useState<"RECEPCION_CAJA" | "PROFESIONAL" | "SUPERVISION" | "ADMIN">("PROFESIONAL");
   const [editSede, setEditSede] = useState<"Independencia" | "Vivanco" | "Todas las Sedes">("Independencia");
   const [editColegiatura, setEditColegiatura] = useState("");
   const [editEspecialidad, setEditEspecialidad] = useState("");
@@ -67,8 +79,57 @@ export default function SupervisionPage() {
 
   const [copiado, setCopiado] = useState(false);
 
+  const cargarPersonal = async () => {
+    try {
+      const res = await obtenerColaboradoresReales();
+      if (res.success && res.colaboradores.length > 0) {
+        setUsuarios(
+          res.colaboradores.map((p: any) => ({
+            id: p.id,
+            email: p.email,
+            nombre: p.nombre_completo,
+            rol: p.rol === "RECEPCION" || p.rol === "CAJA" ? "RECEPCION_CAJA" : p.rol,
+            sede: p.sede?.nombre || (p.site_id ? "Independencia" : "Todas las Sedes"),
+            colegiatura: p.colegiatura,
+            especialidad: p.especialidad,
+            cargo: p.especialidad || (p.rol === "PROFESIONAL" ? "Médico / Obstetra" : "Admisión & Caja"),
+            activo: p.activo,
+          }))
+        );
+      } else {
+        setUsuarios(
+          PADRON_OFICIAL_AUTORIZADO.map((cta, idx) => ({
+            id: `padron-${idx}`,
+            email: cta.email,
+            nombre: cta.nombre,
+            rol: cta.rol,
+            sede: cta.sede === "Central" ? "Todas las Sedes" : cta.sede,
+            colegiatura: cta.colegiatura,
+            especialidad: cta.especialidad,
+            cargo: cta.cargo,
+            activo: true,
+          }))
+        );
+      }
+    } catch {
+      setUsuarios(
+        PADRON_OFICIAL_AUTORIZADO.map((cta, idx) => ({
+          id: `padron-${idx}`,
+          email: cta.email,
+          nombre: cta.nombre,
+          rol: cta.rol,
+          sede: cta.sede === "Central" ? "Todas las Sedes" : cta.sede,
+          colegiatura: cta.colegiatura,
+          especialidad: cta.especialidad,
+          cargo: cta.cargo,
+          activo: true,
+        }))
+      );
+    }
+  };
+
   useEffect(() => {
-    setUsuarios(getUsuarios());
+    cargarPersonal();
     const r = sessionStorage.getItem("lm_rol") || "ADMIN";
     setCurrentRole(r);
   }, []);
@@ -118,11 +179,12 @@ export default function SupervisionPage() {
     },
   ];
 
-  const handleCrearUsuario = (e: React.FormEvent) => {
+  const handleCrearUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
 
-    const res = crearNuevoUsuarioPorAdmin({
+    const passwordTemporal = "Mellizas#2026!";
+    const res = await registrarOActualizarColaboradorReal({
       email: nuevoEmail,
       nombre: nuevoNombre,
       rol: nuevoRol,
@@ -130,23 +192,27 @@ export default function SupervisionPage() {
       colegiatura: nuevaColegiatura,
       especialidad: nuevaEspecialidad,
       cargo: nuevoCargo,
+      password: passwordTemporal,
     });
 
-    setUsuarios(getUsuarios());
-    setShowNewUserModal(false);
+    if (res.success) {
+      setShowNewUserModal(false);
+      setCredencialGenerada({
+        nombre: nuevoNombre,
+        email: nuevoEmail,
+        passwordTemporal,
+        rol: nuevoRol,
+        sede: nuevaSede,
+      });
 
-    setCredencialGenerada({
-      nombre: nuevoNombre,
-      email: nuevoEmail,
-      passwordTemporal: res.passwordTemporal,
-      rol: nuevoRol,
-      sede: nuevaSede,
-    });
-
-    setNuevoNombre("");
-    setNuevoEmail("");
-    setNuevaColegiatura("");
-    setNuevaEspecialidad("");
+      setNuevoNombre("");
+      setNuevoEmail("");
+      setNuevaColegiatura("");
+      setNuevaEspecialidad("");
+      cargarPersonal();
+    } else {
+      alert("Error al registrar colaborador: " + res.error);
+    }
   };
 
   const handleAbrirEditar = (usr: UsuarioCredencial) => {
@@ -162,13 +228,14 @@ export default function SupervisionPage() {
     setEditActivo(usr.activo);
   };
 
-  const handleGuardarEdicion = (e: React.FormEvent) => {
+  const handleGuardarEdicion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!usuarioEditando || !isAdmin) return;
 
-    actualizarUsuarioPorAdmin(usuarioEditando.id, {
-      nombre: editNombre,
+    const res = await registrarOActualizarColaboradorReal({
+      id: usuarioEditando.id,
       email: editEmail,
+      nombre: editNombre,
       rol: editRol,
       sede: editSede,
       colegiatura: editColegiatura,
@@ -177,22 +244,28 @@ export default function SupervisionPage() {
       activo: editActivo,
     });
 
-    setUsuarios(getUsuarios());
-    setUsuarioEditando(null);
+    if (res.success) {
+      setUsuarioEditando(null);
+      cargarPersonal();
+    } else {
+      alert("Error al actualizar colaborador: " + res.error);
+    }
   };
 
-  const handleResetearClave = (usr: UsuarioCredencial) => {
+  const handleResetearClave = async (usr: UsuarioCredencial) => {
     if (!isAdmin) return;
-    const temp = resetearPasswordTemporalPorAdmin(usr.id);
-    if (temp) {
-      setUsuarios(getUsuarios());
+    const res = await resetearPasswordColaboradorReal(usr.email);
+    if (res.success && res.passwordTemporal) {
       setCredencialGenerada({
         nombre: usr.nombre,
         email: usr.email,
-        passwordTemporal: temp,
+        passwordTemporal: res.passwordTemporal,
         rol: usr.rol,
         sede: usr.sede,
       });
+      cargarPersonal();
+    } else {
+      alert("Error al resetear contraseña: " + res.error);
     }
   };
 
@@ -326,12 +399,10 @@ export default function SupervisionPage() {
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                            usr.rol === "RECEPCION"
+                            usr.rol === "RECEPCION_CAJA"
                               ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                               : usr.rol === "PROFESIONAL"
                               ? "bg-blue-50 text-blue-800 border border-blue-200"
-                              : usr.rol === "CAJA"
-                              ? "bg-amber-50 text-amber-800 border border-amber-200"
                               : "bg-purple-50 text-purple-800 border border-purple-200"
                           }`}
                         >
@@ -523,8 +594,7 @@ export default function SupervisionPage() {
                     className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-brand-700"
                   >
                     <option value="PROFESIONAL">PROFESIONAL (Médico/Obstetra)</option>
-                    <option value="RECEPCION">RECEPCION (Admisión/Citas)</option>
-                    <option value="CAJA">CAJA (Cobros/Facturación)</option>
+                    <option value="RECEPCION_CAJA">RECEPCION_CAJA (Admisión & Caja Unificada)</option>
                     <option value="SUPERVISION">SUPERVISION (Auditoría)</option>
                     <option value="ADMIN">ADMIN (Dirección General)</option>
                   </select>
@@ -663,15 +733,13 @@ export default function SupervisionPage() {
                       const r = e.target.value as any;
                       setNuevoRol(r);
                       if (r === "PROFESIONAL") setNuevoCargo("Médico Gineco-Obstetra");
-                      else if (r === "RECEPCION") setNuevoCargo("Admisión & Citas");
-                      else if (r === "CAJA") setNuevoCargo("Caja & Facturación");
+                      else if (r === "RECEPCION_CAJA") setNuevoCargo("Admisión & Caja Unificada");
                       else setNuevoCargo("Auditor Médico");
                     }}
                     className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:outline-none focus:ring-2 focus:ring-brand-700"
                   >
                     <option value="PROFESIONAL">Profesional Médico / Obstetra</option>
-                    <option value="RECEPCION">Recepción & Admisión</option>
-                    <option value="CAJA">Caja & Cobranzas</option>
+                    <option value="RECEPCION_CAJA">Admisión & Caja Unificada</option>
                     <option value="SUPERVISION">Supervisión & Auditoría</option>
                   </select>
                 </div>

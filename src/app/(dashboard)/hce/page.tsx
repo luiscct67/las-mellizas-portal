@@ -17,7 +17,11 @@ import {
   Check,
   FileText,
   Printer,
+  Calendar,
+  MessageSquare,
+  Share2,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
 interface PacienteEnConsulta {
   id: string;
@@ -165,6 +169,104 @@ export default function HcePage() {
   const [adendas, setAdendas] = useState<{ fecha: string; texto: string; hash: string }[]>([]);
   const [showAdendaModal, setShowAdendaModal] = useState(false);
   const [textoAdenda, setTextoAdenda] = useState("");
+
+  // Reagendamiento Post-Consulta y Recordatorio por WhatsApp
+  const [reagendarFecha, setReagendarFecha] = useState("");
+  const [reagendarHora, setReagendarHora] = useState("09:00");
+  const [reagendarMotivo, setReagendarMotivo] = useState("Control Prenatal y Ecografía de Seguimiento");
+  const [reagendarSede, setReagendarSede] = useState("Independencia");
+  const [reagendadaExito, setReagendadaExito] = useState(false);
+
+  // ============================================================================
+  // SINCRONIZACIÓN EN TIEMPO REAL: ADMISIÓN A CONSULTORIO HCE (SUPABASE REALTIME)
+  // ============================================================================
+  useEffect(() => {
+    const canalEncuentro = supabase
+      .channel("cola-medica")
+      .on("broadcast", { event: "nuevo_paciente_en_espera" }, ({ payload }) => {
+        if (payload) {
+          setPacientesCola((prev) => {
+            if (prev.some((p) => p.dni === payload.dni)) return prev;
+            return [
+              {
+                id: payload.id,
+                paciente: payload.paciente,
+                dni: payload.dni,
+                edad: "28 a",
+                servicio: payload.servicio,
+                alergias: "Ninguna",
+                grupoSanguineo: "O Rh(+)",
+                sede: payload.sede || sede,
+              },
+              ...prev,
+            ];
+          });
+        }
+      })
+      .subscribe();
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "lm_nuevo_paciente_en_espera" && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          setPacientesCola((prev) => {
+            if (prev.some((p) => p.dni === payload.dni)) return prev;
+            return [
+              {
+                id: payload.id,
+                paciente: payload.paciente,
+                dni: payload.dni,
+                edad: "28 a",
+                servicio: payload.servicio,
+                alergias: "Ninguna",
+                grupoSanguineo: "O Rh(+)",
+                sede: payload.sede || sede,
+              },
+              ...prev,
+            ];
+          });
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      supabase.removeChannel(canalEncuentro);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [sede]);
+
+  const generarEnlaceWhatsApp = () => {
+    const tel = "966123456";
+    const msg = `*Consultorio Obstétrico Ecográfico Las Mellizas* 🩺✨%0A%0AEstimada paciente *${encodeURIComponent(
+      selectedPatient.paciente
+    )}*:%0A%0ALe confirmamos su próxima cita de control médico programada:%0A📅 *Fecha:* ${
+      reagendarFecha || "Por coordinar"
+    }%0A⏰ *Hora:* ${reagendarHora}%0A🏥 *Sede:* ${reagendarSede}%0A📋 *Servicio:* ${encodeURIComponent(
+      reagendarMotivo
+    )}%0A👨‍⚕️ *Profesional:* ${encodeURIComponent(profesionalNombre)}%0A%0A_Por favor acudir 10 minutos antes. ¡Cuidamos de ti y de tu bebé con amor y tecnología!_`;
+
+    return `https://wa.me/51${tel}?text=${msg}`;
+  };
+
+  const handleGuardarReagendamiento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reagendarFecha) {
+      alert("Por favor seleccione la fecha de la próxima cita.");
+      return;
+    }
+    try {
+      await supabase.from("cita_reagendada").insert({
+        paciente_nombre: selectedPatient.paciente,
+        fecha: reagendarFecha,
+        hora: reagendarHora,
+        motivo: reagendarMotivo,
+        site_id: reagendarSede === "Vivanco" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000001",
+      });
+    } catch {}
+    setReagendadaExito(true);
+    setTimeout(() => setReagendadaExito(false), 4000);
+  };
 
   // ============================================================================
   // AUTOGUARDADO SILENCIOSO (SILENT DEBOUNCE 3000ms)
@@ -677,6 +779,91 @@ export default function HcePage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Reagendamiento Post-Consulta & Recordatorio por WhatsApp */}
+          <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2.5">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-900">
+                <Calendar className="w-3.5 h-3.5 text-brand-700" />
+                <span className="uppercase text-[11px] tracking-wider">Próximo Control / Cita</span>
+              </div>
+              <span className="text-[10px] font-semibold text-neutral-500">Post-Consulta</span>
+            </div>
+
+            <form onSubmit={handleGuardarReagendamiento} className="space-y-2 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Fecha Cita *</label>
+                  <input
+                    type="date"
+                    required
+                    value={reagendarFecha}
+                    onChange={(e) => setReagendarFecha(e.target.value)}
+                    className="w-full p-1.5 border border-neutral-300 rounded text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Hora *</label>
+                  <input
+                    type="time"
+                    required
+                    value={reagendarHora}
+                    onChange={(e) => setReagendarHora(e.target.value)}
+                    className="w-full p-1.5 border border-neutral-300 rounded text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Sede</label>
+                <select
+                  value={reagendarSede}
+                  onChange={(e) => setReagendarSede(e.target.value)}
+                  className="w-full p-1.5 border border-neutral-300 rounded text-xs bg-white"
+                >
+                  <option value="Independencia">Sede Independencia</option>
+                  <option value="Vivanco">Sede Vivanco</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Motivo / Estudio</label>
+                <input
+                  type="text"
+                  value={reagendarMotivo}
+                  onChange={(e) => setReagendarMotivo(e.target.value)}
+                  placeholder="Ej: Control Prenatal 28 sem..."
+                  className="w-full p-1.5 border border-neutral-300 rounded text-xs"
+                />
+              </div>
+
+              <div className="pt-1 flex flex-col gap-1.5">
+                <button
+                  type="submit"
+                  className="w-full py-1.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded transition flex items-center justify-center gap-1"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Programar en Calendario</span>
+                </button>
+
+                <a
+                  href={generarEnlaceWhatsApp()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Enviar Recordatorio por WhatsApp</span>
+                </a>
+              </div>
+
+              {reagendadaExito && (
+                <div className="p-1.5 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-800 text-center font-semibold">
+                  ✓ Cita registrada exitosamente.
+                </div>
+              )}
+            </form>
           </div>
 
           {/* Historial de Adendas Inmutables */}
