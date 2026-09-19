@@ -67,16 +67,12 @@ export async function middleware(request: NextRequest) {
       return redirectResponse;
     }
 
-    // Si ya está autenticado e intenta ingresar a /login, redirigir a su módulo
-    if (isLoginPage) {
+    // Permitir acceso directo a /login para cambio de cuenta o nuevo inicio de sesión
+    // Solo redirigir si el usuario no tiene intención de autenticarse
+    if (isLoginPage && request.nextUrl.searchParams.get("from_home") === "true") {
       const redirectUrl = request.nextUrl.clone();
-      if (userRole === "PROFESIONAL") {
-        redirectUrl.pathname = "/hce";
-      } else if (userRole === "SUPERVISION" || userRole === "ADMIN") {
-        redirectUrl.pathname = "/supervision";
-      } else {
-        redirectUrl.pathname = "/admision-caja";
-      }
+      redirectUrl.pathname = userRole === "PROFESIONAL" ? "/hce" : userRole === "SUPERVISION" || userRole === "ADMIN" ? "/supervision" : "/admision-caja";
+      redirectUrl.searchParams.delete("from_home");
       return NextResponse.redirect(redirectUrl);
     }
 

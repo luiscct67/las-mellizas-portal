@@ -23,6 +23,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 import {
   registrarOActualizarColaboradorReal,
   resetearPasswordColaboradorReal,
@@ -133,9 +134,18 @@ export default function SupervisionPage() {
   };
 
   useEffect(() => {
-    cargarPersonal();
-    const r = sessionStorage.getItem("lm_rol") || "ADMIN";
-    setCurrentRole(r);
+    async function initAdminRole() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email === "admin@lasmellizasperu.com") {
+        setCurrentRole("ADMIN");
+        sessionStorage.setItem("lm_rol", "ADMIN");
+      } else {
+        const r = sessionStorage.getItem("lm_rol") || "SUPERVISION";
+        setCurrentRole(r);
+      }
+      cargarPersonal();
+    }
+    initAdminRole();
   }, []);
 
   const isAdmin = currentRole === "ADMIN";
@@ -255,10 +265,18 @@ export default function SupervisionPage() {
     setEditActivo(usr.activo);
   };
 
+  const [isSavingUser, setIsSavingUser] = useState(false);
+
   const handleGuardarEdicion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!usuarioEditando || !isAdmin) return;
+    if (!usuarioEditando) return;
 
+    if (!isAdmin) {
+      alert("Acceso denegado: Se requieren permisos de Administrador General (admin@lasmellizasperu.com) para modificar colaboradores.\n\nUsuario actual: " + (sessionStorage.getItem("lm_user") || "No identificado"));
+      return;
+    }
+
+    setIsSavingUser(true);
     const res = await registrarOActualizarColaboradorReal({
       id: usuarioEditando.id,
       email: editEmail,
@@ -270,12 +288,14 @@ export default function SupervisionPage() {
       cargo: editCargo,
       activo: editActivo,
     });
+    setIsSavingUser(false);
 
     if (res.success) {
       setUsuarioEditando(null);
-      cargarPersonal();
+      await cargarPersonal();
+      alert("✅ Cambios guardados exitosamente para " + editNombre);
     } else {
-      alert("Error al actualizar colaborador: " + res.error);
+      alert("❌ Error al actualizar colaborador: " + res.error);
     }
   };
 
@@ -718,9 +738,17 @@ export default function SupervisionPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 text-xs font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl shadow"
+                    disabled={isSavingUser}
+                    className="px-5 py-2 text-xs font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl shadow inline-flex items-center gap-1.5 disabled:opacity-60"
                   >
-                    Guardar Cambios Oficiales
+                    {isSavingUser ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Guardando cambios...</span>
+                      </>
+                    ) : (
+                      <span>Guardar Cambios Oficiales</span>
+                    )}
                   </button>
                 </div>
               </div>

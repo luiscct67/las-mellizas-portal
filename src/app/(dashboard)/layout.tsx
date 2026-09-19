@@ -26,8 +26,8 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
 
-  const [rol, setRol] = useState<string>("RECEPCION_CAJA");
-  const [user, setUser] = useState<string>("operador@lasmellizasperu.com");
+  const [rol, setRol] = useState<string | null>(null);
+  const [user, setUser] = useState<string>("");
   const [sede, setSede] = useState<string>("Independencia");
   const [nombre, setNombre] = useState<string>("");
   const [colegiatura, setColegiatura] = useState<string>("");
@@ -35,31 +35,71 @@ export default function DashboardLayout({
   const [mounted, setMounted] = useState<boolean>(false);
 
   useEffect(() => {
-    let r = sessionStorage.getItem("lm_rol") || "RECEPCION_CAJA";
-    // Normalizar roles legados a la arquitectura unificada
-    if (r === "RECEPCION" || r === "CAJA") {
-      r = "RECEPCION_CAJA";
+    async function syncUserSession() {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
+      if (!authUser) {
+        sessionStorage.clear();
+        router.push("/login");
+        return;
+      }
+
+      const email = authUser.email || "";
+
+      if (email === "admin@lasmellizasperu.com") {
+        setRol("ADMIN");
+        setUser(email);
+        setNombre("Dirección Médica & Gestión");
+        setSede("Todas las Sedes");
+        setColegiatura("CMP 99881");
+        sessionStorage.setItem("lm_rol", "ADMIN");
+        sessionStorage.setItem("lm_user", email);
+        sessionStorage.setItem("lm_nombre", "Dirección Médica & Gestión");
+        sessionStorage.setItem("lm_sede", "Todas las Sedes");
+        sessionStorage.setItem("lm_colegiatura", "CMP 99881");
+        setMounted(true);
+        return;
+      }
+
+      // Consultar perfil_usuario real
+      const { data: profile } = await supabase
+        .from("perfil_usuario")
+        .select("rol, nombre_completo, site_id, colegiatura, especialidad, sede:site_id(nombre)")
+        .eq("id", authUser.id)
+        .maybeSingle();
+
+      let detectedRole = profile?.rol || sessionStorage.getItem("lm_rol") || "RECEPCION_CAJA";
+      if (detectedRole === "RECEPCION" || detectedRole === "CAJA") {
+        detectedRole = "RECEPCION_CAJA";
+      }
+
+      const detectedNombre = profile?.nombre_completo || sessionStorage.getItem("lm_nombre") || email;
+      const detectedSede = (profile as any)?.sede?.nombre || sessionStorage.getItem("lm_sede") || "Independencia";
+      const detectedCol = profile?.colegiatura || sessionStorage.getItem("lm_colegiatura") || "";
+
+      setRol(detectedRole);
+      setUser(email);
+      setNombre(detectedNombre);
+      setSede(detectedSede);
+      setColegiatura(detectedCol);
+
+      sessionStorage.setItem("lm_rol", detectedRole);
+      sessionStorage.setItem("lm_user", email);
+      sessionStorage.setItem("lm_nombre", detectedNombre);
+      sessionStorage.setItem("lm_sede", detectedSede);
+      if (detectedCol) sessionStorage.setItem("lm_colegiatura", detectedCol);
+
+      setMounted(true);
     }
 
-    const u = sessionStorage.getItem("lm_user") || "operador@lasmellizasperu.com";
-    const s = sessionStorage.getItem("lm_sede") || "Independencia";
-    const nom = sessionStorage.getItem("lm_nombre") || "";
-    const col = sessionStorage.getItem("lm_colegiatura") || "";
-
-    setRol(r);
-    setUser(u);
-    setSede(s);
-    setNombre(nom);
-    setColegiatura(col);
-    setMounted(true);
-  }, []);
+    syncUserSession();
+  }, [pathname]);
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
     } catch {}
     sessionStorage.clear();
-    // Limpiar cookies de sesión
     document.cookie = "lm_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     document.cookie = "lm_auth_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     router.push("/login");
@@ -120,18 +160,21 @@ export default function DashboardLayout({
 
   const currentPrefix = "/" + (pathname.split("/")[1] || "admision-caja");
   const allowedRoles = routePermissions[currentPrefix];
-  const isAuthorizedCurrentRoute = !allowedRoles || allowedRoles.includes(rol);
+  const isAuthorizedCurrentRoute = !allowedRoles || (Boolean(rol) && allowedRoles.includes(rol as string));
 
   const getAuthorizedHome = () => {
-    if (rol === "RECEPCION_CAJA") return "/admision-caja";
     if (rol === "PROFESIONAL") return "/hce";
-    return "/supervision";
+    if (rol === "SUPERVISION" || rol === "ADMIN") return "/supervision";
+    return "/admision-caja";
   };
 
   if (!mounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-900">
-        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex h-screen w-screen items-center justify-center bg-brand-50/40">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-brand-700 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-bold text-brand-900 font-mono">Verificando Credenciales Clínicas...</span>
+        </div>
       </div>
     );
   }
@@ -276,18 +319,28 @@ export default function DashboardLayout({
 
               <div>
                 <h2 className="text-base font-bold text-neutral-900">Acceso No Autorizado</h2>
-                <p className="text-xs text-neutral-500 mt-1">
-                  Tu rol ({rol}) no tiene privilegios para visualizar el recurso solicitado.
+                <p className="text-xs text-neutral-500 mt-1 leading-relaxed">
+                  Tu usuario actual (<strong className="font-mono text-neutral-800">{user || "No identificado"}</strong>) con rol <strong>{rol || "Desconocido"}</strong> no tiene permisos para acceder al módulo de {pathname.includes("supervision") ? "SUPERVISIÓN" : "este recurso"}.
                 </p>
               </div>
 
-              <Link
-                href={getAuthorizedHome()}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-lg transition"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Volver a mi módulo</span>
-              </Link>
+              <div className="flex items-center justify-center gap-2.5 pt-2">
+                <Link
+                  href={getAuthorizedHome()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold rounded-xl transition"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Volver a mi módulo</span>
+                </Link>
+
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-xl transition shadow"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Cerrar Sesión e Iniciar como Admin</span>
+                </button>
+              </div>
             </div>
           )}
         </main>
