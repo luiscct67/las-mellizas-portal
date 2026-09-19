@@ -53,15 +53,114 @@ interface DiagnosticoItem {
   tipo: "Definitivo" | "Presuntivo" | "Repetido";
 }
 
+const normalizarSede = (s?: string | null): string => {
+  if (!s) return "Independencia";
+  const lower = s.toLowerCase();
+  if (lower.includes("todas")) return "Todas las Sedes";
+  if (lower.includes("vivanco")) return "Vivanco";
+  if (lower.includes("independencia")) return "Independencia";
+  return s;
+};
+
 const CIE10_FRECUENTES = [
-  { codigo: "Z34.8", descripcion: "Supervisión de otros embarazos normales" },
+  // --- OBSTETRICIA & EMBARAZO NORMAL Y CONTROL ---
   { codigo: "Z34.0", descripcion: "Supervisión de primer embarazo normal" },
-  { codigo: "Z36.8", descripcion: "Pesquisa prenatal para otras anomalías (Ecografía)" },
+  { codigo: "Z34.8", descripcion: "Supervisión de otros embarazos normales" },
+  { codigo: "Z34.9", descripcion: "Supervisión del embarazo normal, no especificado" },
+  { codigo: "Z35.0", descripcion: "Supervisión de embarazo con historia de esterilidad" },
+  { codigo: "Z35.1", descripcion: "Supervisión de embarazo con historia de aborto" },
+  { codigo: "Z35.2", descripcion: "Supervisión de embarazo con otra historia obstétrica desfavorable" },
+  { codigo: "Z35.8", descripcion: "Supervisión de otros embarazos de alto riesgo" },
+  { codigo: "Z35.9", descripcion: "Supervisión de embarazo de alto riesgo, no especificado" },
+  { codigo: "Z32.1", descripcion: "Confirmación de embarazo (Prueba positiva)" },
+  { codigo: "Z39.2", descripcion: "Seguimiento postparto de rutina (Control puerperio)" },
+
+  // --- ECOGRAFÍA & DIAGNÓSTICO PRENATAL ---
+  { codigo: "Z36.8", descripcion: "Pesquisa prenatal por ultrasonido (Ecografía fetal)" },
+  { codigo: "Z36.0", descripcion: "Pesquisa prenatal para anomalías cromosómicas (Genética / TN)" },
+  { codigo: "Z36.3", descripcion: "Pesquisa prenatal de malformaciones fetales (Morfológica)" },
+  { codigo: "O36.5", descripcion: "Atención materna por sospecha de restricción del crecimiento fetal (RCIU)" },
+  { codigo: "O40", descripcion: "Polihidramnios (Exceso de líquido amniótico)" },
+  { codigo: "O41.0", descripcion: "Oligohidramnios (Disminución de líquido amniótico)" },
+  { codigo: "O43.1", descripcion: "Malformación o alteración de la placenta" },
+  { codigo: "O44.0", descripcion: "Placenta previa sin hemorragia" },
+  { codigo: "O44.1", descripcion: "Placenta previa con hemorragia" },
+  { codigo: "O30.0", descripcion: "Embarazo gemelar / Gestación múltiple" },
+  { codigo: "O32.1", descripcion: "Atención materna por presentación podálica / pelviana" },
+  { codigo: "O32.2", descripcion: "Atención materna por situación transversa u oblicua" },
+
+  // --- COMPLICACIONES OBSTÉTRICAS ---
+  { codigo: "O20.0", descripcion: "Amenaza de aborto" },
+  { codigo: "O00.9", descripcion: "Embarazo ectópico, no especificado" },
+  { codigo: "O02.0", descripcion: "Huevo anembrionado" },
+  { codigo: "O02.1", descripcion: "Aborto retenido / diferido" },
+  { codigo: "O03.4", descripcion: "Aborto espontáneo incompleto sin complicación" },
+  { codigo: "O13", descripcion: "Hipertensión gestacional sin proteinuria significativa" },
+  { codigo: "O14.0", descripcion: "Preeclampsia leve a moderada" },
+  { codigo: "O14.1", descripcion: "Preeclampsia severa" },
+  { codigo: "O24.4", descripcion: "Diabetes mellitus gestacional" },
+  { codigo: "O21.0", descripcion: "Hiperémesis gravídica leve" },
+  { codigo: "O21.1", descripcion: "Hiperémesis gravídica con trastornos metabólicos" },
   { codigo: "O26.8", descripcion: "Otras afecciones especificadas relacionadas con el embarazo" },
-  { codigo: "N76.0", descripcion: "Vaginitis aguda / Leucorrea" },
+  { codigo: "O60.0", descripcion: "Amenaza de parto prematuro / pretérmino" },
+  { codigo: "O23.4", descripcion: "Infección no especificada de vías urinarias en el embarazo" },
+  { codigo: "O99.0", descripcion: "Anemia que complica el embarazo, parto o puerperio" },
+
+  // --- GINECOLOGÍA GENERAL E INFECCIONES ---
+  { codigo: "N76.0", descripcion: "Vaginitis aguda / Vulvovaginitis / Leucorrea" },
+  { codigo: "N76.1", descripcion: "Vaginitis subaguda y crónica" },
   { codigo: "N72", descripcion: "Enfermedad inflamatoria del cuello uterino (Cervicitis)" },
+  { codigo: "N70.9", descripcion: "Salpingitis y ooforitis no especificada (EPI)" },
+  { codigo: "N73.9", descripcion: "Enfermedad pélvica inflamatoria femenina, no especificada" },
+  { codigo: "B37.3", descripcion: "Candidiasis de la vulva y de la vagina" },
+  { codigo: "A59.0", descripcion: "Tricomoniasis urogenital" },
+  { codigo: "A60.0", descripcion: "Infección de genitales por virus del herpes" },
+  { codigo: "A56.0", descripcion: "Infección del tracto genitourinario por Chlamydia" },
+  { codigo: "A51.0", descripcion: "Sífilis genital primaria" },
+  { codigo: "N39.0", descripcion: "Infección del tracto urinario (ITU)" },
+
+  // --- PATOLOGÍA DE CÉRVIX, ÚTERO Y OVARIOS ---
+  { codigo: "N86", descripcion: "Erosión y ectropión del cuello del útero (Úlcera cervical)" },
+  { codigo: "N87.0", descripcion: "Displasia cervical leve (NIC I / LIE de bajo grado)" },
+  { codigo: "N87.1", descripcion: "Displasia cervical moderada (NIC II / LIE de alto grado)" },
+  { codigo: "N87.2", descripcion: "Displasia cervical severa (NIC III)" },
+  { codigo: "N87.9", descripcion: "Displasia del cuello uterino, no especificada" },
+  { codigo: "D25.0", descripcion: "Leiomioma submucoso del útero" },
+  { codigo: "D25.1", descripcion: "Leiomioma intramural del útero" },
+  { codigo: "D25.2", descripcion: "Leiomioma subseroso del útero" },
+  { codigo: "D25.9", descripcion: "Leiomioma del útero (Miomatosis uterina)" },
+  { codigo: "N80.9", descripcion: "Endometriosis, no especificada" },
+  { codigo: "N83.0", descripcion: "Quiste folicular del ovario" },
+  { codigo: "N83.1", descripcion: "Quiste del cuerpo lúteo" },
+  { codigo: "N83.2", descripcion: "Otros quistes ováricos y los no especificados" },
+  { codigo: "E28.2", descripcion: "Síndrome de ovario poliquístico (SOP)" },
+  { codigo: "N84.0", descripcion: "Pólipo del cuerpo del útero (Endometrial)" },
+  { codigo: "N84.1", descripcion: "Pólipo del cuello del útero (Endocervical)" },
+
+  // --- TRASTORNOS MENSTRUALES & CLIMATERIO ---
+  { codigo: "N91.0", descripcion: "Amenorrea primaria" },
+  { codigo: "N91.1", descripcion: "Amenorrea secundaria" },
+  { codigo: "N91.2", descripcion: "Amenorrea, no especificada" },
+  { codigo: "N92.0", descripcion: "Menstruación excesiva y frecuente con ciclo regular (Menorragia)" },
+  { codigo: "N92.1", descripcion: "Menstruación excesiva e irregular (Metrorragia)" },
+  { codigo: "N93.9", descripcion: "Hemorragia uterina y vaginal anormal, no especificada" },
+  { codigo: "N94.6", descripcion: "Dismenorrea, no especificada" },
+  { codigo: "N95.1", descripcion: "Estados menopáusicos y del climaterio femenino" },
+
+  // --- PATOLOGÍA MAMARIA ---
+  { codigo: "N60.9", descripcion: "Displasia mamaria benigna (Mastopatía fibroquística)" },
+  { codigo: "N61", descripcion: "Trastornos inflamatorios de la mama (Mastitis)" },
+  { codigo: "N64.4", descripcion: "Mastodinia / Dolor mamario" },
+  { codigo: "D24", descripcion: "Tumor benigno de la mama (Fibroadenoma)" },
+
+  // --- PLANIFICACIÓN FAMILIAR ---
   { codigo: "Z30.0", descripcion: "Consejo y asesoramiento general sobre la anticoncepción" },
-  { codigo: "N91.2", descripcion: "Amenorrea, sin otra especificación" },
+  { codigo: "Z30.1", descripcion: "Inserción de dispositivo anticonceptivo (DIU)" },
+  { codigo: "Z30.4", descripcion: "Supervisión del uso de anticonceptivos (Inyectables / Orales)" },
+  { codigo: "Z30.5", descripcion: "Supervisión del uso de dispositivo anticonceptivo (DIU)" },
+  { codigo: "Z30.8", descripcion: "Otras medidas anticonceptivas (Implante subdérmico)" },
+  { codigo: "Z30.9", descripcion: "Atención para la anticoncepción, no especificada" },
+  { codigo: "R10.2", descripcion: "Dolor pélvico y perineal" },
 ];
 
 export default function HcePage() {
@@ -174,146 +273,8 @@ export default function HcePage() {
   };
 
   // ============================================================================
-  // CARGA REAL DE COLA Y SINCRONIZACIÓN EN TIEMPO REAL (SUPABASE REALTIME)
+  // GESTIÓN DE ATENCIÓN Y SELECCIÓN DE PACIENTE (AISLAMIENTO SÍNCRONO)
   // ============================================================================
-  const cargarColaEncuentros = async (sedeActual?: string) => {
-    setIsLoadingCola(true);
-    try {
-      // 1. Cargar pacientes en espera o en atención médica activa
-      const { data: enEspera, error: errEspera } = await supabase
-        .from("encuentro")
-        .select(`
-          id,
-          servicio_solicitado,
-          estado,
-          site_id,
-          fecha_hora,
-          paciente:paciente_id (
-            id,
-            dni,
-            nombres,
-            apellidos,
-            telefono
-          ),
-          sede:site_id (
-            id,
-            nombre
-          )
-        `)
-        .in("estado", ["EN_ESPERA", "EN_ATENCION"])
-        .order("fecha_hora", { ascending: true });
-
-      if (errEspera) {
-        console.warn("Advertencia al consultar encuentros en espera:", errEspera.message);
-      } else if (enEspera) {
-        const mapeados: PacienteEnConsulta[] = enEspera.map((item: any) => ({
-          id: item.id,
-          pacienteId: item.paciente?.id,
-          paciente: item.paciente ? `${item.paciente.nombres} ${item.paciente.apellidos}`.trim() : "Paciente Registrado",
-          dni: item.paciente?.dni || "S/DNI",
-          edad: "28 a",
-          servicio: item.servicio_solicitado,
-          alergias: "Ninguna",
-          grupoSanguineo: "O Rh(+)",
-          sede: item.sede?.nombre?.includes("Vivanco") ? "Vivanco" : "Independencia",
-          estado: item.estado,
-          telefono: item.paciente?.telefono || "",
-          horaLlegada: new Date(item.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        }));
-        setPacientesCola(mapeados);
-
-        setSelectedPatient((prev) => {
-          if (prev && mapeados.some((p) => p.id === prev.id)) {
-            return mapeados.find((p) => p.id === prev.id) || prev;
-          }
-          return prev;
-        });
-      }
-
-      // 2. Cargar atenciones finalizadas hoy
-      const { data: atendidos, error: errAtendidos } = await supabase
-        .from("encuentro")
-        .select(`
-          id,
-          servicio_solicitado,
-          estado,
-          site_id,
-          fecha_hora,
-          paciente:paciente_id (
-            id,
-            dni,
-            nombres,
-            apellidos,
-            telefono
-          ),
-          sede:site_id (
-            id,
-            nombre
-          )
-        `)
-        .eq("estado", "ATENDIDO")
-        .order("updated_at", { ascending: false })
-        .limit(20);
-
-      if (atendidos) {
-        const mapeadosAtendidos: PacienteEnConsulta[] = atendidos.map((item: any) => ({
-          id: item.id,
-          pacienteId: item.paciente?.id,
-          paciente: item.paciente ? `${item.paciente.nombres} ${item.paciente.apellidos}`.trim() : "Paciente Registrado",
-          dni: item.paciente?.dni || "S/DNI",
-          edad: "28 a",
-          servicio: item.servicio_solicitado,
-          alergias: "Ninguna",
-          grupoSanguineo: "O Rh(+)",
-          sede: item.sede?.nombre?.includes("Vivanco") ? "Vivanco" : "Independencia",
-          estado: item.estado,
-          telefono: item.paciente?.telefono || "",
-          horaLlegada: new Date(item.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        }));
-        setAtendidosHoy(mapeadosAtendidos);
-      }
-    } catch (err) {
-      console.warn("Error al cargar cola de HCE:", err);
-    } finally {
-      setIsLoadingCola(false);
-    }
-  };
-
-  useEffect(() => {
-    const s = sessionStorage.getItem("lm_sede") || "Independencia";
-    const nom = sessionStorage.getItem("lm_nombre") || "Profesional de Turno";
-    const col = sessionStorage.getItem("lm_colegiatura") || "";
-    setSede(s);
-    setProfesionalNombre(nom);
-    setColegiatura(col);
-
-    cargarColaEncuentros(s);
-
-    // Suscripción Realtime a eventos de postgres y broadcast
-    const canalCambios = supabase
-      .channel("hce-realtime-encuentros")
-      .on("postgres_changes", { event: "*", schema: "public", table: "encuentro" }, () => {
-        cargarColaEncuentros(s);
-      })
-      .on("broadcast", { event: "nuevo_paciente_en_espera" }, () => {
-        cargarColaEncuentros(s);
-      })
-      .subscribe();
-
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "lm_nuevo_paciente_en_espera") {
-        cargarColaEncuentros(s);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-
-    return () => {
-      supabase.removeChannel(canalCambios);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-
-  // Transición a EN_ATENCION al seleccionar paciente y carga de nota clínica previa
   const handleSeleccionarPaciente = async (p: PacienteEnConsulta) => {
     // 1. Cancelar de inmediato cualquier timer de autoguardado previo
     if (autosaveTimeoutRef.current) {
@@ -400,6 +361,482 @@ export default function HcePage() {
         console.warn("No se pudo actualizar estado a EN_ATENCION:", err);
       }
     }
+  };
+
+  // ============================================================================
+  // CARGA REAL DE COLA Y SINCRONIZACIÓN EN TIEMPO REAL (SUPABASE REALTIME)
+  // ============================================================================
+  const cargarColaEncuentros = async (sedeActual?: string) => {
+    setIsLoadingCola(true);
+    try {
+      // 1. Cargar pacientes en espera o en atención médica activa
+      const { data: enEspera, error: errEspera } = await supabase
+        .from("encuentro")
+        .select(`
+          id,
+          servicio_solicitado,
+          estado,
+          site_id,
+          fecha_hora,
+          paciente:paciente_id (
+            id,
+            dni,
+            nombres,
+            apellidos,
+            telefono
+          ),
+          sede:site_id (
+            id,
+            nombre
+          )
+        `)
+        .in("estado", ["EN_ESPERA", "EN_ATENCION"])
+        .order("fecha_hora", { ascending: true });
+
+      if (errEspera) {
+        console.warn("Advertencia al consultar encuentros en espera:", errEspera.message);
+      } else if (enEspera) {
+        const mapeados: PacienteEnConsulta[] = enEspera.map((item: any) => {
+          const rawPac = Array.isArray(item.paciente) ? item.paciente[0] : item.paciente;
+          const rawSede = Array.isArray(item.sede) ? item.sede[0]?.nombre : item.sede?.nombre;
+          return {
+            id: item.id,
+            pacienteId: rawPac?.id,
+            paciente: rawPac ? `${rawPac.nombres || ""} ${rawPac.apellidos || ""}`.trim() || "Paciente Registrado" : "Paciente Registrado",
+            dni: rawPac?.dni || "S/DNI",
+            edad: "28 a",
+            servicio: item.servicio_solicitado,
+            alergias: "Ninguna",
+            grupoSanguineo: "O Rh(+)",
+            sede: normalizarSede(rawSede),
+            estado: item.estado,
+            telefono: rawPac?.telefono || "",
+            horaLlegada: new Date(item.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+        });
+        setPacientesCola(mapeados);
+
+        setSelectedPatient((prev) => {
+          if (prev && mapeados.some((p) => p.id === prev.id)) {
+            return mapeados.find((p) => p.id === prev.id) || prev;
+          }
+          if (!activeEncuentroIdRef.current && mapeados.length > 0) {
+            const sedeNorm = normalizarSede(sedeActual || sessionStorage.getItem("lm_sede") || "Independencia");
+            const delaSede = mapeados.filter((p) => normalizarSede(p.sede) === sedeNorm);
+            const candidato = delaSede.length > 0 ? delaSede[0] : mapeados[0];
+            setTimeout(() => handleSeleccionarPaciente(candidato), 0);
+            return candidato;
+          }
+          return prev;
+        });
+      }
+
+      // 2. Cargar atenciones finalizadas hoy
+      const { data: atendidos, error: errAtendidos } = await supabase
+        .from("encuentro")
+        .select(`
+          id,
+          servicio_solicitado,
+          estado,
+          site_id,
+          fecha_hora,
+          paciente:paciente_id (
+            id,
+            dni,
+            nombres,
+            apellidos,
+            telefono
+          ),
+          sede:site_id (
+            id,
+            nombre
+          )
+        `)
+        .eq("estado", "ATENDIDO")
+        .order("updated_at", { ascending: false })
+        .limit(20);
+
+      if (atendidos) {
+        const mapeadosAtendidos: PacienteEnConsulta[] = atendidos.map((item: any) => {
+          const rawPac = Array.isArray(item.paciente) ? item.paciente[0] : item.paciente;
+          const rawSede = Array.isArray(item.sede) ? item.sede[0]?.nombre : item.sede?.nombre;
+          return {
+            id: item.id,
+            pacienteId: rawPac?.id,
+            paciente: rawPac ? `${rawPac.nombres || ""} ${rawPac.apellidos || ""}`.trim() || "Paciente Registrado" : "Paciente Registrado",
+            dni: rawPac?.dni || "S/DNI",
+            edad: "28 a",
+            servicio: item.servicio_solicitado,
+            alergias: "Ninguna",
+            grupoSanguineo: "O Rh(+)",
+            sede: normalizarSede(rawSede),
+            estado: item.estado,
+            telefono: rawPac?.telefono || "",
+            horaLlegada: new Date(item.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+        });
+        setAtendidosHoy(mapeadosAtendidos);
+      }
+    } catch (err) {
+      console.warn("Error al cargar cola de HCE:", err);
+    } finally {
+      setIsLoadingCola(false);
+    }
+  };
+
+  useEffect(() => {
+    const s = sessionStorage.getItem("lm_sede") || "Independencia";
+    const nom = sessionStorage.getItem("lm_nombre") || "Profesional de Turno";
+    const col = sessionStorage.getItem("lm_colegiatura") || "";
+    setSede(s);
+    setProfesionalNombre(nom);
+    setColegiatura(col);
+
+    cargarColaEncuentros(s);
+
+    // Suscripción Realtime Unificada (Postgres changes y canal de broadcast cola-medica)
+    const canalCambios = supabase
+      .channel("cola-medica")
+      .on("postgres_changes", { event: "*", schema: "public", table: "encuentro" }, () => {
+        cargarColaEncuentros(s);
+      })
+      .on("broadcast", { event: "nuevo_paciente_en_espera" }, () => {
+        cargarColaEncuentros(s);
+      })
+      .subscribe();
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "lm_nuevo_paciente_en_espera") {
+        cargarColaEncuentros(s);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      supabase.removeChannel(canalCambios);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  // Impresión Médica Profesional en Formato A4 (Aislamiento en Iframe Oculto)
+  const imprimirFichaClinicaA4 = () => {
+    if (!selectedPatient) {
+      alert("Seleccione un paciente de la cola para imprimir su historia clínica.");
+      return;
+    }
+
+    const fechaHoy = new Date().toLocaleDateString("es-PE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <title>Historia Clínica - ${selectedPatient.paciente} (${selectedPatient.dni})</title>
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 12mm 15mm;
+          }
+          * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          }
+          body {
+            color: #111827;
+            background: #fff;
+            margin: 0;
+            padding: 0;
+            font-size: 11px;
+            line-height: 1.4;
+          }
+          .header {
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+          }
+          .title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .subtitle {
+            font-size: 10px;
+            color: #475569;
+            margin-top: 2px;
+          }
+          .badge-hce {
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-align: right;
+            font-size: 10px;
+          }
+          .section-title {
+            background: #f1f5f9;
+            color: #0f172a;
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            padding: 4px 8px;
+            border-left: 3px solid #0f172a;
+            margin-top: 10px;
+            margin-bottom: 6px;
+          }
+          .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+          .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+          }
+          .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+          }
+          .data-box {
+            background: #fafafa;
+            border: 1px solid #e2e8f0;
+            padding: 6px 8px;
+            border-radius: 4px;
+          }
+          .data-label {
+            font-size: 9px;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 600;
+          }
+          .data-val {
+            font-size: 11px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 1px;
+          }
+          .table-cie {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 4px;
+            font-size: 10px;
+          }
+          .table-cie th {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            padding: 4px 6px;
+            text-align: left;
+            font-weight: 700;
+            color: #334155;
+          }
+          .table-cie td {
+            border: 1px solid #e2e8f0;
+            padding: 4px 6px;
+          }
+          .content-block {
+            border: 1px solid #e2e8f0;
+            padding: 6px 8px;
+            border-radius: 4px;
+            min-height: 38px;
+            white-space: pre-wrap;
+            font-size: 10.5px;
+            background: #fff;
+          }
+          .footer-sign {
+            margin-top: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            page-break-inside: avoid;
+          }
+          .seal-box {
+            border: 1px dashed #94a3b8;
+            padding: 8px 12px;
+            border-radius: 4px;
+            max-width: 320px;
+            font-size: 9px;
+            color: #475569;
+          }
+          .signature-line {
+            width: 200px;
+            border-top: 1px solid #0f172a;
+            text-align: center;
+            padding-top: 4px;
+            font-size: 10px;
+            font-weight: 700;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="title">CONSULTORIO OBSTÉTRICO ECOGRÁFICO LAS MELLIZAS</div>
+            <div class="subtitle">Especialistas en Salud Ginecológica, Control Prenatal y Diagnóstico Ecográfico</div>
+            <div class="subtitle"><strong>Sede de Atención:</strong> ${selectedPatient.sede || sede} &bull; RUC: 20608546871</div>
+          </div>
+          <div class="badge-hce">
+            <div><strong>HISTORIA CLÍNICA ELECTRÓNICA</strong></div>
+            <div>Encuentro ID: ${selectedPatient.id.slice(0, 8)}</div>
+            <div>Emisión: ${fechaHoy}</div>
+          </div>
+        </div>
+
+        <!-- DATOS DEL PACIENTE Y PROFESIONAL -->
+        <div class="grid-2">
+          <div class="data-box">
+            <div class="data-label">Paciente / Titular</div>
+            <div class="data-val">${selectedPatient.paciente}</div>
+            <div style="font-size:10px; color:#475569; margin-top:2px;">
+              DNI: <strong>${selectedPatient.dni}</strong> &bull; Edad: <strong>${selectedPatient.edad || "N/E"}</strong> &bull; Tel: <strong>${selectedPatient.telefono || "N/E"}</strong>
+            </div>
+            <div style="font-size:9.5px; color:#dc2626; margin-top:2px;">
+              Alergias: <strong>${selectedPatient.alergias || "Ninguna"}</strong> &bull; Grupo: <strong>${selectedPatient.grupoSanguineo || "O Rh(+)"}</strong>
+            </div>
+          </div>
+
+          <div class="data-box">
+            <div class="data-label">Profesional Responsable de la Atención</div>
+            <div class="data-val">${profesionalNombre}</div>
+            <div style="font-size:10px; color:#475569; margin-top:2px;">
+              Colegiatura / Registro: <strong>${colegiatura || "COP / CMP"}</strong>
+            </div>
+            <div style="font-size:9.5px; color:#2563eb; margin-top:2px;">
+              Servicio Evaluado: <strong>${selectedPatient.servicio}</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- TRIAJE / FUNCIONES VITALES -->
+        <div class="section-title">1. Funciones Vitales & Antropometría (Triaje)</div>
+        <div class="grid-4">
+          <div class="data-box"><div class="data-label">Presión Arterial</div><div class="data-val">${pa || "--/--"} mmHg</div></div>
+          <div class="data-box"><div class="data-label">Frec. Cardíaca</div><div class="data-val">${fc || "--"} lpm</div></div>
+          <div class="data-box"><div class="data-label">Frec. Respiratoria</div><div class="data-val">${fr || "--"} rpm</div></div>
+          <div class="data-box"><div class="data-label">Temperatura</div><div class="data-val">${temp || "--"} °C</div></div>
+          <div class="data-box"><div class="data-label">Sat. O2</div><div class="data-val">${satO2 || "--"} %</div></div>
+          <div class="data-box"><div class="data-label">Peso</div><div class="data-val">${peso || "--"} kg</div></div>
+          <div class="data-box"><div class="data-label">Talla</div><div class="data-val">${talla || "--"} m</div></div>
+          <div class="data-box"><div class="data-label">IMC Calculado</div><div class="data-val">${imc} kg/m²</div></div>
+        </div>
+
+        <!-- PERFIL OBSTÉTRICO (SI APLICA) -->
+        ${(formulaG || fur || eg || alturaUterina || lcf) ? `
+          <div class="section-title">2. Perfil y Control Obstétrico</div>
+          <div class="grid-4">
+            <div class="data-box"><div class="data-label">Fórmula Gestacional</div><div class="data-val">G: ${formulaG || "-"} P: ${formulaP || "-"}</div></div>
+            <div class="data-box"><div class="data-label">F.U.R. / F.P.P.</div><div class="data-val">${fur || "--"} / ${fpp || "--"}</div></div>
+            <div class="data-box"><div class="data-label">Edad Gestacional</div><div class="data-val">${eg || "--"} sem</div></div>
+            <div class="data-box"><div class="data-label">Alt. Uterina / LCF</div><div class="data-val">${alturaUterina || "--"} cm / ${lcf || "--"} lpm</div></div>
+          </div>
+        ` : ''}
+
+        <!-- ANAMNESIS Y ANTECEDENTES -->
+        <div class="section-title">3. Anamnesis & Motivo de Consulta</div>
+        <div class="content-block">${motivo || "Sin registro de motivo de consulta específico."}</div>
+
+        ${antecedentes ? `
+          <div class="section-title">4. Antecedentes Clínicos y Familiares</div>
+          <div class="content-block">${antecedentes}</div>
+        ` : ''}
+
+        <!-- EXAMEN CLÍNICO -->
+        <div class="section-title">5. Examen Físico / Evaluación Ecográfica</div>
+        <div class="content-block">${examenFisico || "Evaluación clínica realizada conforme a estándares y protocolos de atención."}</div>
+
+        <!-- DIAGNÓSTICOS CIE-10 -->
+        <div class="section-title">6. Diagnósticos Clínicos (CIE-10)</div>
+        ${diagnosticos.length === 0 ? `
+          <div class="content-block" style="color:#64748b; font-style:italic;">No se registraron diagnósticos CIE-10 para esta atención.</div>
+        ` : `
+          <table class="table-cie">
+            <thead>
+              <tr>
+                <th style="width: 15%;">Código CIE</th>
+                <th style="width: 65%;">Descripción del Diagnóstico</th>
+                <th style="width: 20%;">Tipo</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${diagnosticos.map(d => `
+                <tr>
+                  <td style="font-weight:700; font-family:monospace;">${d.codigo}</td>
+                  <td>${d.descripcion}</td>
+                  <td style="text-transform:uppercase; font-size:9.5px; font-weight:600;">${d.tipo}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `}
+
+        <!-- PLAN DE TRABAJO Y TRATAMIENTO -->
+        <div class="section-title">7. Plan de Tratamiento & Prescripción</div>
+        <div class="content-block">${planTratamiento || "Indicaciones y plan de seguimiento explicados a la paciente en consulta."}</div>
+
+        <!-- ADENDAS CLÍNICAS (SI EXISTEN) -->
+        ${adendas.length > 0 ? `
+          <div class="section-title">8. Adendas Clínicas Incorporadas</div>
+          ${adendas.map((a, idx) => `
+            <div style="margin-bottom:4px; font-size:10px; background:#fefce8; border:1px solid #fef08a; padding:4px 6px; border-radius:4px;">
+              <strong>Adenda #${idx + 1} (${a.fecha}) [Hash: ${a.hash.slice(0, 10)}]:</strong> ${a.texto}
+            </div>
+          `).join("")}
+        ` : ''}
+
+        <!-- FIRMA Y VALIDACIÓN LEGAL -->
+        <div class="footer-sign">
+          <div class="seal-box">
+            <strong>DOCUMENTO MÉDICO INALTERABLE</strong><br>
+            Historia Clínica Electrónica generada bajo el marco de la <strong>Ley N.° 30024</strong> y la <strong>NTS N.° 139-MINSA</strong>.<br>
+            ${isSealed ? `
+              <span style="color:#15803d; font-weight:700;">DOCUMENTO SELLADO Y FIRMADO DIGITALMENTE</span><br>
+              Hash de Integridad: <span style="font-family:monospace;">${sealedHash || "VALIDADO"}</span>
+            ` : `
+              <span style="color:#b45309; font-weight:700;">REGISTRO EN PROCESO DE ATENCIÓN</span>
+            `}
+          </div>
+          <div class="signature-line">
+            ${profesionalNombre}<br>
+            <span style="font-size:9px; color:#64748b; font-weight:normal;">${colegiatura || "Obstetricia / Ginecología"}</span>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 300);
   };
 
   const generarEnlaceWhatsApp = () => {
@@ -685,11 +1122,11 @@ export default function HcePage() {
   };
 
   const pacientesFiltrados = pacientesCola.filter(
-    (p) => sede === "Todas las Sedes" || p.sede === sede
+    (p) => sede === "Todas las Sedes" || normalizarSede(p.sede) === normalizarSede(sede)
   );
 
   const atendidosFiltrados = atendidosHoy.filter(
-    (p) => sede === "Todas las Sedes" || p.sede === sede
+    (p) => sede === "Todas las Sedes" || normalizarSede(p.sede) === normalizarSede(sede)
   );
 
   return (
@@ -736,6 +1173,18 @@ export default function HcePage() {
               </>
             )}
           </div>
+
+          {/* Botón de Impresión Ficha Clínica A4 */}
+          <button
+            type="button"
+            onClick={imprimirFichaClinicaA4}
+            disabled={!selectedPatient}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold rounded-lg border border-neutral-300 transition disabled:opacity-40"
+            title="Imprimir Historia Clínica Electrónica completa en formato A4"
+          >
+            <Printer className="w-3.5 h-3.5 text-neutral-600" />
+            <span>Imprimir Historia (A4)</span>
+          </button>
 
           {/* Botón de Sellar / Adenda */}
           {!isSealed ? (
@@ -1135,21 +1584,45 @@ export default function HcePage() {
                   className="w-full px-2.5 py-1.5 border border-neutral-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900"
                 />
                 {mostrarSugerenciasCie && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto">
-                    {CIE10_FRECUENTES.filter(
-                      (c) =>
-                        c.codigo.toLowerCase().includes(busquedaCie.toLowerCase()) ||
-                        c.descripcion.toLowerCase().includes(busquedaCie.toLowerCase())
-                    ).map((item) => (
-                      <div
-                        key={item.codigo}
-                        onClick={() => handleAgregarCie(item)}
-                        className="p-2 hover:bg-neutral-50 cursor-pointer border-b border-neutral-100 last:border-0 flex items-center justify-between"
-                      >
-                        <span className="font-medium text-neutral-800">{item.descripcion}</span>
-                        <span className="font-mono font-bold text-[10px] text-neutral-500">{item.codigo}</span>
-                      </div>
-                    ))}
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 max-h-48 overflow-y-auto">
+                    {(() => {
+                      const filtrados = CIE10_FRECUENTES.filter(
+                        (c) =>
+                          c.codigo.toLowerCase().includes(busquedaCie.toLowerCase()) ||
+                          c.descripcion.toLowerCase().includes(busquedaCie.toLowerCase())
+                      );
+                      return (
+                        <>
+                          {filtrados.map((item) => (
+                            <div
+                              key={item.codigo}
+                              onClick={() => handleAgregarCie(item)}
+                              className="p-2 hover:bg-neutral-50 cursor-pointer border-b border-neutral-100 last:border-0 flex items-center justify-between"
+                            >
+                              <span className="font-medium text-neutral-800">{item.descripcion}</span>
+                              <span className="font-mono font-bold text-[10px] text-neutral-500">{item.codigo}</span>
+                            </div>
+                          ))}
+                          {busquedaCie.trim().length >= 2 && (
+                            <div
+                              onClick={() => {
+                                const partes = busquedaCie.trim().split(" ");
+                                const cod = /^[A-Za-z][0-9]/.test(partes[0]) ? partes[0].toUpperCase() : "CIE-ESP";
+                                const desc = /^[A-Za-z][0-9]/.test(partes[0]) && partes.length > 1 ? partes.slice(1).join(" ") : busquedaCie.trim();
+                                handleAgregarCie({
+                                  codigo: cod,
+                                  descripcion: desc,
+                                });
+                              }}
+                              className="p-2 bg-brand-50 hover:bg-brand-100 text-brand-900 cursor-pointer border-t border-brand-200 font-bold text-[11px] flex items-center justify-between"
+                            >
+                              <span>+ Agregar diagnóstico personalizado: "{busquedaCie}"</span>
+                              <span className="font-mono text-[9px] bg-brand-200 px-1 py-0.5 rounded">Manual</span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

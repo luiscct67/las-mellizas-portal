@@ -72,15 +72,71 @@ interface TurnoCaja {
   sede: string;
 }
 
-const TARIFARIO_BASE: Record<string, number> = {
-  "Control Prenatal Reenfocado": 70,
-  "Ecografía Especializada (4D/5D)": 150,
-  "Ecografía Obstétrica Morfológica": 140,
-  "Consulta Médica Ginecológica": 80,
-  "Planificación Familiar Integral": 60,
-  "Prevención Cáncer Cervical (PAP)": 50,
-  "Descarte Rápido ITS": 45,
+const normalizarSede = (nombre?: string | null): string => {
+  if (!nombre) return "Independencia";
+  if (nombre.toLowerCase().includes("vivanco")) return "Vivanco";
+  return "Independencia";
 };
+
+interface ServicioItem {
+  nombre: string;
+  precio: number;
+  categoria: "Ecografías" | "Consultas" | "Procedimientos" | "Laboratorio";
+  descripcion?: string;
+}
+
+const CATALOGO_SERVICIOS: ServicioItem[] = [
+  // --- ECOGRAFÍAS OBSTÉTRICAS Y GENERALES ---
+  { nombre: "Ecografía Especializada (4D/5D)", precio: 150, categoria: "Ecografías", descripcion: "Visualización en tiempo real HD Live con video" },
+  { nombre: "Ecografía Obstétrica Morfológica", precio: 140, categoria: "Ecografías", descripcion: "Semana 20-24, evaluación anatómica completa" },
+  { nombre: "Ecografía Doppler Fetal / Materno-Fetal", precio: 160, categoria: "Ecografías", descripcion: "Flujometría arterias uterinas y umbilical" },
+  { nombre: "Ecografía Genética / I Trimestre", precio: 120, categoria: "Ecografías", descripcion: "Semana 11-14, translucencia nucal y hueso nasal" },
+  { nombre: "Ecografía Obstétrica Básica / Control", precio: 70, categoria: "Ecografías", descripcion: "Biometría fetal, líquido amniótico y placenta" },
+  { nombre: "Ecografía Transvaginal Ginecológica", precio: 80, categoria: "Ecografías", descripcion: "Útero, endometrio y anexos ováricos de alta resolución" },
+  { nombre: "Ecografía Pélvica Ginecológica", precio: 70, categoria: "Ecografías", descripcion: "Vía suprapúbica para descarte ginecológico" },
+  { nombre: "Ecografía Mamaria Bilateral", precio: 80, categoria: "Ecografías", descripcion: "Evaluación ecográfica de ambas mamas y axilas" },
+  { nombre: "Ecografía Tiroidea", precio: 80, categoria: "Ecografías", descripcion: "Evaluación de glándula tiroides y nódulos" },
+  { nombre: "Ecografía Abdominal Completa", precio: 90, categoria: "Ecografías", descripcion: "Hígado, vesícula, páncreas, bazo y riñones" },
+  { nombre: "Ecografía Renal y Vías Urinarias", precio: 80, categoria: "Ecografías", descripcion: "Riñones, vejiga y descarte litiasis" },
+  { nombre: "Monitoreo Fetal Electrónico (NST)", precio: 50, categoria: "Ecografías", descripcion: "Registro cardiotocográfico no estresante" },
+  { nombre: "Perfil Biofísico Fetal (PBF)", precio: 120, categoria: "Ecografías", descripcion: "Ecografía obstétrica + Monitoreo fetal computarizado" },
+
+  // --- CONSULTAS MÉDICAS Y DE OBSTETRICIA ---
+  { nombre: "Control Prenatal Reenfocado", precio: 70, categoria: "Consultas", descripcion: "Evaluación clínica integral, triaje y carnet perinatal" },
+  { nombre: "Consulta Médica Ginecológica", precio: 80, categoria: "Consultas", descripcion: "Evaluación especializada por gineco-obstetra" },
+  { nombre: "Consulta Médica Obstétrica", precio: 70, categoria: "Consultas", descripcion: "Evaluación de la gestación y bienestar materno" },
+  { nombre: "Planificación Familiar Integral", precio: 60, categoria: "Consultas", descripcion: "Consejería personalizada y prescripción anticonceptiva" },
+  { nombre: "Consulta de Fertilidad y Pareja", precio: 100, categoria: "Consultas", descripcion: "Estudio inicial de infertilidad y salud reproductiva" },
+  { nombre: "Consulta Ginecológica de Control", precio: 50, categoria: "Consultas", descripcion: "Revisión de resultados y seguimiento médico" },
+  { nombre: "Evaluación de Climaterio y Menopausia", precio: 90, categoria: "Consultas", descripcion: "Terapia de reemplazo hormonal y salud ósea" },
+
+  // --- PROCEDIMIENTOS GINECOLÓGICOS & PREVENCIÓN ---
+  { nombre: "Prevención Cáncer Cervical (PAP)", precio: 50, categoria: "Procedimientos", descripcion: "Toma de citología exfoliativa cervical Papanicolaou" },
+  { nombre: "Colposcopía Digital Diagnóstica", precio: 100, categoria: "Procedimientos", descripcion: "Examen microscópico digital del cuello uterino" },
+  { nombre: "Pack Preventivo: Colposcopía + PAP", precio: 130, categoria: "Procedimientos", descripcion: "Evaluación combinada de alta precisión para cuello uterino" },
+  { nombre: "Cauterización / Crioterapia Cervical", precio: 180, categoria: "Procedimientos", descripcion: "Tratamiento de ectropión / heridas de cuello uterino" },
+  { nombre: "Inserción de DIU T de Cobre", precio: 120, categoria: "Procedimientos", descripcion: "Colocación de dispositivo intrauterino con guía médica" },
+  { nombre: "Inserción de DIU Hormonal (Mirena/Kyleena)", precio: 250, categoria: "Procedimientos", descripcion: "Colocación especializada de sistema intrauterino" },
+  { nombre: "Retiro de Dispositivo Intrauterino (DIU)", precio: 70, categoria: "Procedimientos", descripcion: "Extracción segura de DIU o revisión de hilos" },
+  { nombre: "Inserción de Implante Subdérmico", precio: 150, categoria: "Procedimientos", descripcion: "Colocación de implante anticonceptivo subdérmico" },
+  { nombre: "Retiro de Implante Subdérmico", precio: 90, categoria: "Procedimientos", descripcion: "Extracción ambulatoria con anestesia local" },
+  { nombre: "Biopsia de Cérvix / Endometrio", precio: 160, categoria: "Procedimientos", descripcion: "Toma de muestra tisular para estudio anatomopatológico" },
+  { nombre: "Lavado y Curación Ginecológica", precio: 40, categoria: "Procedimientos", descripcion: "Tratamiento tópico y antisepsia vaginal" },
+
+  // --- LABORATORIO CLÍNICO Y DESPISTAJE RÁPIDO ---
+  { nombre: "Descarte Rápido ITS (VIH + Sífilis)", precio: 45, categoria: "Laboratorio", descripcion: "Prueba rápida dual en suero/sangre capilar" },
+  { nombre: "Prueba de Embarazo Rápida en Sangre (HCG)", precio: 35, categoria: "Laboratorio", descripcion: "Detección temprana de subunidad beta en 15 min" },
+  { nombre: "Hemoglobina y Hematocrito Rápido", precio: 20, categoria: "Laboratorio", descripcion: "Dosaje instantáneo para descarte de anemia materna" },
+  { nombre: "Examen Completo de Orina + Tira Reactiva", precio: 25, categoria: "Laboratorio", descripcion: "Descarte de infección urinaria o proteinuria gestacional" },
+  { nombre: "Cultivo y Antibiograma de Secreción Vaginal", precio: 60, categoria: "Laboratorio", descripcion: "Identificación microbiológica y sensibilidad a antibióticos" },
+  { nombre: "Grupo Sanguíneo y Factor Rh", precio: 25, categoria: "Laboratorio", descripcion: "Determinación de grupo ABO y compatibilidad Rh" },
+  { nombre: "Perfil Prenatal Básico Completo", precio: 120, categoria: "Laboratorio", descripcion: "Hemograma, glucosa, grupo, VIH, RPR y orina completa" },
+];
+
+const TARIFARIO_BASE: Record<string, number> = CATALOGO_SERVICIOS.reduce((acc, srv) => {
+  acc[srv.nombre] = srv.precio;
+  return acc;
+}, {} as Record<string, number>);
 
 export default function AdmisionCajaPage() {
   const [sede, setSede] = useState<string>("Independencia");
@@ -149,6 +205,10 @@ export default function AdmisionCajaPage() {
   const [telefono, setTelefono] = useState("");
   const [servicio, setServicio] = useState("Control Prenatal Reenfocado");
   const [monto, setMonto] = useState<number>(70);
+  const [categoriaFiltro, setCategoriaFiltro] = useState<string>("Todas");
+  const [busquedaServicio, setBusquedaServicio] = useState<string>("");
+  const [esServicioPersonalizado, setEsServicioPersonalizado] = useState(false);
+  const [servicioPersonalizadoNombre, setServicioPersonalizadoNombre] = useState("");
   const [medioPago, setMedioPago] = useState<"YAPE" | "PLIN" | "EFECTIVO" | "TARJETA_POS">("YAPE");
   const [referencia, setReferencia] = useState("");
   const [efectivoRecibido, setEfectivoRecibido] = useState<number>(100);
@@ -240,7 +300,7 @@ export default function AdmisionCajaPage() {
             medioPago: (pag.medio_pago as any) || "EFECTIVO",
             referencia: pag.referencia || "VENTANILLA",
             estadoConsultorio: item.estado,
-            sede: item.sede?.nombre?.includes("Vivanco") ? "Vivanco" : "Independencia",
+            sede: normalizarSede(item.sede?.nombre),
           };
         });
         setTransacciones(mapeadas);
@@ -306,9 +366,10 @@ export default function AdmisionCajaPage() {
     }
   };
 
-  const handleSelectServicio = (srv: string) => {
+  const handleSelectServicio = (srv: string, precioDefecto?: number) => {
+    setEsServicioPersonalizado(false);
     setServicio(srv);
-    setMonto(TARIFARIO_BASE[srv] || 70);
+    setMonto(precioDefecto ?? TARIFARIO_BASE[srv] ?? 70);
   };
 
   // ============================================================================
@@ -657,10 +718,10 @@ export default function AdmisionCajaPage() {
 
     const now = new Date();
     const horaStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const siteId =
-      sede === "Vivanco"
-        ? "b0000000-0000-0000-0000-000000000002"
-        : "b0000000-0000-0000-0000-000000000001";
+    const esVivanco = normalizarSede(sede) === "Vivanco";
+    const siteId = esVivanco
+      ? "b0000000-0000-0000-0000-000000000002"
+      : "b0000000-0000-0000-0000-000000000001";
 
     let encuentroId = "";
     let txExito = false;
@@ -783,7 +844,7 @@ export default function AdmisionCajaPage() {
       medioPago,
       referencia: referencia || (medioPago === "EFECTIVO" ? "EFECTIVO-VENTANILLA" : "OP-DIRECTA"),
       estadoConsultorio: "EN_ESPERA",
-      sede,
+      sede: normalizarSede(sede),
     };
 
     // Notificar en tiempo real a los médicos conectados vía Supabase Realtime
@@ -1185,29 +1246,138 @@ export default function AdmisionCajaPage() {
             </button>
 
             {openSection.tarifario && (
-              <div className="p-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {Object.entries(TARIFARIO_BASE).map(([srv, tarifa]) => {
-                    const isSelected = servicio === srv;
-                    return (
+              <div className="p-5 space-y-3">
+                {/* Filtros de Categoría y Búsqueda */}
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
+                  <div className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded-xl text-[11px] font-bold">
+                    {(["Todas", "Ecografías", "Consultas", "Procedimientos", "Laboratorio"] as const).map((cat) => (
                       <button
-                        key={srv}
+                        key={cat}
                         type="button"
-                        onClick={() => handleSelectServicio(srv)}
-                        className={`p-3 rounded-2xl border text-left transition flex items-center justify-between ${
-                          isSelected
-                            ? "border-brand-700 bg-brand-50/80 ring-2 ring-brand-700/20"
-                            : "border-neutral-200 bg-white hover:bg-neutral-50"
+                        onClick={() => setCategoriaFiltro(cat)}
+                        className={`px-2.5 py-1 rounded-lg transition ${
+                          categoriaFiltro === cat
+                            ? "bg-white text-neutral-900 shadow-xs"
+                            : "text-neutral-500 hover:text-neutral-900"
                         }`}
                       >
-                        <div>
-                          <p className="text-xs font-bold text-neutral-900">{srv}</p>
-                          <p className="text-[11px] font-extrabold text-brand-700">{formatCurrency(tarifa)}</p>
-                        </div>
-                        {isSelected && <CheckCircle2 className="w-4 h-4 text-brand-700 shrink-0" />}
+                        {cat}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
+
+                  <div className="relative min-w-[180px]">
+                    <input
+                      type="text"
+                      value={busquedaServicio}
+                      onChange={(e) => setBusquedaServicio(e.target.value)}
+                      placeholder="Buscar en tarifario..."
+                      className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-neutral-300 text-xs bg-white focus:ring-1 focus:ring-brand-700"
+                    />
+                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-2" />
+                  </div>
+                </div>
+
+                {/* Catálogo de Servicios Cuadriculado */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+                  {CATALOGO_SERVICIOS
+                    .filter((srv) => {
+                      const matchCat = categoriaFiltro === "Todas" || srv.categoria === categoriaFiltro;
+                      const matchBusq =
+                        !busquedaServicio ||
+                        srv.nombre.toLowerCase().includes(busquedaServicio.toLowerCase()) ||
+                        (srv.descripcion && srv.descripcion.toLowerCase().includes(busquedaServicio.toLowerCase()));
+                      return matchCat && matchBusq;
+                    })
+                    .map((srv) => {
+                      const isSelected = !esServicioPersonalizado && servicio === srv.nombre;
+                      return (
+                        <button
+                          key={srv.nombre}
+                          type="button"
+                          onClick={() => handleSelectServicio(srv.nombre, srv.precio)}
+                          className={`p-2.5 rounded-2xl border text-left transition flex items-center justify-between ${
+                            isSelected
+                              ? "border-brand-700 bg-brand-50/80 ring-2 ring-brand-700/20"
+                              : "border-neutral-200 bg-white hover:bg-neutral-50"
+                          }`}
+                        >
+                          <div className="pr-2 truncate">
+                            <p className="text-xs font-bold text-neutral-900 truncate">{srv.nombre}</p>
+                            {srv.descripcion && (
+                              <p className="text-[10px] text-neutral-400 truncate">{srv.descripcion}</p>
+                            )}
+                            <p className="text-[11px] font-extrabold text-brand-700 mt-0.5">
+                              {formatCurrency(srv.precio)}
+                            </p>
+                          </div>
+                          {isSelected && <CheckCircle2 className="w-4 h-4 text-brand-700 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                </div>
+
+                {/* Opción de Servicio Personalizado */}
+                <div className="pt-2 border-t border-neutral-100">
+                  {!esServicioPersonalizado ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEsServicioPersonalizado(true);
+                        setServicio(servicioPersonalizadoNombre || "Servicio Médico Personalizado");
+                      }}
+                      className="text-xs font-bold text-brand-700 hover:text-brand-900 flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>¿Procedimiento no listado? Ingresar servicio personalizado</span>
+                    </button>
+                  ) : (
+                    <div className="p-3 bg-brand-50/60 rounded-2xl border border-brand-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-xs text-brand-900">Servicio Especial / No Listado</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEsServicioPersonalizado(false);
+                            handleSelectServicio("Control Prenatal Reenfocado", 70);
+                          }}
+                          className="text-[10px] text-neutral-500 hover:text-neutral-900 font-bold"
+                        >
+                          ✕ Cancelar y volver al tarifario
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">
+                            Nombre del Servicio o Procedimiento *
+                          </label>
+                          <input
+                            type="text"
+                            value={servicioPersonalizadoNombre}
+                            onChange={(e) => {
+                              setServicioPersonalizadoNombre(e.target.value);
+                              setServicio(e.target.value || "Servicio Médico Personalizado");
+                            }}
+                            placeholder="Ej. Ecografía Especial Gemelar, Procedimiento..."
+                            className="w-full px-2.5 py-1.5 border border-brand-300 rounded-xl text-xs bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">
+                            Monto a Cobrar (S/) *
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={monto || ""}
+                            onChange={(e) => setMonto(Number(e.target.value))}
+                            placeholder="Precio S/..."
+                            className="w-full px-2.5 py-1.5 border border-brand-300 rounded-xl text-xs font-mono font-bold bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
