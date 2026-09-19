@@ -34,7 +34,7 @@ import {
 } from "@/app/actions/admin-users";
 import { PADRON_OFICIAL_AUTORIZADO } from "@/lib/whitelist";
 
-export interface UsuarioCredencial {
+interface UsuarioCredencial {
   id: string;
   email: string;
   nombre: string;
