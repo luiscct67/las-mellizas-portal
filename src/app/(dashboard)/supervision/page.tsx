@@ -341,12 +341,40 @@ export default function SupervisionPage() {
     let success = false;
     let errorMessage = "";
 
-    // 1. Si tenemos un UUID válido, intentar actualizar directamente con el cliente Supabase
-    const isRealUuid = Boolean(usuarioEditando.id && !usuarioEditando.id.startsWith("padron-"));
-    if (isRealUuid) {
-      try {
+    try {
+      // 1. Obtener o verificar el UUID real del usuario en perfil_usuario
+      let targetId = usuarioEditando.id;
+      if (!targetId || targetId.startsWith("padron-")) {
+        const { data: foundProfile } = await supabase
+          .from("perfil_usuario")
+          .select("id")
+          .eq("email", usuarioEditando.email.trim().toLowerCase())
+          .maybeSingle();
+
+        if (foundProfile?.id) {
+          targetId = foundProfile.id;
+        }
+      }
+
+      // 2. Prevenir colisión de correo si fue modificado
+      if (cleanEmail !== usuarioEditando.email.trim().toLowerCase()) {
+        const { data: emailConflict } = await supabase
+          .from("perfil_usuario")
+          .select("id, nombre_completo")
+          .eq("email", cleanEmail)
+          .maybeSingle();
+
+        if (emailConflict && emailConflict.id !== targetId) {
+          setIsSavingUser(false);
+          alert(`❌ Conflicto de correo: El correo institucional "${cleanEmail}" ya pertenece al colaborador "${emailConflict.nombre_completo}".`);
+          return;
+        }
+      }
+
+      // 3. Ejecutar actualización con RPC segura
+      if (targetId && !targetId.startsWith("padron-")) {
         const { error: rpcErr } = await supabase.rpc("actualizar_perfil_colaborador", {
-          p_id: usuarioEditando.id,
+          p_id: targetId,
           p_nombre: cleanNombre,
           p_rol: editRol,
           p_site_id: siteId,
@@ -359,7 +387,7 @@ export default function SupervisionPage() {
         if (!rpcErr) {
           success = true;
         } else {
-          // Intentar actualización directa en perfil_usuario
+          // Si falló RPC, ejecutar actualización directa con sesión Admin en perfil_usuario
           const { error: updateErr } = await supabase
             .from("perfil_usuario")
             .update({
@@ -372,7 +400,7 @@ export default function SupervisionPage() {
               activo: editActivo,
               updated_at: new Date().toISOString(),
             })
-            .eq("id", usuarioEditando.id);
+            .eq("id", targetId);
 
           if (!updateErr) {
             success = true;
@@ -380,31 +408,29 @@ export default function SupervisionPage() {
             errorMessage = updateErr.message;
           }
         }
-      } catch (err: any) {
-        errorMessage = err.message;
-      }
-    }
-
-    // 2. Fallback a Server Action (soporta también mapeo con emailAnterior)
-    if (!success) {
-      const res = await registrarOActualizarColaboradorReal({
-        id: usuarioEditando.id,
-        email: cleanEmail,
-        emailAnterior: usuarioEditando.email,
-        nombre: cleanNombre,
-        rol: editRol,
-        sede: editSede,
-        colegiatura: cleanColegiatura || undefined,
-        especialidad: cleanEspecialidad || undefined,
-        cargo: editCargo,
-        activo: editActivo,
-      });
-
-      if (res.success) {
-        success = true;
       } else {
-        errorMessage = res.error || errorMessage || "Error al actualizar perfil";
+        // Si no se encontró por ID ni por correo previo, llamar al Server Action para creación
+        const res = await registrarOActualizarColaboradorReal({
+          id: targetId,
+          email: cleanEmail,
+          emailAnterior: usuarioEditando.email,
+          nombre: cleanNombre,
+          rol: editRol,
+          sede: editSede,
+          colegiatura: cleanColegiatura || undefined,
+          especialidad: cleanEspecialidad || undefined,
+          cargo: editCargo,
+          activo: editActivo,
+        });
+
+        if (res.success) {
+          success = true;
+        } else {
+          errorMessage = res.error || "No se pudo actualizar el registro del colaborador.";
+        }
       }
+    } catch (err: any) {
+      errorMessage = err.message || "Error al procesar la actualización.";
     }
 
     setIsSavingUser(false);

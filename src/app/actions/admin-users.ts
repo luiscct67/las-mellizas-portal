@@ -164,6 +164,9 @@ export async function registrarOActualizarColaboradorReal(data: ColaboradorDTO) 
         .single();
 
       if (insertError) {
+        if (insertError.message.includes("duplicate key") || insertError.message.includes("unique constraint") || insertError.code === "23505") {
+          return { success: false, error: `El correo institucional '${cleanEmail}' ya se encuentra registrado en el sistema por otro colaborador.` };
+        }
         return { success: false, error: insertError.message };
       }
 
