@@ -203,3 +203,53 @@ export async function obtenerColaboradoresReales() {
     return { success: false, error: err.message, colaboradores: [] };
   }
 }
+
+/**
+ * Elimina definitivamente un colaborador de perfil_usuario y auth.users (Exclusivo Administrador)
+ */
+export async function eliminarColaboradorReal(id?: string, email?: string) {
+  try {
+    const supabase = await createClient();
+    const cleanEmail = email ? email.trim().toLowerCase() : "";
+
+    if (cleanEmail === "admin@lasmellizasperu.com") {
+      return { success: false, error: "Operación rechazada: No se puede eliminar la cuenta principal de Administración General." };
+    }
+
+    const hasValidUuid = Boolean(id && !id.startsWith("padron-"));
+
+    // 1. Invocar RPC segura con permisos SECURITY DEFINER
+    const { error: rpcError } = await supabase.rpc("eliminar_usuario_clinico", {
+      p_id: hasValidUuid ? id : null,
+      p_email: cleanEmail || null,
+    });
+
+    if (!rpcError) {
+      return { success: true };
+    }
+
+    // 2. Fallback: Borrado directo en perfil_usuario
+    if (hasValidUuid) {
+      const { error: delIdError } = await supabase
+        .from("perfil_usuario")
+        .delete()
+        .eq("id", id);
+
+      if (!delIdError) return { success: true };
+    }
+
+    if (cleanEmail) {
+      const { error: delEmailError } = await supabase
+        .from("perfil_usuario")
+        .delete()
+        .eq("email", cleanEmail);
+
+      if (!delEmailError) return { success: true };
+    }
+
+    return { success: false, error: rpcError?.message || "No fue posible eliminar el registro del colaborador." };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Error al procesar baja del colaborador." };
+  }
+}
+

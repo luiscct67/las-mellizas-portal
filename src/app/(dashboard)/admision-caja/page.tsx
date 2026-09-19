@@ -88,9 +88,22 @@ export default function AdmisionCajaPage() {
     estado: "ABIERTA",
     fechaApertura: "08:00 AM",
     montoApertura: 150,
-    cajeroNombre: "Lucía Mendoza Quispe",
+    cajeroNombre: "Operador de Turno",
     sede: "Independencia",
   });
+
+  useEffect(() => {
+    const nom = sessionStorage.getItem("lm_nombre");
+    const s = sessionStorage.getItem("lm_sede");
+    if (nom) {
+      setCajeroNombre(nom);
+      setTurnoActivo((prev) => prev ? { ...prev, cajeroNombre: nom } : prev);
+    }
+    if (s && s !== "Central") {
+      setSede(s);
+      setTurnoActivo((prev) => prev ? { ...prev, sede: s } : prev);
+    }
+  }, []);
 
   const [showAperturaModal, setShowAperturaModal] = useState(false);
   const [montoAperturaInput, setMontoAperturaInput] = useState<number>(150);
@@ -130,7 +143,7 @@ export default function AdmisionCajaPage() {
   const [egresoConcepto, setEgresoConcepto] = useState("");
   const [egresoMonto, setEgresoMonto] = useState<number>(0);
   const [egresoDestinatario, setEgresoDestinatario] = useState("");
-  const [egresoAprobadoPor, setEgresoAprobadoPor] = useState("Dra. Mellizas (Dirección)");
+  const [egresoAprobadoPor, setEgresoAprobadoPor] = useState("Dirección Médica");
   const [egresoRef, setEgresoRef] = useState("");
 
   const [egresos, setEgresos] = useState<EgresoCaja[]>([
@@ -140,7 +153,7 @@ export default function AdmisionCajaPage() {
       tipo: "PAGO_COLABORADOR",
       concepto: "Adelanto por jornada asistencial de apoyo",
       monto: 50,
-      destinatario: "Lic. Sonia Rivas",
+      destinatario: "Personal Asistencial de Apoyo",
       aprobadoPor: "Dirección Médica",
       comprobanteRef: "REC-012",
     },

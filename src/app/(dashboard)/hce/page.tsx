@@ -62,8 +62,8 @@ const CIE10_FRECUENTES = [
 
 export default function HcePage() {
   const [sede, setSede] = useState<string>("Independencia");
-  const [profesionalNombre, setProfesionalNombre] = useState<string>("Dr. Carlos Benavides");
-  const [colegiatura, setColegiatura] = useState<string>("CMP 54321");
+  const [profesionalNombre, setProfesionalNombre] = useState<string>("Profesional de Turno");
+  const [colegiatura, setColegiatura] = useState<string>("");
 
   // Pacientes en cola del consultorio
   const [pacientesCola, setPacientesCola] = useState<PacienteEnConsulta[]>([
@@ -278,8 +278,8 @@ export default function HcePage() {
 
   useEffect(() => {
     const s = sessionStorage.getItem("lm_sede") || "Independencia";
-    const nom = sessionStorage.getItem("lm_nombre") || "Dr. Carlos Benavides";
-    const col = sessionStorage.getItem("lm_colegiatura") || "CMP 54321";
+    const nom = sessionStorage.getItem("lm_nombre") || "Profesional de Turno";
+    const col = sessionStorage.getItem("lm_colegiatura") || "";
     setSede(s);
     setProfesionalNombre(nom);
     setColegiatura(col);

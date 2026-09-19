@@ -20,12 +20,14 @@ import {
   Edit3,
   CheckCircle2,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   registrarOActualizarColaboradorReal,
   resetearPasswordColaboradorReal,
   obtenerColaboradoresReales,
+  eliminarColaboradorReal,
 } from "@/app/actions/admin-users";
 import { PADRON_OFICIAL_AUTORIZADO } from "@/lib/whitelist";
 
@@ -78,6 +80,8 @@ export default function SupervisionPage() {
   } | null>(null);
 
   const [copiado, setCopiado] = useState(false);
+  const [usuarioAEliminar, setUsuarioAEliminar] = useState<UsuarioCredencial | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const cargarPersonal = async () => {
     try {
@@ -140,7 +144,7 @@ export default function SupervisionPage() {
     {
       id: "ev-109",
       hora: "08:42:15",
-      usuario: "obstetra.viv@lasmellizasperu.com",
+      usuario: "obstetra.yrp@lasmellizasperu.com",
       rol: "PROFESIONAL",
       accion: "SELLAR_NOTA_CLINICA",
       entidad: "nota_clinica",
@@ -150,8 +154,8 @@ export default function SupervisionPage() {
     {
       id: "ev-108",
       hora: "08:35:10",
-      usuario: "caja.ind@lasmellizasperu.com",
-      rol: "CAJA",
+      usuario: "admision.ind2@lasmellizasperu.com",
+      rol: "RECEPCION_CAJA",
       accion: "REGISTRAR_PAGO",
       entidad: "pago",
       entidadId: "pg-0812",
@@ -160,8 +164,8 @@ export default function SupervisionPage() {
     {
       id: "ev-107",
       hora: "08:15:30",
-      usuario: "recepcion.ind@lasmellizasperu.com",
-      rol: "RECEPCION",
+      usuario: "admision.ind2@lasmellizasperu.com",
+      rol: "RECEPCION_CAJA",
       accion: "CREAR_ENCUENTRO",
       entidad: "encuentro",
       entidadId: "enc-ind-001",
@@ -170,14 +174,37 @@ export default function SupervisionPage() {
     {
       id: "ev-106",
       hora: "07:45:00",
-      usuario: "recepcion.viv@lasmellizasperu.com",
-      rol: "RECEPCION",
-      accion: "INTENTO_ACCESO_DENEGADO",
-      entidad: "nota_clinica",
-      entidadId: "nc-4401",
-      detalle: "Intento de lectura bloqueado por directiva RLS (Aislamiento Clínico)",
+      usuario: "admision.viv1@lasmellizasperu.com",
+      rol: "RECEPCION_CAJA",
+      accion: "AUDITORIA_INSPECCION",
+      entidad: "sistema",
+      entidadId: "sys-aud-01",
+      detalle: "Inspección de turnos y validación de libro de caja",
     },
   ];
+
+  const handleConfirmarEliminar = async () => {
+    if (!usuarioAEliminar || !isAdmin) return;
+    if (usuarioAEliminar.email === "admin@lasmellizasperu.com") {
+      alert("Operación denegada: No es posible eliminar la cuenta principal de Administración General.");
+      setUsuarioAEliminar(null);
+      return;
+    }
+
+    setIsDeleting(true);
+    const res = await eliminarColaboradorReal(usuarioAEliminar.id, usuarioAEliminar.email);
+    setIsDeleting(false);
+
+    if (res.success) {
+      if (usuarioEditando?.id === usuarioAEliminar.id) {
+        setUsuarioEditando(null);
+      }
+      setUsuarioAEliminar(null);
+      cargarPersonal();
+    } else {
+      alert("Error al dar de baja al colaborador: " + res.error);
+    }
+  };
 
   const handleCrearUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -458,6 +485,15 @@ export default function SupervisionPage() {
                             >
                               <RefreshCw className="w-3 h-3" />
                             </button>
+                            {usr.email !== "admin@lasmellizasperu.com" && (
+                              <button
+                                onClick={() => setUsuarioAEliminar(usr)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 transition"
+                                title="Eliminar cuenta y revocar acceso definitivamente"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
                         ) : (
                           <span className="text-[11px] text-neutral-400 font-medium">Solo Lectura</span>
@@ -656,22 +692,94 @@ export default function SupervisionPage() {
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-neutral-100">
-                <button
-                  type="button"
-                  onClick={() => setUsuarioEditando(null)}
-                  className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 rounded-xl"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl shadow"
-                >
-                  Guardar Cambios Oficiales
-                </button>
+              <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
+                {usuarioEditando.email !== "admin@lasmellizasperu.com" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const u = usuarioEditando;
+                      setUsuarioEditando(null);
+                      setUsuarioAEliminar(u);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-xl transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar Cuenta</span>
+                  </button>
+                ) : <div />}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUsuarioEditando(null)}
+                    className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 rounded-xl"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 text-xs font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl shadow"
+                  >
+                    Guardar Cambios Oficiales
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmación de Eliminación Definitiva */}
+      {usuarioAEliminar && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-rose-200">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mx-auto mb-4 border border-rose-200">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-base font-black text-neutral-900 text-center mb-1">
+              ¿Eliminar cuenta definitivamente?
+            </h3>
+            <p className="text-xs text-neutral-600 text-center mb-4 leading-relaxed">
+              Está a punto de dar de baja y purgar la cuenta de:
+              <br />
+              <strong className="text-neutral-900 font-bold">{usuarioAEliminar.nombre}</strong>
+              <br />
+              <span className="font-mono text-neutral-500 text-[11px]">{usuarioAEliminar.email}</span>
+            </p>
+
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 mb-5 leading-relaxed">
+              ⚠️ <strong>Principio de Confianza Cero:</strong> Esta acción revocará todos los accesos clínicos y tokens de sesión de manera irrevocable tanto en la base de datos como en Supabase Auth.
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setUsuarioAEliminar(null)}
+                className="px-4 py-2 text-xs font-bold text-neutral-600 hover:bg-neutral-100 rounded-xl transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmarEliminar}
+                className="px-5 py-2 text-xs font-bold bg-rose-700 hover:bg-rose-800 text-white rounded-xl shadow transition inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Eliminando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Sí, Eliminar Cuenta</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
