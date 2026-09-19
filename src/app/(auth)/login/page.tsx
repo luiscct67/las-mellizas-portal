@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   KeyRound,
   ShieldAlert,
-  LogOut,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { isEmailAutorizado, obtenerCuentaAutorizada, normalizarEmail } from "@/lib/whitelist";
@@ -26,32 +25,16 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Sesión activa detectada
-  const [activeSessionUser, setActiveSessionUser] = useState<string | null>(null);
-  const [activeSessionRole, setActiveSessionRole] = useState<string | null>(null);
-
+  // Zero Trust: Al ingresar a la pantalla de login, sanitizar cualquier sesión previa
   useEffect(() => {
-    async function checkCurrentSession() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setActiveSessionUser(user.email);
-        const r = user.email === "admin@lasmellizasperu.com" ? "ADMIN" : (sessionStorage.getItem("lm_rol") || "RECEPCION_CAJA");
-        setActiveSessionRole(r);
-      }
+    async function purgeSessionOnLogin() {
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+      sessionStorage.clear();
     }
-    checkCurrentSession();
+    purgeSessionOnLogin();
   }, []);
-
-  const handleCerrarSesionActiva = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch {}
-    sessionStorage.clear();
-    setActiveSessionUser(null);
-    setActiveSessionRole(null);
-    setEmail("");
-    setPassword("");
-  };
 
   // Modal cambio obligatorio de contraseña en Supabase Auth
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -221,41 +204,6 @@ export default function LoginPage() {
           <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2.5">
             <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <span className="font-medium leading-relaxed">{errorMsg}</span>
-          </div>
-        )}
-
-        {/* Sesión Activa Detectada Previamente */}
-        {activeSessionUser && (
-          <div className="mb-5 p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-900 flex items-center justify-between shadow-xs">
-            <div className="min-w-0 pr-2">
-              <p className="font-bold text-[11px] uppercase tracking-wider text-amber-900">Sesión Detectada en Navegador</p>
-              <p className="font-mono text-[11px] text-amber-800 truncate">{activeSessionUser}</p>
-              <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-amber-200/70 text-[10px] font-bold text-amber-950">
-                Rol: {activeSessionRole || "Sin rol"}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  if (activeSessionRole === "PROFESIONAL") router.push("/hce");
-                  else if (activeSessionRole === "ADMIN" || activeSessionRole === "SUPERVISION") router.push("/supervision");
-                  else router.push("/admision-caja");
-                }}
-                className="px-2.5 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold rounded-xl text-[11px] transition shadow-xs"
-              >
-                Ir a Módulo
-              </button>
-              <button
-                type="button"
-                onClick={handleCerrarSesionActiva}
-                className="px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold rounded-xl text-[11px] transition flex items-center gap-1 shadow-xs"
-                title="Cerrar esta sesión para ingresar con otra cuenta"
-              >
-                <LogOut className="w-3 h-3" />
-                <span>Cerrar</span>
-              </button>
-            </div>
           </div>
         )}
 
