@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- ECOSISTEMA DIGITAL LAS MELLIZAS PERU S.A.C. (RUC 20611827335)
 -- SCRIPT 11: CORRECCIÓN DEFINITIVA DE EDICIÓN DE COLABORADORES & RLS ADMIN
 -- ============================================================================
@@ -21,7 +21,7 @@ CREATE OR REPLACE FUNCTION public.actualizar_perfil_colaborador(
     p_activo BOOLEAN DEFAULT true,
     p_email TEXT DEFAULT NULL
 )
-RETURNS JSONB AS 
+RETURNS JSONB AS $$
 DECLARE
     v_clean_email TEXT := LOWER(TRIM(p_email));
     v_clean_nombre TEXT := TRIM(p_nombre);
@@ -117,7 +117,7 @@ BEGIN
         'nombre', v_clean_nombre
     );
 END;
- LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION public.actualizar_perfil_colaborador(UUID, TEXT, public.rol_usuario, UUID, TEXT, TEXT, BOOLEAN, TEXT) TO authenticated, service_role;
 
