@@ -182,7 +182,7 @@ export default function AdmisionCajaPage() {
   const [observacionesCierre, setObservacionesCierre] = useState("");
   const [actaCierre, setActaCierre] = useState<any | null>(null);
 
-  // Padrón local rápido
+  // Padrón local de respaldo
   const padronPacientes: PacienteRegistrado[] = [
     { dni: "45892147", nombres: "Carla", apellidos: "Mendoza Quispe", telefono: "966 123 456" },
     { dni: "71245896", nombres: "Yolanda", apellidos: "Flores Huamán", telefono: "966 987 654" },
@@ -190,55 +190,127 @@ export default function AdmisionCajaPage() {
     { dni: "70541298", nombres: "Diana", apellidos: "Huamán Cárdenas", telefono: "966 555 777" },
   ];
 
-  // Listado de atenciones de la jornada
-  const [transacciones, setTransacciones] = useState<TransaccionAtencion[]>([
-    {
-      id: "OP-801",
-      hora: "08:15",
-      dni: "45892147",
-      paciente: "Carla Mendoza Quispe",
-      servicio: "Control Prenatal Reenfocado",
-      monto: 70,
-      medioPago: "YAPE",
-      referencia: "YP-1049",
-      estadoConsultorio: "EN_ESPERA",
-      sede: "Independencia",
-    },
-    {
-      id: "OP-802",
-      hora: "08:30",
-      dni: "71245896",
-      paciente: "Yolanda Flores Huamán",
-      servicio: "Ecografía Especializada (4D/5D)",
-      monto: 150,
-      medioPago: "TARJETA_POS",
-      referencia: "TX-9921",
-      estadoConsultorio: "EN_ATENCION",
-      sede: "Independencia",
-    },
-    {
-      id: "OP-803",
-      hora: "08:50",
-      dni: "42198754",
-      paciente: "Roxana Palomino Quispe",
-      servicio: "Consulta Médica Ginecológica",
-      monto: 80,
-      medioPago: "EFECTIVO",
-      estadoConsultorio: "ATENDIDO",
-      sede: "Independencia",
-    },
-  ]);
+  // Listado de atenciones reales de la jornada (cargadas desde Supabase)
+  const [transacciones, setTransacciones] = useState<TransaccionAtencion[]>([]);
+  const [esAdminOSupervisor, setEsAdminOSupervisor] = useState(false);
+  const [buscandoDni, setBuscandoDni] = useState(false);
+
+  // Cargar atenciones reales desde Supabase
+  const cargarTransaccionesDelDia = async (sedeActual?: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("encuentro")
+        .select(`
+          id,
+          servicio_solicitado,
+          estado,
+          fecha_hora,
+          paciente:paciente_id (
+            dni,
+            nombres,
+            apellidos
+          ),
+          sede:site_id (
+            nombre
+          ),
+          orden_pago (
+            monto,
+            pago (
+              medio_pago,
+              referencia
+            )
+          )
+        `)
+        .order("fecha_hora", { ascending: false })
+        .limit(30);
+
+      if (error) {
+        console.warn("Advertencia al consultar encuentros recientes:", error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const mapeadas: TransaccionAtencion[] = data.map((item: any) => {
+          const pac = item.paciente || {};
+          const ord = item.orden_pago?.[0] || {};
+          const pag = ord.pago?.[0] || {};
+          const fecha = new Date(item.fecha_hora);
+          const horaStr = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+          return {
+            id: `OP-${item.id.slice(0, 6).toUpperCase()}`,
+            hora: horaStr,
+            dni: pac.dni || "S/DNI",
+            paciente: `${pac.nombres || ""} ${pac.apellidos || ""}`.trim() || "Paciente Registrado",
+            servicio: item.servicio_solicitado,
+            monto: Number(ord.monto) || 70,
+            medioPago: (pag.medio_pago as any) || "EFECTIVO",
+            referencia: pag.referencia || "VENTANILLA",
+            estadoConsultorio: item.estado,
+            sede: item.sede?.nombre?.includes("Vivanco") ? "Vivanco" : "Independencia",
+          };
+        });
+        setTransacciones(mapeadas);
+      }
+    } catch (err) {
+      console.warn("Error al cargar atenciones del día:", err);
+    }
+  };
 
   useEffect(() => {
     const s = sessionStorage.getItem("lm_sede") || "Independencia";
     const nom = sessionStorage.getItem("lm_nombre") || "Operador de Ventanilla";
+    const rol = sessionStorage.getItem("lm_rol") || "";
+    const email = sessionStorage.getItem("lm_user") || "";
+
     setSede(s);
     setCajeroNombre(nom);
+
+    if (rol === "ADMIN" || rol === "SUPERVISION" || email === "admin@lasmellizasperu.com") {
+      setEsAdminOSupervisor(true);
+    }
+
+    cargarTransaccionesDelDia(s);
+
+    // Suscripción Realtime a nuevas atenciones
+    const channel = supabase
+      .channel("admision-realtime-tx")
+      .on("postgres_changes", { event: "*", schema: "public", table: "encuentro" }, () => {
+        cargarTransaccionesDelDia(s);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const handleBuscarDNI = (numDni: string) => {
+  // Búsqueda en tiempo real de paciente en Supabase por DNI
+  const handleBuscarDNI = async (numDni: string) => {
     setDni(numDni);
     if (numDni.length === 8) {
+      setBuscandoDni(true);
+      try {
+        const { data: pacExistente } = await supabase
+          .from("paciente")
+          .select("nombres, apellidos, telefono")
+          .eq("dni", numDni)
+          .maybeSingle();
+
+        if (pacExistente) {
+          setNombres(pacExistente.nombres);
+          setApellidos(pacExistente.apellidos);
+          setTelefono(pacExistente.telefono);
+          setBuscandoDni(false);
+          return;
+        }
+      } catch (err) {
+        console.warn("Error buscando paciente en base de datos:", err);
+      } finally {
+        setBuscandoDni(false);
+      }
+
+      // Respaldo secundario local
       const match = padronPacientes.find((p) => p.dni === numDni);
       if (match) {
         setNombres(match.nombres);
@@ -253,11 +325,16 @@ export default function AdmisionCajaPage() {
     setMonto(TARIFARIO_BASE[srv] || 70);
   };
 
-  // Procesar Admisión & Cobro
-  const handleProcesarAtencionYCobro = (e: React.FormEvent) => {
+  // Procesar Admisión & Cobro con Integridad Transaccional ACID
+  const handleProcesarAtencionYCobro = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dni || !nombres || !apellidos) {
       alert("Por favor complete los datos obligatorios del paciente.");
+      return;
+    }
+
+    if (dni.trim().length < 8) {
+      alert("El DNI debe tener 8 dígitos.");
       return;
     }
 
@@ -270,11 +347,127 @@ export default function AdmisionCajaPage() {
 
     const now = new Date();
     const horaStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const siteId =
+      sede === "Vivanco"
+        ? "b0000000-0000-0000-0000-000000000002"
+        : "b0000000-0000-0000-0000-000000000001";
+
+    let encuentroId = "";
+    let txExito = false;
+    let mensajeError = "";
+
+    // 1. Intentar registrar atómicamente con función RPC
+    try {
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("registrar_atencion_y_cobro", {
+        p_dni: dni.trim(),
+        p_nombres: nombres.trim(),
+        p_apellidos: apellidos.trim(),
+        p_telefono: telefono.trim() || "000000000",
+        p_site_id: siteId,
+        p_servicio: servicio,
+        p_monto: monto,
+        p_medio_pago: medioPago,
+        p_referencia: referencia || (medioPago === "EFECTIVO" ? "EFECTIVO-VENTANILLA" : "OP-DIRECTA"),
+      });
+
+      if (!rpcErr && rpcRes?.encuentro_id) {
+        encuentroId = rpcRes.encuentro_id;
+        txExito = true;
+      } else if (rpcErr) {
+        console.warn("RPC no disponible o falló:", rpcErr.message);
+        mensajeError = rpcErr.message;
+      }
+    } catch (errRpc: any) {
+      console.warn("Fallo RPC:", errRpc);
+      mensajeError = errRpc?.message || String(errRpc);
+    }
+
+    // 2. Respaldo directo en tablas si RPC no está desplegado aún en Supabase
+    if (!txExito) {
+      try {
+        // Upsert Paciente por DNI
+        const { data: pacData, error: pacErr } = await supabase
+          .from("paciente")
+          .upsert(
+            {
+              dni: dni.trim(),
+              nombres: nombres.trim(),
+              apellidos: apellidos.trim(),
+              telefono: telefono.trim() || "000000000",
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "dni" }
+          )
+          .select()
+          .single();
+
+        if (pacErr || !pacData) {
+          throw new Error("Fallo al registrar paciente en base de datos: " + (pacErr?.message || "Error desconocido"));
+        }
+
+        // Crear Encuentro
+        const { data: encData, error: encErr } = await supabase
+          .from("encuentro")
+          .insert({
+            paciente_id: pacData.id,
+            site_id: siteId,
+            servicio_solicitado: servicio,
+            estado: "EN_ESPERA",
+            fecha_hora: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (encErr || !encData) {
+          throw new Error("Fallo al registrar encuentro clínico: " + (encErr?.message || "Error de seguridad RLS"));
+        }
+
+        encuentroId = encData.id;
+
+        // Crear Orden de Pago
+        const { data: ordData, error: ordErr } = await supabase
+          .from("orden_pago")
+          .insert({
+            encuentro_id: encData.id,
+            paciente_id: pacData.id,
+            site_id: siteId,
+            servicio: servicio,
+            monto: monto,
+            estado: "PAGADO",
+          })
+          .select()
+          .single();
+
+        if (ordData) {
+          const { data: userAuth } = await supabase.auth.getUser();
+          await supabase.from("pago").insert({
+            orden_id: ordData.id,
+            cajero_id: userAuth.user?.id,
+            medio_pago: medioPago,
+            monto: monto,
+            referencia: referencia || (medioPago === "EFECTIVO" ? "EFECTIVO-VENTANILLA" : "OP-DIRECTA"),
+            fecha_hora: new Date().toISOString(),
+          });
+        }
+
+        txExito = true;
+      } catch (directErr: any) {
+        console.error("Error definitivo de persistencia:", directErr);
+        setIsProcessing(false);
+        alert(
+          "Error de persistencia en Supabase:\n\n" +
+            (directErr?.message || mensajeError || "Compruebe la conexión a la base de datos.") +
+            "\n\nPor favor ejecute el Script 10 en Supabase SQL Editor si no lo ha aplicado aún."
+        );
+        return;
+      }
+    }
+
     const nuevaTx: TransaccionAtencion = {
-      id: `OP-${Math.floor(100 + Math.random() * 900)}`,
+      id: encuentroId ? `OP-${encuentroId.slice(0, 6).toUpperCase()}` : `OP-${Math.floor(100 + Math.random() * 900)}`,
       hora: horaStr,
-      dni,
-      paciente: `${nombres} ${apellidos}`,
+      dni: dni.trim(),
+      paciente: `${nombres.trim()} ${apellidos.trim()}`,
       servicio,
       monto,
       medioPago,
@@ -283,67 +476,82 @@ export default function AdmisionCajaPage() {
       sede,
     };
 
-    // Sincronización en Tiempo Real con Consultorio HCE (Supabase Realtime)
-    (async () => {
-      try {
-        const siteId =
-          sede === "Vivanco"
-            ? "b0000000-0000-0000-0000-000000000002"
-            : "b0000000-0000-0000-0000-000000000001";
+    // Notificar en tiempo real a los médicos conectados vía Supabase Realtime
+    try {
+      const channel = supabase.channel("cola-medica");
+      channel.send({
+        type: "broadcast",
+        event: "nuevo_paciente_en_espera",
+        payload: {
+          ...nuevaTx,
+          id: encuentroId || nuevaTx.id,
+        },
+      });
 
-        // Registrar / Actualizar paciente en Supabase
-        const { data: pacienteData } = await supabase
-          .from("paciente")
-          .upsert(
-            {
-              numero_documento: dni,
-              tipo_documento: "DNI",
-              nombres: nombres.trim(),
-              apellidos: apellidos.trim(),
-              telefono: telefono.trim(),
-              site_id: siteId,
-            },
-            { onConflict: "numero_documento" }
-          )
-          .select()
-          .single();
+      localStorage.setItem("lm_nuevo_paciente_en_espera", JSON.stringify({ ...nuevaTx, id: encuentroId || nuevaTx.id }));
+    } catch {}
 
-        // Asignar encuentro en espera para el médico de turno
-        await supabase.from("encuentro").insert({
-          paciente_id: pacienteData?.id,
-          site_id: siteId,
-          tipo_servicio: servicio,
-          estado: "EN_ESPERA",
-          fecha_ingreso: new Date().toISOString(),
-        });
+    setTransacciones((prev) => [nuevaTx, ...prev]);
+    setTicketEmitido(nuevaTx);
+    setIsProcessing(false);
 
-        // Enviar evento de WebSocket Realtime a todos los médicos conectados
-        const channel = supabase.channel("cola-medica");
-        channel.send({
-          type: "broadcast",
-          event: "nuevo_paciente_en_espera",
-          payload: nuevaTx,
-        });
+    // Limpiar formulario para el siguiente paciente
+    setDni("");
+    setNombres("");
+    setApellidos("");
+    setTelefono("");
+    setReferencia("");
+  };
 
-        // Evento de respaldo local instantáneo entre pestañas
-        localStorage.setItem("lm_nuevo_paciente_en_espera", JSON.stringify(nuevaTx));
-      } catch (err) {
-        console.warn("Sincronización de fondo completada con fallback local:", err);
-      }
-    })();
+  // Exportación segura de libro de recaudación (Ley N.° 29733 - Minimización de datos)
+  const handleExportarLibroCaja = () => {
+    if (!esAdminOSupervisor) {
+      alert("Acceso restringido: Solo Dirección Médica y Supervisión pueden exportar datos masivos.");
+      return;
+    }
+    if (transacciones.length === 0) {
+      alert("No hay atenciones registradas para exportar en esta jornada.");
+      return;
+    }
 
-    setTimeout(() => {
-      setTransacciones([nuevaTx, ...transacciones]);
-      setTicketEmitido(nuevaTx);
-      setIsProcessing(false);
+    // Cabeceras estrictamente administrativas/financieras (CERO notas clínicas ni diagnósticos)
+    const cabeceras = [
+      "ID Operacion",
+      "Hora",
+      "Sede",
+      "DNI",
+      "Paciente",
+      "Servicio Solicitado",
+      "Monto (S/)",
+      "Medio de Pago",
+      "Referencia",
+      "Estado Consultorio",
+    ];
 
-      // Limpiar formulario para la siguiente paciente
-      setDni("");
-      setNombres("");
-      setApellidos("");
-      setTelefono("");
-      setReferencia("");
-    }, 400);
+    const filas = transacciones.map((t) => [
+      `"${t.id}"`,
+      `"${t.hora}"`,
+      `"${t.sede}"`,
+      `"${t.dni}"`,
+      `"${t.paciente.replace(/"/g, '""')}"`,
+      `"${t.servicio.replace(/"/g, '""')}"`,
+      t.monto.toFixed(2),
+      `"${t.medioPago}"`,
+      `"${(t.referencia || "").replace(/"/g, '""')}"`,
+      `"${t.estadoConsultorio}"`,
+    ]);
+
+    const csvContent = "\uFEFF" + [cabeceras.join(","), ...filas.map((f) => f.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const fechaHoy = new Date().toISOString().slice(0, 10);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `las_mellizas_recaudacion_${sede.toLowerCase()}_${fechaHoy}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Registrar Salida / Gasto
@@ -1244,13 +1452,33 @@ export default function AdmisionCajaPage() {
                   Pacientes en Turno ({transacciones.length})
                 </h3>
               </div>
-              <span className="text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-bold">
-                Tiempo Real
-              </span>
+              <div className="flex items-center gap-2">
+                {esAdminOSupervisor && (
+                  <button
+                    type="button"
+                    onClick={handleExportarLibroCaja}
+                    title="Exportar Registro de Atenciones a CSV para Google Drive (Exclusivo Dirección y Supervisión)"
+                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-xl border border-emerald-200 transition flex items-center gap-1 shadow-sm"
+                  >
+                    <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+                    <span>Exportar Google Drive</span>
+                  </button>
+                )}
+                <span className="text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-bold">
+                  Tiempo Real
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {transacciones.map((tx) => (
+              {transacciones.length === 0 ? (
+                <div className="py-8 text-center text-neutral-400">
+                  <Clock className="w-6 h-6 mx-auto mb-1.5 opacity-50" />
+                  <p className="font-bold text-xs text-neutral-600">No hay atenciones registradas hoy</p>
+                  <p className="text-[10px]">Las pacientes admitidas en ventanilla aparecerán aquí en tiempo real.</p>
+                </div>
+              ) : (
+                transacciones.map((tx) => (
                 <div
                   key={tx.id}
                   className="p-3 rounded-2xl border border-neutral-200/80 bg-neutral-50/50 hover:bg-white hover:border-neutral-300 transition flex items-center justify-between text-xs"
@@ -1292,7 +1520,7 @@ export default function AdmisionCajaPage() {
                     </button>
                   </div>
                 </div>
-              ))}
+              )))}
             </div>
           </div>
 

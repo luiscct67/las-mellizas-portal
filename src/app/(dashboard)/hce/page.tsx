@@ -25,6 +25,7 @@ import { supabase } from "@/lib/supabase/client";
 
 interface PacienteEnConsulta {
   id: string;
+  pacienteId?: string;
   paciente: string;
   dni: string;
   edad: string;
@@ -32,6 +33,9 @@ interface PacienteEnConsulta {
   alergias?: string;
   grupoSanguineo?: string;
   sede: string;
+  estado?: string;
+  telefono?: string;
+  horaLlegada?: string;
 }
 
 interface ImagenAdjunta {
@@ -65,41 +69,18 @@ export default function HcePage() {
   const [profesionalNombre, setProfesionalNombre] = useState<string>("Profesional de Turno");
   const [colegiatura, setColegiatura] = useState<string>("");
 
-  // Pacientes en cola del consultorio
-  const [pacientesCola, setPacientesCola] = useState<PacienteEnConsulta[]>([
-    {
-      id: "enc-001",
-      paciente: "Carla Mendoza Quispe",
-      dni: "45892147",
-      edad: "28 a",
-      servicio: "Control Prenatal Reenfocado",
-      alergias: "Ninguna",
-      grupoSanguineo: "O Rh(+)",
-      sede: "Independencia",
-    },
-    {
-      id: "enc-002",
-      paciente: "Yolanda Flores Huamán",
-      dni: "71245896",
-      edad: "32 a",
-      servicio: "Ecografía Especializada (4D)",
-      alergias: "Penicilina",
-      grupoSanguineo: "A Rh(+)",
-      sede: "Independencia",
-    },
-    {
-      id: "enc-003",
-      paciente: "Roxana Palomino Quispe",
-      dni: "42198754",
-      edad: "25 a",
-      servicio: "Control Prenatal Reenfocado",
-      alergias: "Ninguna",
-      grupoSanguineo: "O Rh(+)",
-      sede: "Vivanco",
-    },
-  ]);
+  // Pacientes en cola del consultorio (Cargados desde Supabase en Tiempo Real)
+  const [pacientesCola, setPacientesCola] = useState<PacienteEnConsulta[]>([]);
+  const [atendidosHoy, setAtendidosHoy] = useState<PacienteEnConsulta[]>([]);
+  const [vistaCola, setVistaCola] = useState<"espera" | "atendidos">("espera");
+  const [isLoadingCola, setIsLoadingCola] = useState<boolean>(true);
+  const [selectedPatient, setSelectedPatient] = useState<PacienteEnConsulta | null>(null);
 
-  const [selectedPatient, setSelectedPatient] = useState<PacienteEnConsulta>(pacientesCola[0]);
+  // Modal de Reversión y Reapertura de Caso Clínico (Control de Calidad / Auditoría)
+  const [showReabrirModal, setShowReabrirModal] = useState<boolean>(false);
+  const [encuentroAReabrir, setEncuentroAReabrir] = useState<PacienteEnConsulta | null>(null);
+  const [motivoReapertura, setMotivoReapertura] = useState<string>("");
+  const [reabriendo, setReabriendo] = useState<boolean>(false);
 
   // Triaje & Funciones Vitales
   const [pa, setPa] = useState("110/70");
@@ -178,68 +159,220 @@ export default function HcePage() {
   const [reagendadaExito, setReagendadaExito] = useState(false);
 
   // ============================================================================
-  // SINCRONIZACIÓN EN TIEMPO REAL: ADMISIÓN A CONSULTORIO HCE (SUPABASE REALTIME)
+  // CARGA REAL DE COLA Y SINCRONIZACIÓN EN TIEMPO REAL (SUPABASE REALTIME)
   // ============================================================================
+  const cargarColaEncuentros = async (sedeActual?: string) => {
+    setIsLoadingCola(true);
+    try {
+      // 1. Cargar pacientes en espera o en atención médica activa
+      const { data: enEspera, error: errEspera } = await supabase
+        .from("encuentro")
+        .select(`
+          id,
+          servicio_solicitado,
+          estado,
+          site_id,
+          fecha_hora,
+          paciente:paciente_id (
+            id,
+            dni,
+            nombres,
+            apellidos,
+            telefono
+          ),
+          sede:site_id (
+            id,
+            nombre
+          )
+        `)
+        .in("estado", ["EN_ESPERA", "EN_ATENCION"])
+        .order("fecha_hora", { ascending: true });
+
+      if (errEspera) {
+        console.warn("Advertencia al consultar encuentros en espera:", errEspera.message);
+      } else if (enEspera) {
+        const mapeados: PacienteEnConsulta[] = enEspera.map((item: any) => ({
+          id: item.id,
+          pacienteId: item.paciente?.id,
+          paciente: item.paciente ? `${item.paciente.nombres} ${item.paciente.apellidos}`.trim() : "Paciente Registrado",
+          dni: item.paciente?.dni || "S/DNI",
+          edad: "28 a",
+          servicio: item.servicio_solicitado,
+          alergias: "Ninguna",
+          grupoSanguineo: "O Rh(+)",
+          sede: item.sede?.nombre?.includes("Vivanco") ? "Vivanco" : "Independencia",
+          estado: item.estado,
+          telefono: item.paciente?.telefono || "",
+          horaLlegada: new Date(item.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }));
+        setPacientesCola(mapeados);
+
+        setSelectedPatient((prev) => {
+          if (prev && mapeados.some((p) => p.id === prev.id)) {
+            return mapeados.find((p) => p.id === prev.id) || prev;
+          }
+          return mapeados.length > 0 ? mapeados[0] : null;
+        });
+      }
+
+      // 2. Cargar atenciones finalizadas hoy
+      const { data: atendidos, error: errAtendidos } = await supabase
+        .from("encuentro")
+        .select(`
+          id,
+          servicio_solicitado,
+          estado,
+          site_id,
+          fecha_hora,
+          paciente:paciente_id (
+            id,
+            dni,
+            nombres,
+            apellidos,
+            telefono
+          ),
+          sede:site_id (
+            id,
+            nombre
+          )
+        `)
+        .eq("estado", "ATENDIDO")
+        .order("updated_at", { ascending: false })
+        .limit(20);
+
+      if (atendidos) {
+        const mapeadosAtendidos: PacienteEnConsulta[] = atendidos.map((item: any) => ({
+          id: item.id,
+          pacienteId: item.paciente?.id,
+          paciente: item.paciente ? `${item.paciente.nombres} ${item.paciente.apellidos}`.trim() : "Paciente Registrado",
+          dni: item.paciente?.dni || "S/DNI",
+          edad: "28 a",
+          servicio: item.servicio_solicitado,
+          alergias: "Ninguna",
+          grupoSanguineo: "O Rh(+)",
+          sede: item.sede?.nombre?.includes("Vivanco") ? "Vivanco" : "Independencia",
+          estado: item.estado,
+          telefono: item.paciente?.telefono || "",
+          horaLlegada: new Date(item.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }));
+        setAtendidosHoy(mapeadosAtendidos);
+      }
+    } catch (err) {
+      console.warn("Error al cargar cola de HCE:", err);
+    } finally {
+      setIsLoadingCola(false);
+    }
+  };
+
   useEffect(() => {
-    const canalEncuentro = supabase
-      .channel("cola-medica")
-      .on("broadcast", { event: "nuevo_paciente_en_espera" }, ({ payload }) => {
-        if (payload) {
-          setPacientesCola((prev) => {
-            if (prev.some((p) => p.dni === payload.dni)) return prev;
-            return [
-              {
-                id: payload.id,
-                paciente: payload.paciente,
-                dni: payload.dni,
-                edad: "28 a",
-                servicio: payload.servicio,
-                alergias: "Ninguna",
-                grupoSanguineo: "O Rh(+)",
-                sede: payload.sede || sede,
-              },
-              ...prev,
-            ];
-          });
-        }
+    const s = sessionStorage.getItem("lm_sede") || "Independencia";
+    const nom = sessionStorage.getItem("lm_nombre") || "Profesional de Turno";
+    const col = sessionStorage.getItem("lm_colegiatura") || "";
+    setSede(s);
+    setProfesionalNombre(nom);
+    setColegiatura(col);
+
+    cargarColaEncuentros(s);
+
+    // Suscripción Realtime a eventos de postgres y broadcast
+    const canalCambios = supabase
+      .channel("hce-realtime-encuentros")
+      .on("postgres_changes", { event: "*", schema: "public", table: "encuentro" }, () => {
+        cargarColaEncuentros(s);
+      })
+      .on("broadcast", { event: "nuevo_paciente_en_espera" }, () => {
+        cargarColaEncuentros(s);
       })
       .subscribe();
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "lm_nuevo_paciente_en_espera" && e.newValue) {
-        try {
-          const payload = JSON.parse(e.newValue);
-          setPacientesCola((prev) => {
-            if (prev.some((p) => p.dni === payload.dni)) return prev;
-            return [
-              {
-                id: payload.id,
-                paciente: payload.paciente,
-                dni: payload.dni,
-                edad: "28 a",
-                servicio: payload.servicio,
-                alergias: "Ninguna",
-                grupoSanguineo: "O Rh(+)",
-                sede: payload.sede || sede,
-              },
-              ...prev,
-            ];
-          });
-        } catch {}
+      if (e.key === "lm_nuevo_paciente_en_espera") {
+        cargarColaEncuentros(s);
       }
     };
     window.addEventListener("storage", onStorage);
 
     return () => {
-      supabase.removeChannel(canalEncuentro);
+      supabase.removeChannel(canalCambios);
       window.removeEventListener("storage", onStorage);
     };
-  }, [sede]);
+  }, []);
+
+  // Transición a EN_ATENCION al seleccionar paciente y carga de nota clínica previa
+  const handleSeleccionarPaciente = async (p: PacienteEnConsulta) => {
+    setSelectedPatient(p);
+    setIsSealed(false);
+    setSealedHash(null);
+
+    // Cargar nota clínica previa si existe en Supabase
+    try {
+      const { data: notaExistente } = await supabase
+        .from("nota_clinica")
+        .select("*")
+        .eq("encuentro_id", p.id)
+        .maybeSingle();
+
+      if (notaExistente) {
+        if (notaExistente.motivo_consulta) setMotivo(notaExistente.motivo_consulta);
+        if (notaExistente.antecedentes) setAntecedentes(notaExistente.antecedentes);
+        if (notaExistente.plan_trabajo) setPlanTratamiento(notaExistente.plan_trabajo);
+        if (notaExistente.diagnostico_cie10) {
+          try {
+            setDiagnosticos(JSON.parse(notaExistente.diagnostico_cie10));
+          } catch {}
+        }
+        if (notaExistente.examen_fisico) {
+          try {
+            const ef = JSON.parse(notaExistente.examen_fisico);
+            if (ef.pa) setPa(ef.pa);
+            if (ef.fc) setFc(ef.fc);
+            if (ef.fr) setFr(ef.fr);
+            if (ef.temp) setTemp(ef.temp);
+            if (ef.satO2) setSatO2(ef.satO2);
+            if (ef.peso) setPeso(ef.peso);
+            if (ef.talla) setTalla(ef.talla);
+            if (ef.formulaG) setFormulaG(ef.formulaG);
+            if (ef.formulaP) setFormulaP(ef.formulaP);
+            if (ef.fur) setFur(ef.fur);
+            if (ef.fpp) setFpp(ef.fpp);
+            if (ef.eg) setEg(ef.eg);
+            if (ef.alturaUterina) setAlturaUterina(ef.alturaUterina);
+            if (ef.lcf) setLcf(ef.lcf);
+            if (ef.presentacion) setPresentacion(ef.presentacion);
+            if (ef.detalles) setExamenFisico(ef.detalles);
+          } catch {}
+        }
+        if (notaExistente.cerrada && notaExistente.hash_firma) {
+          setIsSealed(true);
+          setSealedHash(notaExistente.hash_firma);
+        }
+      } else {
+        setMotivo(`Atención de ${p.servicio}. Paciente acude para evaluación y control.`);
+      }
+    } catch (err) {
+      console.warn("Error cargando nota clínica previa:", err);
+    }
+
+    if (p.estado === "EN_ESPERA") {
+      try {
+        await supabase
+          .from("encuentro")
+          .update({ estado: "EN_ATENCION", updated_at: new Date().toISOString() })
+          .eq("id", p.id);
+
+        setPacientesCola((prev) =>
+          prev.map((item) => (item.id === p.id ? { ...item, estado: "EN_ATENCION" } : item))
+        );
+      } catch (err) {
+        console.warn("No se pudo actualizar estado a EN_ATENCION:", err);
+      }
+    }
+  };
 
   const generarEnlaceWhatsApp = () => {
-    const tel = "966123456";
+    const tel = selectedPatient?.telefono || "966123456";
     const msg = `*Consultorio Obstétrico Ecográfico Las Mellizas* 🩺✨%0A%0AEstimada paciente *${encodeURIComponent(
-      selectedPatient.paciente
+      selectedPatient?.paciente || "Paciente"
     )}*:%0A%0ALe confirmamos su próxima cita de control médico programada:%0A📅 *Fecha:* ${
       reagendarFecha || "Por coordinar"
     }%0A⏰ *Hora:* ${reagendarHora}%0A🏥 *Sede:* ${reagendarSede}%0A📋 *Servicio:* ${encodeURIComponent(
@@ -253,6 +386,10 @@ export default function HcePage() {
     e.preventDefault();
     if (!reagendarFecha) {
       alert("Por favor seleccione la fecha de la próxima cita.");
+      return;
+    }
+    if (!selectedPatient) {
+      alert("No hay paciente seleccionado.");
       return;
     }
     try {
@@ -270,31 +407,20 @@ export default function HcePage() {
 
   // ============================================================================
   // AUTOGUARDADO SILENCIOSO (SILENT DEBOUNCE 3000ms)
-  // Guarda en segundo plano sin interrumpir ni recargar.
   // ============================================================================
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("saved");
   const [lastSavedTime, setLastSavedTime] = useState<string>("08:40:12");
   const isFirstRender = useRef(true);
 
   useEffect(() => {
-    const s = sessionStorage.getItem("lm_sede") || "Independencia";
-    const nom = sessionStorage.getItem("lm_nombre") || "Profesional de Turno";
-    const col = sessionStorage.getItem("lm_colegiatura") || "";
-    setSede(s);
-    setProfesionalNombre(nom);
-    setColegiatura(col);
-  }, []);
-
-  useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    if (isSealed) return;
+    if (isSealed || !selectedPatient) return;
 
     setSaveStatus("saving");
     const handler = setTimeout(() => {
-      // Simulación de escritura silenciosa en Supabase (tabla nota_clinica borrador)
       setSaveStatus("saved");
       setLastSavedTime(new Date().toLocaleTimeString("es-PE"));
     }, 3000);
@@ -312,16 +438,150 @@ export default function HcePage() {
     setMostrarSugerenciasCie(false);
   };
 
-  const handleSellarNota = () => {
+  // Sellar y Firmar HCE con Persistencia Real y Cierre del Encuentro
+  const handleSellarNota = async () => {
+    if (!selectedPatient) return;
     if (diagnosticos.length === 0) {
       alert("Debe registrar al menos un código CIE-10 antes de sellar.");
       return;
     }
+
     const hash = Array.from(crypto.getRandomValues(new Uint8Array(16)))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
-    setSealedHash(hash);
-    setIsSealed(true);
+
+    try {
+      const { data: userAuth } = await supabase.auth.getUser();
+
+      // 1. Guardar nota clínica en Supabase
+      const { error: notaErr } = await supabase.from("nota_clinica").upsert(
+        {
+          encuentro_id: selectedPatient.id,
+          paciente_id: selectedPatient.pacienteId,
+          profesional_id: userAuth.user?.id,
+          motivo_consulta: motivo,
+          antecedentes: antecedentes,
+          examen_fisico: JSON.stringify({
+            pa,
+            fc,
+            fr,
+            temp,
+            satO2,
+            peso,
+            talla,
+            imc,
+            formulaG,
+            formulaP,
+            fur,
+            fpp,
+            eg,
+            alturaUterina,
+            lcf,
+            presentacion,
+            detalles: examenFisico,
+          }),
+          diagnostico_cie10: JSON.stringify(diagnosticos),
+          plan_trabajo: planTratamiento,
+          cerrada: true,
+          fecha_cierre: new Date().toISOString(),
+          hash_firma: hash,
+        },
+        { onConflict: "encuentro_id" }
+      );
+
+      if (notaErr) {
+        console.warn("Advertencia al guardar nota clínica:", notaErr.message);
+      }
+
+      // 2. Marcar encuentro como ATENDIDO
+      const { error: encErr } = await supabase
+        .from("encuentro")
+        .update({ estado: "ATENDIDO", updated_at: new Date().toISOString() })
+        .eq("id", selectedPatient.id);
+
+      if (encErr) {
+        console.warn("Advertencia al actualizar estado de encuentro:", encErr.message);
+      }
+
+      // 3. Registrar en auditoría
+      if (userAuth.user?.id) {
+        await supabase.from("auditoria").insert({
+          usuario_id: userAuth.user.id,
+          site_id: sede === "Vivanco" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000001",
+          accion: "SELLO_NOTA_CLINICA",
+          entidad: "nota_clinica",
+          entidad_id: selectedPatient.id,
+          detalle: {
+            paciente: selectedPatient.paciente,
+            dni: selectedPatient.dni,
+            hash_firma: hash,
+          },
+        });
+      }
+
+      setSealedHash(hash);
+      setIsSealed(true);
+
+      // Recargar cola de pacientes de Supabase
+      await cargarColaEncuentros();
+    } catch (err: any) {
+      alert("Error al sellar historia clínica:\n" + (err?.message || err));
+    }
+  };
+
+  // Reversión / Reapertura autorizada de un caso clínico cerrado
+  const handleEjecutarReversion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!encuentroAReabrir) return;
+    if (motivoReapertura.trim().length < 5) {
+      alert("Debe ingresar una justificación u observación obligatoria de al menos 5 caracteres.");
+      return;
+    }
+
+    setReabriendo(true);
+    try {
+      // Intentar mediante RPC
+      const { error: rpcErr } = await supabase.rpc("revertir_estado_encuentro", {
+        p_encuentro_id: encuentroAReabrir.id,
+        p_nuevo_estado: "EN_ATENCION",
+        p_motivo: motivoReapertura.trim(),
+      });
+
+      if (rpcErr) {
+        // Fallback directo a tablas
+        await supabase
+          .from("encuentro")
+          .update({ estado: "EN_ATENCION", updated_at: new Date().toISOString() })
+          .eq("id", encuentroAReabrir.id);
+
+        const { data: userAuth } = await supabase.auth.getUser();
+        if (userAuth.user?.id) {
+          await supabase.from("auditoria").insert({
+            usuario_id: userAuth.user.id,
+            accion: "REVERSION_ESTADO_ENCUENTRO_MANUAL",
+            entidad: "encuentro",
+            entidad_id: encuentroAReabrir.id,
+            detalle: {
+              motivo: motivoReapertura.trim(),
+              nuevo_estado: "EN_ATENCION",
+            },
+          });
+        }
+      }
+
+      setShowReabrirModal(false);
+      setMotivoReapertura("");
+      setVistaCola("espera");
+      await cargarColaEncuentros();
+      setSelectedPatient({ ...encuentroAReabrir, estado: "EN_ATENCION" });
+      setIsSealed(false);
+      setSealedHash(null);
+      alert(`El encuentro de ${encuentroAReabrir.paciente} fue reabierto y colocado en atención activa.`);
+    } catch (err: any) {
+      alert("Error al reabrir el caso clínico:\n" + (err?.message || err));
+    } finally {
+      setReabriendo(false);
+    }
   };
 
   const handleGuardarAdenda = (e: React.FormEvent) => {
@@ -341,6 +601,10 @@ export default function HcePage() {
     (p) => sede === "Todas las Sedes" || p.sede === sede
   );
 
+  const atendidosFiltrados = atendidosHoy.filter(
+    (p) => sede === "Todas las Sedes" || p.sede === sede
+  );
+
   return (
     <div className="space-y-3 max-w-[1600px] mx-auto text-xs">
       {/* Barra de Control Clínico & Autoguardado */}
@@ -355,9 +619,13 @@ export default function HcePage() {
           <span className="text-neutral-300">&bull;</span>
           <div className="flex items-center gap-1.5">
             <span className="text-neutral-500">Paciente:</span>
-            <span className="font-bold text-neutral-900">{selectedPatient.paciente}</span>
-            <span className="font-mono text-neutral-400">({selectedPatient.dni})</span>
-            {selectedPatient.alergias && selectedPatient.alergias !== "Ninguna" && (
+            <span className="font-bold text-neutral-900">
+              {selectedPatient ? selectedPatient.paciente : "Ningún paciente seleccionado"}
+            </span>
+            {selectedPatient && (
+              <span className="font-mono text-neutral-400">({selectedPatient.dni})</span>
+            )}
+            {selectedPatient?.alergias && selectedPatient.alergias !== "Ninguna" && (
               <span className="text-[10px] font-bold bg-rose-50 text-rose-700 px-1.5 py-0.2 rounded border border-rose-200 flex items-center gap-0.5">
                 <AlertTriangle className="w-2.5 h-2.5" />
                 {selectedPatient.alergias}
@@ -386,7 +654,8 @@ export default function HcePage() {
           {!isSealed ? (
             <button
               onClick={handleSellarNota}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-black text-white font-bold rounded-lg transition"
+              disabled={!selectedPatient}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-black text-white font-bold rounded-lg transition disabled:opacity-40"
             >
               <Lock className="w-3 h-3" />
               <span>Sellar & Firmar HCE</span>
@@ -409,34 +678,107 @@ export default function HcePage() {
         {/* COLUMNA 1: COLA DE SEDE, TRIAJE & OBSTÉTRICO (3 columnas)           */}
         {/* ================================================================== */}
         <div className="lg:col-span-3 space-y-3">
-          {/* Selector Rápido de Pacientes en Espera */}
+          {/* Selector Rápido de Pacientes en Espera / Atendidos */}
           <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-1.5">
-              <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                Pacientes en Espera ({pacientesFiltrados.length})
+              <div className="flex items-center gap-1 bg-neutral-100 p-0.5 rounded-lg text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setVistaCola("espera")}
+                  className={`px-2 py-0.5 rounded-md transition ${
+                    vistaCola === "espera"
+                      ? "bg-white text-neutral-900 shadow-xs"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  En Espera ({pacientesFiltrados.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVistaCola("atendidos")}
+                  className={`px-2 py-0.5 rounded-md transition ${
+                    vistaCola === "atendidos"
+                      ? "bg-white text-neutral-900 shadow-xs"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  Atendidos ({atendidosFiltrados.length})
+                </button>
+              </div>
+              <span className="text-[10px] text-neutral-400 font-mono">
+                {sede}
               </span>
             </div>
-            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-              {pacientesFiltrados.map((p) => {
-                const isSelected = p.id === selectedPatient.id;
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => setSelectedPatient(p)}
-                    className={`p-2 rounded-lg border text-left cursor-pointer transition ${
-                      isSelected
-                        ? "border-neutral-900 bg-neutral-50 font-bold"
-                        : "border-neutral-100 hover:border-neutral-200"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-900 truncate">{p.paciente}</span>
-                      <span className="font-mono text-[10px] text-neutral-400">{p.edad}</span>
-                    </div>
-                    <span className="text-[10px] text-neutral-500 block truncate">{p.servicio}</span>
+
+            <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+              {vistaCola === "espera" ? (
+                pacientesFiltrados.length === 0 ? (
+                  <div className="py-6 text-center text-neutral-400">
+                    <Clock className="w-5 h-5 mx-auto mb-1 opacity-40" />
+                    <p className="font-bold text-[11px] text-neutral-600">No hay pacientes en espera</p>
+                    <p className="text-[10px] text-neutral-400">Las admisiones ingresadas aparecerán automáticamente.</p>
                   </div>
-                );
-              })}
+                ) : (
+                  pacientesFiltrados.map((p) => {
+                    const isSelected = selectedPatient?.id === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => handleSeleccionarPaciente(p)}
+                        className={`p-2 rounded-lg border text-left cursor-pointer transition ${
+                          isSelected
+                            ? "border-neutral-900 bg-neutral-50 font-bold"
+                            : "border-neutral-100 hover:border-neutral-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-neutral-900 truncate">{p.paciente}</span>
+                          <span className="text-[9px] px-1 py-0.2 rounded font-mono font-bold bg-neutral-100 text-neutral-600">
+                            {p.estado === "EN_ATENCION" ? "EN ATENCIÓN" : "EN ESPERA"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-neutral-500 mt-0.5">
+                          <span className="truncate">{p.servicio}</span>
+                          <span className="font-mono text-neutral-400 shrink-0">{p.horaLlegada || p.edad}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )
+              ) : (
+                atendidosFiltrados.length === 0 ? (
+                  <div className="py-6 text-center text-neutral-400">
+                    <CheckCircle2 className="w-5 h-5 mx-auto mb-1 opacity-40 text-emerald-500" />
+                    <p className="font-bold text-[11px] text-neutral-600">No hay atenciones finalizadas hoy</p>
+                  </div>
+                ) : (
+                  atendidosFiltrados.map((p) => (
+                    <div
+                      key={p.id}
+                      className="p-2 rounded-lg border border-emerald-100 bg-emerald-50/30 text-left transition flex items-center justify-between gap-2"
+                    >
+                      <div className="truncate">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-neutral-900 truncate">{p.paciente}</span>
+                          <span className="text-[9px] text-neutral-400 font-mono">({p.dni})</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-500 block truncate">{p.servicio}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEncuentroAReabrir(p);
+                          setShowReabrirModal(true);
+                        }}
+                        title="Reabrir caso clínico por error material u omisión"
+                        className="px-2 py-1 bg-white hover:bg-neutral-100 text-neutral-800 font-bold text-[10px] rounded border border-neutral-200 transition shrink-0"
+                      >
+                        Reabrir
+                      </button>
+                    </div>
+                  ))
+                )
+              )}
             </div>
           </div>
 
@@ -948,6 +1290,58 @@ export default function HcePage() {
                   className="px-4 py-1.5 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-lg"
                 >
                   Firmar Adenda
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Reabrir Caso Clínico (Reversión Auditada) */}
+      {showReabrirModal && encuentroAReabrir && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-5 max-w-md w-full shadow-xl border border-neutral-200 space-y-3">
+            <div className="flex items-center gap-2 text-neutral-900 border-b border-neutral-100 pb-2">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              <h3 className="font-bold text-sm">Reabrir Caso Clínico (Reversión Auditada)</h3>
+            </div>
+            <p className="text-xs text-neutral-600">
+              Está solicitando reabrir el encuentro de <strong>{encuentroAReabrir.paciente}</strong> (DNI: {encuentroAReabrir.dni}). El estado volverá a <strong>EN ATENCIÓN</strong> para permitir correcciones médicas.
+            </p>
+            <p className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
+              Conforme a la NTS N.º 139-MINSA, esta acción quedará registrada permanentemente en el libro inalterable de auditoría con su usuario y hora exacta.
+            </p>
+            <form onSubmit={handleEjecutarReversion} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                  Motivo o Justificación Obligatoria * (Mín. 5 caracteres)
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={motivoReapertura}
+                  onChange={(e) => setMotivoReapertura(e.target.value)}
+                  placeholder="Ej. Corrección de dosis farmacológica / complementación de triaje..."
+                  className="w-full p-2.5 border border-neutral-300 rounded-lg text-xs focus:ring-1 focus:ring-neutral-900 bg-white"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReabrirModal(false);
+                    setMotivoReapertura("");
+                  }}
+                  className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={reabriendo || motivoReapertura.trim().length < 5}
+                  className="px-4 py-1.5 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                >
+                  {reabriendo ? "Reabriendo..." : "Confirmar Reapertura"}
                 </button>
               </div>
             </form>
