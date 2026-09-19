@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   ShieldAlert,
   Trash2,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
@@ -84,8 +86,39 @@ export default function SupervisionPage() {
   const [usuarioAEliminar, setUsuarioAEliminar] = useState<UsuarioCredencial | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Modal cambio voluntario de clave del Administrador General
+  const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
+  const [adminNewPassword, setAdminNewPassword] = useState("");
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState("");
+  const [isAdminPasswordSaving, setIsAdminPasswordSaving] = useState(false);
+  const [adminPasswordMsg, setAdminPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   const cargarPersonal = async () => {
     try {
+      // 1. Prioridad: Consulta en vivo con el cliente Supabase (autenticado como Admin)
+      const { data: dbProfiles, error: dbError } = await supabase
+        .from("perfil_usuario")
+        .select("*, sede:site_id(nombre)")
+        .order("created_at", { ascending: false });
+
+      if (!dbError && dbProfiles && dbProfiles.length > 0) {
+        setUsuarios(
+          dbProfiles.map((p: any) => ({
+            id: p.id,
+            email: p.email,
+            nombre: p.nombre_completo,
+            rol: p.rol === "RECEPCION" || p.rol === "CAJA" ? "RECEPCION_CAJA" : p.rol,
+            sede: p.sede?.nombre || (p.site_id === "b0000000-0000-0000-0000-000000000002" ? "Vivanco" : p.site_id ? "Independencia" : "Todas las Sedes"),
+            colegiatura: p.colegiatura,
+            especialidad: p.especialidad,
+            cargo: p.especialidad || (p.rol === "PROFESIONAL" ? "Médico / Obstetra" : "Admisión & Caja"),
+            activo: p.activo !== false,
+          }))
+        );
+        return;
+      }
+
+      // 2. Fallback: Server Action
       const res = await obtenerColaboradoresReales();
       if (res.success && res.colaboradores.length > 0) {
         setUsuarios(
@@ -94,43 +127,33 @@ export default function SupervisionPage() {
             email: p.email,
             nombre: p.nombre_completo,
             rol: p.rol === "RECEPCION" || p.rol === "CAJA" ? "RECEPCION_CAJA" : p.rol,
-            sede: p.sede?.nombre || (p.site_id ? "Independencia" : "Todas las Sedes"),
+            sede: p.sede?.nombre || (p.site_id === "b0000000-0000-0000-0000-000000000002" ? "Vivanco" : p.site_id ? "Independencia" : "Todas las Sedes"),
             colegiatura: p.colegiatura,
             especialidad: p.especialidad,
             cargo: p.especialidad || (p.rol === "PROFESIONAL" ? "Médico / Obstetra" : "Admisión & Caja"),
-            activo: p.activo,
+            activo: p.activo !== false,
           }))
         );
-      } else {
-        setUsuarios(
-          PADRON_OFICIAL_AUTORIZADO.map((cta, idx) => ({
-            id: `padron-${idx}`,
-            email: cta.email,
-            nombre: cta.nombre,
-            rol: cta.rol,
-            sede: cta.sede === "Central" ? "Todas las Sedes" : cta.sede,
-            colegiatura: cta.colegiatura,
-            especialidad: cta.especialidad,
-            cargo: cta.cargo,
-            activo: true,
-          }))
-        );
+        return;
       }
-    } catch {
-      setUsuarios(
-        PADRON_OFICIAL_AUTORIZADO.map((cta, idx) => ({
-          id: `padron-${idx}`,
-          email: cta.email,
-          nombre: cta.nombre,
-          rol: cta.rol,
-          sede: cta.sede === "Central" ? "Todas las Sedes" : cta.sede,
-          colegiatura: cta.colegiatura,
-          especialidad: cta.especialidad,
-          cargo: cta.cargo,
-          activo: true,
-        }))
-      );
+    } catch (err) {
+      console.error("Error al sincronizar personal:", err);
     }
+
+    // 3. Fallback defensivo padrón oficial
+    setUsuarios(
+      PADRON_OFICIAL_AUTORIZADO.map((cta, idx) => ({
+        id: `padron-${idx}`,
+        email: cta.email,
+        nombre: cta.nombre,
+        rol: cta.rol,
+        sede: cta.sede === "Central" ? "Todas las Sedes" : cta.sede,
+        colegiatura: cta.colegiatura,
+        especialidad: cta.especialidad,
+        cargo: cta.cargo,
+        activo: true,
+      }))
+    );
   };
 
   useEffect(() => {
@@ -277,25 +300,126 @@ export default function SupervisionPage() {
     }
 
     setIsSavingUser(true);
-    const res = await registrarOActualizarColaboradorReal({
-      id: usuarioEditando.id,
-      email: editEmail,
-      nombre: editNombre,
-      rol: editRol,
-      sede: editSede,
-      colegiatura: editColegiatura,
-      especialidad: editEspecialidad,
-      cargo: editCargo,
-      activo: editActivo,
-    });
+    const cleanEmail = editEmail.trim().toLowerCase();
+    const cleanNombre = editNombre.trim();
+    const cleanColegiatura = editColegiatura.trim() || null;
+    const cleanEspecialidad = editEspecialidad.trim() || null;
+    const siteId = editSede === "Vivanco" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000001";
+
+    let success = false;
+    let errorMessage = "";
+
+    // 1. Si tenemos un UUID válido, intentar actualizar directamente con el cliente Supabase
+    const isRealUuid = Boolean(usuarioEditando.id && !usuarioEditando.id.startsWith("padron-"));
+    if (isRealUuid) {
+      try {
+        const { error: rpcErr } = await supabase.rpc("actualizar_perfil_colaborador", {
+          p_id: usuarioEditando.id,
+          p_nombre: cleanNombre,
+          p_rol: editRol,
+          p_site_id: siteId,
+          p_colegiatura: cleanColegiatura,
+          p_especialidad: cleanEspecialidad,
+          p_activo: editActivo,
+          p_email: cleanEmail,
+        });
+
+        if (!rpcErr) {
+          success = true;
+        } else {
+          // Intentar actualización directa en perfil_usuario
+          const { error: updateErr } = await supabase
+            .from("perfil_usuario")
+            .update({
+              email: cleanEmail,
+              nombre_completo: cleanNombre,
+              rol: editRol,
+              site_id: siteId,
+              colegiatura: cleanColegiatura,
+              especialidad: cleanEspecialidad,
+              activo: editActivo,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", usuarioEditando.id);
+
+          if (!updateErr) {
+            success = true;
+          } else {
+            errorMessage = updateErr.message;
+          }
+        }
+      } catch (err: any) {
+        errorMessage = err.message;
+      }
+    }
+
+    // 2. Fallback a Server Action (soporta también mapeo con emailAnterior)
+    if (!success) {
+      const res = await registrarOActualizarColaboradorReal({
+        id: usuarioEditando.id,
+        email: cleanEmail,
+        emailAnterior: usuarioEditando.email,
+        nombre: cleanNombre,
+        rol: editRol,
+        sede: editSede,
+        colegiatura: cleanColegiatura || undefined,
+        especialidad: cleanEspecialidad || undefined,
+        cargo: editCargo,
+        activo: editActivo,
+      });
+
+      if (res.success) {
+        success = true;
+      } else {
+        errorMessage = res.error || errorMessage || "Error al actualizar perfil";
+      }
+    }
+
     setIsSavingUser(false);
 
-    if (res.success) {
+    if (success) {
       setUsuarioEditando(null);
       await cargarPersonal();
-      alert("✅ Cambios guardados exitosamente para " + editNombre);
+      alert("✅ Cambios guardados exitosamente para " + cleanNombre);
     } else {
-      alert("❌ Error al actualizar colaborador: " + res.error);
+      alert("❌ Error al actualizar colaborador: " + errorMessage);
+    }
+  };
+
+  const handleCambiarPasswordAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminPasswordMsg(null);
+
+    if (adminNewPassword.length < 8) {
+      setAdminPasswordMsg({ type: "error", text: "La contraseña debe contener al menos 8 caracteres." });
+      return;
+    }
+    if (adminNewPassword !== adminConfirmPassword) {
+      setAdminPasswordMsg({ type: "error", text: "Las contraseñas ingresadas no coinciden." });
+      return;
+    }
+
+    setIsAdminPasswordSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: adminNewPassword,
+      });
+
+      if (error) {
+        setAdminPasswordMsg({ type: "error", text: error.message });
+      } else {
+        setAdminPasswordMsg({ type: "success", text: "Contraseña de Administrador General actualizada exitosamente." });
+        setTimeout(() => {
+          setShowAdminPasswordModal(false);
+          setAdminNewPassword("");
+          setAdminConfirmPassword("");
+          setAdminPasswordMsg(null);
+        }, 2000);
+      }
+    } catch (err: any) {
+      setAdminPasswordMsg({ type: "error", text: err.message || "Error al actualizar la contraseña." });
+    } finally {
+      setIsAdminPasswordSaving(false);
     }
   };
 
@@ -335,6 +459,15 @@ export default function SupervisionPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => setShowAdminPasswordModal(true)}
+              className="inline-flex items-center gap-1.5 bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-sm transition"
+            >
+              <KeyRound className="w-4 h-4 text-brand-700" />
+              <span>Cambiar mi Contraseña</span>
+            </button>
+          )}
           {activeTab === "personal" && isAdmin && (
             <button
               onClick={() => setShowNewUserModal(true)}
@@ -985,6 +1118,114 @@ export default function SupervisionPage() {
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cambio de Contraseña del Administrador General */}
+      {showAdminPasswordModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-neutral-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center font-bold">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-neutral-900">Cambiar Mi Contraseña de Administrador</h3>
+                  <p className="text-[11px] text-neutral-500">Dirección Médica & Gobernanza (admin@lasmellizasperu.com)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAdminPasswordModal(false);
+                  setAdminPasswordMsg(null);
+                }}
+                className="p-1 hover:bg-neutral-100 rounded-lg text-neutral-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {adminPasswordMsg && (
+              <div
+                className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
+                  adminPasswordMsg.type === "success"
+                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                    : "bg-rose-50 text-rose-800 border border-rose-200"
+                }`}
+              >
+                {adminPasswordMsg.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                )}
+                <span>{adminPasswordMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCambiarPasswordAdmin} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Nueva Contraseña Privada *
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={adminNewPassword}
+                  onChange={(e) => setAdminNewPassword(e.target.value)}
+                  placeholder="Mínimo 8 caracteres (letras, números, símbolos)"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-brand-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">
+                  Confirmar Nueva Contraseña *
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={adminConfirmPassword}
+                  onChange={(e) => setAdminConfirmPassword(e.target.value)}
+                  placeholder="Repita la nueva contraseña exactamente"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-brand-700"
+                />
+              </div>
+
+              <p className="text-[11px] text-neutral-500 bg-neutral-50 p-2.5 rounded-xl border border-neutral-200 leading-relaxed">
+                ℹ️ Esta acción actualizará de forma criptográfica su credencial en <strong>Supabase Auth</strong>. Asegúrese de guardar o recordar su nueva clave para futuros ingresos.
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminPasswordModal(false);
+                    setAdminPasswordMsg(null);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAdminPasswordSaving}
+                  className="px-5 py-2 text-xs font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl shadow inline-flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  {isAdminPasswordSaving ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Actualizando...</span>
+                    </>
+                  ) : (
+                    <span>Actualizar Mi Contraseña</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

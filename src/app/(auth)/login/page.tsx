@@ -122,13 +122,21 @@ export default function LoginPage() {
         try {
           const { data: profile } = await supabase
             .from("perfil_usuario")
-            .select("*")
+            .select("*, sede:site_id(nombre)")
             .eq("id", data.user.id)
-            .single();
+            .maybeSingle();
 
           if (profile) {
+            if (profile.activo === false) {
+              await supabase.auth.signOut();
+              sessionStorage.clear();
+              setErrorMsg("Acceso denegado: Esta cuenta institucional se encuentra inactiva. Comuníquese con la Dirección Médica.");
+              setLoading(false);
+              return;
+            }
             userRole = profile.rol;
             nombreCompleto = profile.nombre_completo || nombreCompleto;
+            if (profile.sede?.nombre) sedeNombre = profile.sede.nombre;
             if (profile.colegiatura) colegiatura = profile.colegiatura;
           }
         } catch {

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 export interface ColaboradorDTO {
   id?: string;
   email: string;
+  emailAnterior?: string;
   nombre: string;
   rol: "RECEPCION_CAJA" | "PROFESIONAL" | "SUPERVISION" | "ADMIN";
   sede: "Independencia" | "Vivanco" | "Todas las Sedes";
@@ -38,7 +39,19 @@ export async function registrarOActualizarColaboradorReal(data: ColaboradorDTO) 
     const hasValidUuid = Boolean(data.id && !data.id.startsWith("padron-"));
     let targetUserId = hasValidUuid ? data.id! : null;
 
-    // Si no tenemos UUID, buscar si ya existe en perfil_usuario por email
+    // Si no tenemos UUID, buscar si ya existe en perfil_usuario por email anterior o actual
+    if (!targetUserId && data.emailAnterior) {
+      const cleanOld = data.emailAnterior.trim().toLowerCase();
+      const { data: prevProfile } = await supabase
+        .from("perfil_usuario")
+        .select("id")
+        .eq("email", cleanOld)
+        .maybeSingle();
+      if (prevProfile?.id) {
+        targetUserId = prevProfile.id;
+      }
+    }
+
     if (!targetUserId) {
       const { data: existingProfile } = await supabase
         .from("perfil_usuario")
@@ -55,18 +68,44 @@ export async function registrarOActualizarColaboradorReal(data: ColaboradorDTO) 
     // MODO EDICIÓN: Si el colaborador ya existe, actualizar su perfil directamente
     // =========================================================================
     if (targetUserId) {
-      // 1. Intentar actualizar mediante función RPC segura
-      const { error: rpcUpdateError } = await supabase.rpc("actualizar_perfil_colaborador", {
-        p_id: targetUserId,
-        p_nombre: cleanNombre,
-        p_rol: data.rol,
-        p_site_id: siteId,
-        p_colegiatura: cleanColegiatura,
-        p_especialidad: cleanEspecialidad,
-        p_activo: isActivo,
-      });
+      // 1. Intentar actualizar mediante función RPC segura con soporte de email
+      let rpcUpdateError: any = null;
+      try {
+        const { error: errWithEmail } = await supabase.rpc("actualizar_perfil_colaborador", {
+          p_id: targetUserId,
+          p_nombre: cleanNombre,
+          p_rol: data.rol,
+          p_site_id: siteId,
+          p_colegiatura: cleanColegiatura,
+          p_especialidad: cleanEspecialidad,
+          p_activo: isActivo,
+          p_email: cleanEmail,
+        });
+        rpcUpdateError = errWithEmail;
+      } catch (e: any) {
+        rpcUpdateError = e;
+      }
 
-      if (!rpcUpdateError) {
+      // Si falló por firma de parámetros, intentar firma de 7 parámetros
+      if (rpcUpdateError) {
+        const { error: errLegacy } = await supabase.rpc("actualizar_perfil_colaborador", {
+          p_id: targetUserId,
+          p_nombre: cleanNombre,
+          p_rol: data.rol,
+          p_site_id: siteId,
+          p_colegiatura: cleanColegiatura,
+          p_especialidad: cleanEspecialidad,
+          p_activo: isActivo,
+        });
+        if (!errLegacy) {
+          // Si la función legacy funcionó, actualizar el email directamente en la tabla
+          await supabase
+            .from("perfil_usuario")
+            .update({ email: cleanEmail, updated_at: new Date().toISOString() })
+            .eq("id", targetUserId);
+          return { success: true, userId: targetUserId, email: cleanEmail };
+        }
+      } else {
         return { success: true, userId: targetUserId, email: cleanEmail };
       }
 
@@ -74,6 +113,7 @@ export async function registrarOActualizarColaboradorReal(data: ColaboradorDTO) 
       const { error: directUpdateError } = await supabase
         .from("perfil_usuario")
         .update({
+          email: cleanEmail,
           nombre_completo: cleanNombre,
           rol: data.rol,
           site_id: siteId,

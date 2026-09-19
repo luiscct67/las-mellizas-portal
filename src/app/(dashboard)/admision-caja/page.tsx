@@ -24,6 +24,10 @@ import {
   X,
   User,
   ShieldCheck,
+  Calendar,
+  MessageSquare,
+  Check,
+  Send,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
@@ -114,16 +118,29 @@ export default function AdmisionCajaPage() {
     tarifario: boolean;
     pago: boolean;
     egresos: boolean;
+    reagendamiento: boolean;
   }>({
     admision: true,
     tarifario: true,
     pago: true,
     egresos: false,
+    reagendamiento: false,
   });
 
-  const toggleSection = (section: "admision" | "tarifario" | "pago" | "egresos") => {
+  const toggleSection = (section: "admision" | "tarifario" | "pago" | "egresos" | "reagendamiento") => {
     setOpenSection((prev) => ({ ...prev, [section]: !prev[section] }));
   };
+
+  // Formulario Reagendamiento de Citas & WhatsApp Institucional
+  const [reagendarPaciente, setReagendarPaciente] = useState("");
+  const [reagendarTelefono, setReagendarTelefono] = useState("");
+  const [reagendarFecha, setReagendarFecha] = useState("");
+  const [reagendarHora, setReagendarHora] = useState("09:00");
+  const [reagendarSede, setReagendarSede] = useState<string>("Independencia");
+  const [reagendarMotivo, setReagendarMotivo] = useState("Control Prenatal y Ecografía de Seguimiento");
+  const [reagendarProfesional, setReagendarProfesional] = useState("Médico / Obstetra de Turno");
+  const [reagendandoLoading, setReagendandoLoading] = useState(false);
+  const [reagendadaExitoMsg, setReagendadaExitoMsg] = useState<string | null>(null);
 
   // Formulario Admisión & Cobro
   const [dni, setDni] = useState("");
@@ -355,8 +372,66 @@ export default function AdmisionCajaPage() {
     setEgresoConcepto("");
     setEgresoMonto(0);
     setEgresoDestinatario("");
-    setEgresoRef("");
     alert("Egreso de caja registrado y debitado del efectivo en ventanilla.");
+  };
+
+  // Reagendamiento de Citas & WhatsApp Institucional
+  const generarEnlaceWhatsAppAdmision = () => {
+    const cleanTel = (reagendarTelefono || telefono).replace(/\D/g, "") || "966123456";
+    const pacienteNom = reagendarPaciente.trim() || (nombres ? `${nombres} ${apellidos}`.trim() : "Estimada Paciente");
+    const msg = `*Consultorio Obstétrico Ecográfico Las Mellizas* 🩺✨%0A%0AEstimada paciente *${encodeURIComponent(
+      pacienteNom
+    )}*:%0A%0ALe confirmamos su próxima cita programada:%0A📅 *Fecha:* ${
+      reagendarFecha || "Por coordinar"
+    }%0A⏰ *Hora:* ${reagendarHora}%0A🏥 *Sede:* ${reagendarSede}%0A📋 *Servicio / Motivo:* ${encodeURIComponent(
+      reagendarMotivo
+    )}%0A👨‍⚕️ *Atención:* ${encodeURIComponent(reagendarProfesional)}%0A%0A_Por favor acudir 10 minutos antes. ¡Cuidamos de ti y de tu bebé con amor y tecnología!_`;
+
+    return `https://wa.me/51${cleanTel}?text=${msg}`;
+  };
+
+  const handleGuardarReagendamientoAdmision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reagendarFecha) {
+      alert("Por favor seleccione la fecha de la cita.");
+      return;
+    }
+    const pacienteNom = reagendarPaciente.trim() || (nombres ? `${nombres} ${apellidos}`.trim() : "");
+    if (!pacienteNom) {
+      alert("Por favor ingrese el nombre de la paciente.");
+      return;
+    }
+
+    setReagendandoLoading(true);
+    try {
+      const siteId = reagendarSede === "Vivanco" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000001";
+      const { error } = await supabase.from("cita_reagendada").insert({
+        paciente_nombre: pacienteNom,
+        telefono: (reagendarTelefono || telefono).trim() || null,
+        fecha: reagendarFecha,
+        hora: reagendarHora,
+        motivo: reagendarMotivo,
+        site_id: siteId,
+      });
+
+      if (error) {
+        setReagendadaExitoMsg("Error al guardar: " + error.message);
+      } else {
+        setReagendadaExitoMsg("✓ Cita registrada exitosamente en el calendario institucional.");
+        setTimeout(() => setReagendadaExitoMsg(null), 4000);
+      }
+    } catch {
+      setReagendadaExitoMsg("Error de conexión al guardar cita.");
+    } finally {
+      setReagendandoLoading(false);
+    }
+  };
+
+  const prepararReagendamientoPara = (atencion: TransaccionAtencion) => {
+    setReagendarPaciente(atencion.paciente);
+    setReagendarMotivo(`Control de Seguimiento - ${atencion.servicio}`);
+    setReagendarSede(atencion.sede || sede);
+    setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
   };
 
   // Cálculos Financieros del Turno
@@ -908,6 +983,192 @@ export default function AdmisionCajaPage() {
               </div>
             )}
           </div>
+
+          {/* ACORDEÓN 5: Reagendamiento de Citas & WhatsApp Institucional */}
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleSection("reagendamiento")}
+              className="w-full p-4 bg-emerald-50/60 border-b border-emerald-100 flex items-center justify-between text-left transition hover:bg-emerald-100/50"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                      Reagendamiento de Citas & WhatsApp
+                    </h3>
+                    <span className="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                      <MessageSquare className="w-2.5 h-2.5" /> Directo
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700">
+                    {reagendarPaciente ? `Cita para: ${reagendarPaciente}` : "Programar citas telefónicas o de seguimiento"}
+                  </p>
+                </div>
+              </div>
+              {openSection.reagendamiento ? (
+                <ChevronUp className="w-4 h-4 text-emerald-700" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-emerald-700" />
+              )}
+            </button>
+
+            {openSection.reagendamiento && (
+              <div className="p-5 space-y-4">
+                {/* Botón rápido si hay paciente en admisión */}
+                {nombres && (
+                  <div className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-2xl border border-neutral-200 text-xs">
+                    <span className="text-neutral-600">
+                      Paciente en ventanilla: <strong>{nombres} {apellidos}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReagendarPaciente(`${nombres} ${apellidos}`.trim());
+                        setReagendarTelefono(telefono);
+                      }}
+                      className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold rounded-lg border border-brand-200 text-[11px] transition"
+                    >
+                      Copiar datos a la cita
+                    </button>
+                  </div>
+                )}
+
+                <form onSubmit={handleGuardarReagendamientoAdmision} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Nombre de la Paciente *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={reagendarPaciente}
+                        onChange={(e) => setReagendarPaciente(e.target.value)}
+                        placeholder="Ej. Carmen Quispe..."
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Teléfono / WhatsApp (9 Dígitos) *
+                      </label>
+                      <input
+                        type="tel"
+                        maxLength={9}
+                        value={reagendarTelefono}
+                        onChange={(e) => setReagendarTelefono(e.target.value)}
+                        placeholder="987654321"
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Fecha Programada *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={reagendarFecha}
+                        onChange={(e) => setReagendarFecha(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Hora *
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={reagendarHora}
+                        onChange={(e) => setReagendarHora(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Sede de Atención *
+                      </label>
+                      <select
+                        value={reagendarSede}
+                        onChange={(e) => setReagendarSede(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      >
+                        <option value="Independencia">Sede Independencia</option>
+                        <option value="Vivanco">Sede Vivanco</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Profesional Asignado
+                      </label>
+                      <input
+                        type="text"
+                        value={reagendarProfesional}
+                        onChange={(e) => setReagendarProfesional(e.target.value)}
+                        placeholder="Ej. Dra. Carmen / Obstetra de Turno"
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Motivo / Procedimiento Clínico
+                      </label>
+                      <input
+                        type="text"
+                        value={reagendarMotivo}
+                        onChange={(e) => setReagendarMotivo(e.target.value)}
+                        placeholder="Ej. Control Prenatal, Eco 5D..."
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {reagendadaExitoMsg && (
+                    <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{reagendadaExitoMsg}</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                    <button
+                      type="submit"
+                      disabled={reagendandoLoading}
+                      className="flex-1 py-2.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{reagendandoLoading ? "Guardando Cita..." : "Registrar Cita en Sistema"}</span>
+                    </button>
+
+                    <a
+                      href={generarEnlaceWhatsAppAdmision()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Enviar Confirmación por WhatsApp</span>
+                    </a>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* COLUMNA DERECHA: Balanza Financiera & Monitor en Tiempo Real */}
@@ -1008,9 +1269,9 @@ export default function AdmisionCajaPage() {
                     </div>
                   </div>
 
-                  <div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <span
-                      className={`text-[10px] font-black px-2 py-1 rounded-lg ${
+                      className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${
                         tx.estadoConsultorio === "EN_ESPERA"
                           ? "bg-amber-100 text-amber-800"
                           : tx.estadoConsultorio === "EN_ATENCION"
@@ -1020,6 +1281,15 @@ export default function AdmisionCajaPage() {
                     >
                       {tx.estadoConsultorio.replace("_", " ")}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => prepararReagendamientoPara(tx)}
+                      title="Reagendar cita para esta paciente"
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition"
+                    >
+                      <Calendar className="w-3 h-3 text-emerald-700" />
+                      <span>Reagendar</span>
+                    </button>
                   </div>
                 </div>
               ))}

@@ -46,8 +46,8 @@ export const PADRON_OFICIAL_AUTORIZADO: CuentaOficial[] = [
   },
   // 3. Sede Independencia - Medicina
   {
-    email: "medici.inv1@lasmellizasperu.com",
-    emailNormalized: "medici.inv1@lasmellizasperu.com",
+    email: "medico.inv1@lasmellizasperu.com",
+    emailNormalized: "medico.inv1@lasmellizasperu.com",
     nombre: "Médico Independencia 1",
     rol: "PROFESIONAL",
     sede: "Independencia",
@@ -170,7 +170,16 @@ export const PADRON_OFICIAL_AUTORIZADO: CuentaOficial[] = [
     cargo: "Obstetra Asistencial",
     especialidad: "Obstetricia Integral",
   },
-  // 16. Administración General de la Red
+  // 16. Sede Independencia - Admisión & Caja (Independencia 1)
+  {
+    email: "admision.ind1@lasmellizasperu.com",
+    emailNormalized: "admision.ind1@lasmellizasperu.com",
+    nombre: "Admisión & Caja Independencia 1",
+    rol: "RECEPCION_CAJA",
+    sede: "Independencia",
+    cargo: "Operador de Admisión & Caja",
+  },
+  // 17. Administración General de la Red
   {
     email: "admin@lasmellizasperu.com",
     emailNormalized: "admin@lasmellizasperu.com",
@@ -194,5 +203,11 @@ export function obtenerCuentaAutorizada(emailInput: string): CuentaOficial | nul
 }
 
 export function isEmailAutorizado(emailInput: string): boolean {
+  if (!emailInput) return false;
+  const normalizado = normalizarEmail(emailInput);
+  // Todo colaborador con correo institucional @lasmellizasperu.com está autorizado
+  if (normalizado.endsWith("@lasmellizasperu.com")) {
+    return true;
+  }
   return obtenerCuentaAutorizada(emailInput) !== null;
 }
