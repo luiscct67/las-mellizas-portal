@@ -27,52 +27,122 @@ const SEDE_UUIDS: Record<string, string | null> = {
 export async function registrarOActualizarColaboradorReal(data: ColaboradorDTO) {
   try {
     const supabase = await createClient();
-
     const siteId = data.sede ? SEDE_UUIDS[data.sede] : null;
+    const cleanEmail = data.email.trim().toLowerCase();
+    const cleanNombre = data.nombre.trim();
+    const cleanColegiatura = data.colegiatura?.trim() || null;
+    const cleanEspecialidad = data.especialidad?.trim() || null;
+    const isActivo = data.activo !== false;
+
+    // Verificar si se especificó un ID de UUID válido (modo edición)
+    const hasValidUuid = Boolean(data.id && !data.id.startsWith("padron-"));
+    let targetUserId = hasValidUuid ? data.id! : null;
+
+    // Si no tenemos UUID, buscar si ya existe en perfil_usuario por email
+    if (!targetUserId) {
+      const { data: existingProfile } = await supabase
+        .from("perfil_usuario")
+        .select("id")
+        .eq("email", cleanEmail)
+        .maybeSingle();
+
+      if (existingProfile?.id) {
+        targetUserId = existingProfile.id;
+      }
+    }
+
+    // =========================================================================
+    // MODO EDICIÓN: Si el colaborador ya existe, actualizar su perfil directamente
+    // =========================================================================
+    if (targetUserId) {
+      // 1. Intentar actualizar mediante función RPC segura
+      const { error: rpcUpdateError } = await supabase.rpc("actualizar_perfil_colaborador", {
+        p_id: targetUserId,
+        p_nombre: cleanNombre,
+        p_rol: data.rol,
+        p_site_id: siteId,
+        p_colegiatura: cleanColegiatura,
+        p_especialidad: cleanEspecialidad,
+        p_activo: isActivo,
+      });
+
+      if (!rpcUpdateError) {
+        return { success: true, userId: targetUserId, email: cleanEmail };
+      }
+
+      // 2. Fallback: Actualización directa en la tabla perfil_usuario por ID
+      const { error: directUpdateError } = await supabase
+        .from("perfil_usuario")
+        .update({
+          nombre_completo: cleanNombre,
+          rol: data.rol,
+          site_id: siteId,
+          colegiatura: cleanColegiatura,
+          especialidad: cleanEspecialidad,
+          activo: isActivo,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", targetUserId);
+
+      if (directUpdateError) {
+        return { success: false, error: directUpdateError.message };
+      }
+
+      return { success: true, userId: targetUserId, email: cleanEmail };
+    }
+
+    // =========================================================================
+    // MODO CREACIÓN: Colaborador completamente nuevo
+    // =========================================================================
     const initialPassword = data.password || "Mellizas#2026!";
 
-    // Llamada a función RPC de seguridad en PostgreSQL
+    // 1. Provisionamiento mediante RPC con hash seguro y registro en auth.users
     const { data: userId, error: rpcError } = await supabase.rpc("crear_usuario_clinico", {
-      p_email: data.email.trim().toLowerCase(),
+      p_email: cleanEmail,
       p_password: initialPassword,
-      p_nombre: data.nombre.trim(),
+      p_nombre: cleanNombre,
       p_rol: data.rol,
       p_site_id: siteId,
-      p_colegiatura: data.colegiatura?.trim() || null,
-      p_especialidad: data.especialidad?.trim() || null,
+      p_colegiatura: cleanColegiatura,
+      p_especialidad: cleanEspecialidad,
     });
 
     if (rpcError) {
-      // Fallback directo a actualización de perfil si ya existía
-      const { error: profileError } = await supabase
+      // 2. Fallback: Inserción directa en perfil_usuario
+      const { data: inserted, error: insertError } = await supabase
         .from("perfil_usuario")
-        .upsert(
-          {
-            email: data.email.trim().toLowerCase(),
-            nombre_completo: data.nombre.trim(),
-            rol: data.rol,
-            site_id: siteId,
-            colegiatura: data.colegiatura?.trim() || null,
-            especialidad: data.especialidad?.trim() || null,
-            activo: data.activo !== false,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "email" }
-        );
+        .insert({
+          email: cleanEmail,
+          nombre_completo: cleanNombre,
+          rol: data.rol,
+          site_id: siteId,
+          colegiatura: cleanColegiatura,
+          especialidad: cleanEspecialidad,
+          activo: isActivo,
+        })
+        .select("id")
+        .single();
 
-      if (profileError) {
-        return { success: false, error: profileError.message };
+      if (insertError) {
+        return { success: false, error: insertError.message };
       }
+
+      return {
+        success: true,
+        userId: inserted?.id,
+        email: cleanEmail,
+        passwordGenerada: initialPassword,
+      };
     }
 
     return {
       success: true,
       userId,
-      email: data.email,
+      email: cleanEmail,
       passwordGenerada: initialPassword,
     };
   } catch (err: any) {
-    return { success: false, error: err.message || "Error al procesar alta de usuario." };
+    return { success: false, error: err.message || "Error al procesar colaborador." };
   }
 }
 
@@ -82,13 +152,14 @@ export async function registrarOActualizarColaboradorReal(data: ColaboradorDTO) 
 export async function resetearPasswordColaboradorReal(email: string, nuevaPassword?: string) {
   try {
     const supabase = await createClient();
+    const cleanEmail = email.trim().toLowerCase();
     const tempPassword = nuevaPassword || `Mellizas#${Math.floor(1000 + Math.random() * 9000)}!`;
 
     // Obtener perfil actual
     const { data: profile } = await supabase
       .from("perfil_usuario")
       .select("*")
-      .eq("email", email.trim().toLowerCase())
+      .eq("email", cleanEmail)
       .single();
 
     if (!profile) {
