@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- ECOSISTEMA DIGITAL LAS MELLIZAS PERU S.A.C. (RUC 20611827335)
 -- SCRIPT 09: ACTUALIZACION DE CORREOS EN RPC Y CORRECCION DE CUENTAS
 -- ============================================================================
@@ -6,7 +6,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- 1. CORRECCION INMEDIATA DEL TYPO EN BASE DE DATOS (medici.inv1 -> medico.inv1)
-DO $
+DO $$
 DECLARE
     v_target_id UUID;
 BEGIN
@@ -27,9 +27,27 @@ BEGIN
 
         RAISE NOTICE 'Cuenta corregida exitosamente de medici.inv1 a medico.inv1';
     END IF;
-END $;
+END $$;
 
--- 2. FUNCION RPC MEJORADA CON SOPORTE COMPLETO DE MODIFICACION DE EMAIL
+-- 2. ELIMINAR CUALQUIER VERSIÓN PREVIA SOBRECARGADA PARA RESOLVER ERROR 42725
+DROP FUNCTION IF EXISTS public.actualizar_perfil_colaborador(UUID, TEXT, public.rol_usuario, UUID, TEXT, TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS public.actualizar_perfil_colaborador(UUID, TEXT, public.rol_usuario, UUID, TEXT, TEXT, BOOLEAN, TEXT);
+
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (
+        SELECT oid::regprocedure AS func_sig
+        FROM pg_proc
+        WHERE proname = 'actualizar_perfil_colaborador'
+          AND pronamespace = 'public'::regnamespace
+    ) LOOP
+        EXECUTE 'DROP FUNCTION IF EXISTS ' || r.func_sig || ' CASCADE';
+    END LOOP;
+END $$;
+
+-- 3. FUNCION RPC MEJORADA CON SOPORTE COMPLETO DE MODIFICACION DE EMAIL
 CREATE OR REPLACE FUNCTION public.actualizar_perfil_colaborador(
     p_id UUID,
     p_nombre TEXT,
@@ -40,7 +58,7 @@ CREATE OR REPLACE FUNCTION public.actualizar_perfil_colaborador(
     p_activo BOOLEAN DEFAULT true,
     p_email TEXT DEFAULT NULL
 )
-RETURNS VOID AS $
+RETURNS VOID AS $$
 DECLARE
     v_clean_email TEXT := LOWER(TRIM(p_email));
 BEGIN
@@ -76,11 +94,11 @@ BEGIN
         WHERE id = p_id;
     END IF;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION public.actualizar_perfil_colaborador TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.actualizar_perfil_colaborador(UUID, TEXT, public.rol_usuario, UUID, TEXT, TEXT, BOOLEAN, TEXT) TO authenticated, service_role;
 
--- 3. POLITICAS RLS EN perfil_usuario PARA EDICION DIRECTA POR ADMIN
+-- 4. POLITICAS RLS EN perfil_usuario PARA EDICION DIRECTA POR ADMIN
 DROP POLICY IF EXISTS "Admin actualiza perfiles colaboradores" ON public.perfil_usuario;
 CREATE POLICY "Admin actualiza perfiles colaboradores" ON public.perfil_usuario
 FOR UPDATE TO authenticated
@@ -93,10 +111,10 @@ WITH CHECK (
     OR id = auth.uid()
 );
 
--- 4. VERIFICACION DE PERMISOS EN TABLA cita_reagendada
+-- 5. VERIFICACION DE PERMISOS EN TABLA cita_reagendada
 GRANT SELECT, INSERT, UPDATE ON public.cita_reagendada TO authenticated, service_role;
 
-DO $
+DO $$
 BEGIN
-    RAISE NOTICE 'Script 09 ejecutado con exito: Soporte de actualizacion de email, RPC blindada y correccion de cuenta completados.';
-END $;
+    RAISE NOTICE 'Script 09 ejecutado con exito: Sobrecargas eliminadas, RPC con soporte de email y correccion aplicada.';
+END $$;
