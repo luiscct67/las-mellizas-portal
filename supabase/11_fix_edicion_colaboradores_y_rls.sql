@@ -4,19 +4,10 @@
 -- ============================================================================
 
 -- 1. ELIMINAR CUALQUIER VERSIÓN PREVIA SOBRECARGADA DE actualizar_perfil_colaborador
-DO 
-DECLARE
-    r RECORD;
-BEGIN
-    FOR r IN (
-        SELECT oid::regprocedure AS func_sig
-        FROM pg_proc
-        WHERE proname = 'actualizar_perfil_colaborador'
-          AND pronamespace = 'public'::regnamespace
-    ) LOOP
-        EXECUTE 'DROP FUNCTION IF EXISTS ' || r.func_sig || ' CASCADE';
-    END LOOP;
-END ;
+DROP FUNCTION IF EXISTS public.actualizar_perfil_colaborador(UUID, TEXT, public.rol_usuario, UUID, TEXT, TEXT, BOOLEAN, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.actualizar_perfil_colaborador(UUID, TEXT, public.rol_usuario, UUID, TEXT, TEXT, BOOLEAN) CASCADE;
+DROP FUNCTION IF EXISTS public.actualizar_perfil_colaborador(UUID, TEXT, public.rol_usuario, UUID, TEXT, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.actualizar_perfil_colaborador(UUID, TEXT, public.rol_usuario, UUID) CASCADE;
 
 -- 2. FUNCIÓN RPC UNIFICADA Y SEGURA (SECURITY DEFINER)
 -- Actualiza datos en perfil_usuario y sincroniza auth.users
@@ -134,6 +125,7 @@ GRANT EXECUTE ON FUNCTION public.actualizar_perfil_colaborador(UUID, TEXT, publi
 DROP POLICY IF EXISTS "Auto-actualización perfil propio" ON public.perfil_usuario;
 DROP POLICY IF EXISTS "Admin actualiza perfiles colaboradores" ON public.perfil_usuario;
 DROP POLICY IF EXISTS "Admin gestiona perfiles colaboradores" ON public.perfil_usuario;
+DROP POLICY IF EXISTS "Admin y usuarios gestionan perfiles" ON public.perfil_usuario;
 
 CREATE POLICY "Admin y usuarios gestionan perfiles" ON public.perfil_usuario
 FOR UPDATE TO authenticated

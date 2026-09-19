@@ -82,66 +82,47 @@ export default function HcePage() {
   const [motivoReapertura, setMotivoReapertura] = useState<string>("");
   const [reabriendo, setReabriendo] = useState<boolean>(false);
 
-  // Triaje & Funciones Vitales
-  const [pa, setPa] = useState("110/70");
-  const [fc, setFc] = useState("78");
-  const [fr, setFr] = useState("18");
-  const [temp, setTemp] = useState("36.6");
-  const [satO2, setSatO2] = useState("98");
-  const [peso, setPeso] = useState("62.0");
-  const [talla, setTalla] = useState("1.58");
+  // Referencias para Aislamiento Absoluto de Estado y Prevención de Cruce
+  const activeEncuentroIdRef = useRef<string | null>(null);
+  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Triaje & Funciones Vitales (Inicia 100% limpio y desacoplado)
+  const [pa, setPa] = useState("");
+  const [fc, setFc] = useState("");
+  const [fr, setFr] = useState("");
+  const [temp, setTemp] = useState("");
+  const [satO2, setSatO2] = useState("");
+  const [peso, setPeso] = useState("");
+  const [talla, setTalla] = useState("");
 
   // IMC dinámico
   const pNum = parseFloat(peso) || 0;
   const tNum = parseFloat(talla) || 0;
   const imc = tNum > 0 ? (pNum / (tNum * tNum)).toFixed(1) : "0.0";
 
-  // Perfil Obstétrico
-  const [formulaG, setFormulaG] = useState("G2");
-  const [formulaP, setFormulaP] = useState("P1001");
-  const [fur, setFur] = useState("2026-04-02");
-  const [fpp, setFpp] = useState("2027-01-09");
-  const [eg, setEg] = useState("24 sem");
-  const [alturaUterina, setAlturaUterina] = useState("22");
-  const [lcf, setLcf] = useState("142");
+  // Perfil Obstétrico (Inicia 100% limpio)
+  const [formulaG, setFormulaG] = useState("");
+  const [formulaP, setFormulaP] = useState("");
+  const [fur, setFur] = useState("");
+  const [fpp, setFpp] = useState("");
+  const [eg, setEg] = useState("");
+  const [alturaUterina, setAlturaUterina] = useState("");
+  const [lcf, setLcf] = useState("");
   const [presentacion, setPresentacion] = useState("Cefálica");
 
-  // Anamnesis, Examen y Tratamiento
-  const [motivo, setMotivo] = useState(
-    "Control prenatal correspondiente a 24 semanas de gestación. Paciente refiere movimientos fetales activos, sin hidrorrea ni metrorragia."
-  );
-  const [antecedentes, setAntecedentes] = useState(
-    "G2 P1001. Menarquia: 13 años. PAP previo negativo hace 8 meses. Sin comorbilidades crónicas."
-  );
-  const [examenFisico, setExamenFisico] = useState(
-    "Abdomen grávido por feto único, útero con tono normal. Mamas blandas sin masas. Espéculo: cérvix cerrado sin pérdidas."
-  );
-  const [planTratamiento, setPlanTratamiento] = useState(
-    "1. Sulfato Ferroso 60mg + Ácido Fólico 400mcg: 1 tab VO c/24h en ayunas.\n2. Ecografía Obstétrica Morfológica de control.\n3. Signos de alarma explicados a la gestante."
-  );
+  // Anamnesis, Examen y Tratamiento (Inicia limpio sin mocks)
+  const [motivo, setMotivo] = useState("");
+  const [antecedentes, setAntecedentes] = useState("");
+  const [examenFisico, setExamenFisico] = useState("");
+  const [planTratamiento, setPlanTratamiento] = useState("");
 
-  // Diagnósticos CIE-10
-  const [diagnosticos, setDiagnosticos] = useState<DiagnosticoItem[]>([
-    {
-      id: "dx-1",
-      codigo: "Z34.8",
-      descripcion: "Supervisión de otros embarazos normales (24 sem)",
-      tipo: "Definitivo",
-    },
-  ]);
+  // Diagnósticos CIE-10 (Inicia arreglo vacío)
+  const [diagnosticos, setDiagnosticos] = useState<DiagnosticoItem[]>([]);
   const [busquedaCie, setBusquedaCie] = useState("");
   const [mostrarSugerenciasCie, setMostrarSugerenciasCie] = useState(false);
 
-  // Imágenes / Ecografías
-  const [imagenes, setImagenes] = useState<ImagenAdjunta[]>([
-    {
-      id: "img-1",
-      titulo: "Corte Perfil Fetal 24 sem",
-      tipo: "Ecografía 2D",
-      url: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&auto=format&fit=crop&q=80",
-      hora: "08:35",
-    },
-  ]);
+  // Imágenes / Ecografías (Inicia arreglo vacío)
+  const [imagenes, setImagenes] = useState<ImagenAdjunta[]>([]);
   const [modalImagen, setModalImagen] = useState<ImagenAdjunta | null>(null);
 
   // Estado de Sellado y Adendas
@@ -157,6 +138,40 @@ export default function HcePage() {
   const [reagendarMotivo, setReagendarMotivo] = useState("Control Prenatal y Ecografía de Seguimiento");
   const [reagendarSede, setReagendarSede] = useState("Independencia");
   const [reagendadaExito, setReagendadaExito] = useState(false);
+
+  // Reset Síncrono Obligatorio de Todo el Estado del Formulario
+  const resetearEstadoHceSincrono = (p?: PacienteEnConsulta | null) => {
+    setPa("");
+    setFc("");
+    setFr("");
+    setTemp("");
+    setSatO2("");
+    setPeso("");
+    setTalla("");
+    setFormulaG("");
+    setFormulaP("");
+    setFur("");
+    setFpp("");
+    setEg("");
+    setAlturaUterina("");
+    setLcf("");
+    setPresentacion("Cefálica");
+    setMotivo(p ? `Atención de ${p.servicio}. Paciente acude para evaluación y control.` : "");
+    setAntecedentes("");
+    setExamenFisico("");
+    setPlanTratamiento("");
+    setDiagnosticos([]);
+    setImagenes([]);
+    setAdendas([]);
+    setTextoAdenda("");
+    setBusquedaCie("");
+    setMostrarSugerenciasCie(false);
+    setReagendarFecha("");
+    setReagendarMotivo(p ? `Control de Seguimiento - ${p.servicio}` : "Control Prenatal y Ecografía de Seguimiento");
+    setReagendadaExito(false);
+    setSaveStatus("idle");
+    setLastSavedTime("");
+  };
 
   // ============================================================================
   // CARGA REAL DE COLA Y SINCRONIZACIÓN EN TIEMPO REAL (SUPABASE REALTIME)
@@ -211,7 +226,7 @@ export default function HcePage() {
           if (prev && mapeados.some((p) => p.id === prev.id)) {
             return mapeados.find((p) => p.id === prev.id) || prev;
           }
-          return mapeados.length > 0 ? mapeados[0] : null;
+          return prev;
         });
       }
 
@@ -300,17 +315,36 @@ export default function HcePage() {
 
   // Transición a EN_ATENCION al seleccionar paciente y carga de nota clínica previa
   const handleSeleccionarPaciente = async (p: PacienteEnConsulta) => {
-    setSelectedPatient(p);
-    setIsSealed(false);
-    setSealedHash(null);
+    // 1. Cancelar de inmediato cualquier timer de autoguardado previo
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = null;
+    }
 
-    // Cargar nota clínica previa si existe en Supabase
+    // 2. Establecer el ID de encuentro activo en la referencia síncrona
+    activeEncuentroIdRef.current = p.id;
+
+    // 3. RESET OBLIGATORIO Y SÍNCRONO DEL 100% DEL FORMULARIO
+    resetearEstadoHceSincrono(p);
+    setSelectedPatient(p);
+
+    // 4. Bloqueo inmediato si el paciente ya fue ATENDIDO (Modo Solo Lectura)
+    const estaAtendido = p.estado === "ATENDIDO";
+    setIsSealed(estaAtendido);
+    setSealedHash(estaAtendido ? "SELLADO-CONFORME" : null);
+
+    // 5. Cargar nota clínica previa asociada ESTRICTAMENTE a este encuentro_id
     try {
       const { data: notaExistente } = await supabase
         .from("nota_clinica")
         .select("*")
         .eq("encuentro_id", p.id)
         .maybeSingle();
+
+      // Protección contra condiciones de carrera: descartar si el usuario cambió de paciente mientras respondía la red
+      if (activeEncuentroIdRef.current !== p.id) {
+        return;
+      }
 
       if (notaExistente) {
         if (notaExistente.motivo_consulta) setMotivo(notaExistente.motivo_consulta);
@@ -342,12 +376,10 @@ export default function HcePage() {
             if (ef.detalles) setExamenFisico(ef.detalles);
           } catch {}
         }
-        if (notaExistente.cerrada && notaExistente.hash_firma) {
+        if (notaExistente.cerrada || notaExistente.hash_firma || estaAtendido) {
           setIsSealed(true);
-          setSealedHash(notaExistente.hash_firma);
+          setSealedHash(notaExistente.hash_firma || "SELLADO-CONFORME");
         }
-      } else {
-        setMotivo(`Atención de ${p.servicio}. Paciente acude para evaluación y control.`);
       }
     } catch (err) {
       console.warn("Error cargando nota clínica previa:", err);
@@ -363,6 +395,7 @@ export default function HcePage() {
         setPacientesCola((prev) =>
           prev.map((item) => (item.id === p.id ? { ...item, estado: "EN_ATENCION" } : item))
         );
+        setSelectedPatient((prev) => (prev && prev.id === p.id ? { ...prev, estado: "EN_ATENCION" } : prev));
       } catch (err) {
         console.warn("No se pudo actualizar estado a EN_ATENCION:", err);
       }
@@ -406,10 +439,10 @@ export default function HcePage() {
   };
 
   // ============================================================================
-  // AUTOGUARDADO SILENCIOSO (SILENT DEBOUNCE 3000ms)
+  // AUTOGUARDADO SILENCIOSO Y PERSISTENCIA POR ENCUENTRO_ID ÚNICO
   // ============================================================================
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("saved");
-  const [lastSavedTime, setLastSavedTime] = useState<string>("08:40:12");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [lastSavedTime, setLastSavedTime] = useState<string>("");
   const isFirstRender = useRef(true);
 
   useEffect(() => {
@@ -417,16 +450,62 @@ export default function HcePage() {
       isFirstRender.current = false;
       return;
     }
-    if (isSealed || !selectedPatient) return;
+    // Si no hay paciente, o la nota está sellada / ATENDIDA, BLOQUEAR AUTOGUARDADO
+    if (isSealed || !selectedPatient || selectedPatient.estado === "ATENDIDO") {
+      setSaveStatus("idle");
+      return;
+    }
 
+    const currentEncuentroId = selectedPatient.id;
     setSaveStatus("saving");
-    const handler = setTimeout(() => {
-      setSaveStatus("saved");
-      setLastSavedTime(new Date().toLocaleTimeString("es-PE"));
-    }, 3000);
 
-    return () => clearTimeout(handler);
-  }, [pa, fc, fr, temp, peso, talla, motivo, antecedentes, examenFisico, planTratamiento, diagnosticos]);
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = setTimeout(async () => {
+      // Verificación estricta de concurrencia: el encuentro activo debe ser el mismo
+      if (activeEncuentroIdRef.current !== currentEncuentroId) return;
+
+      try {
+        const { data: userAuth } = await supabase.auth.getUser();
+        await supabase.from("nota_clinica").upsert(
+          {
+            encuentro_id: currentEncuentroId,
+            paciente_id: selectedPatient.pacienteId,
+            profesional_id: userAuth.user?.id,
+            motivo_consulta: motivo,
+            antecedentes: antecedentes,
+            examen_fisico: JSON.stringify({
+              pa, fc, fr, temp, satO2, peso, talla, imc,
+              formulaG, formulaP, fur, fpp, eg, alturaUterina, lcf, presentacion,
+              detalles: examenFisico,
+            }),
+            diagnostico_cie10: JSON.stringify(diagnosticos),
+            plan_trabajo: planTratamiento,
+            cerrada: false,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "encuentro_id" }
+        );
+
+        if (activeEncuentroIdRef.current === currentEncuentroId) {
+          setSaveStatus("saved");
+          setLastSavedTime(new Date().toLocaleTimeString("es-PE"));
+        }
+      } catch {
+        if (activeEncuentroIdRef.current === currentEncuentroId) {
+          setSaveStatus("idle");
+        }
+      }
+    }, 2500);
+
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, [pa, fc, fr, temp, peso, talla, motivo, antecedentes, examenFisico, planTratamiento, diagnosticos, formulaG, formulaP, fur, fpp, eg, alturaUterina, lcf, presentacion]);
 
   const handleAgregarCie = (item: { codigo: string; descripcion: string }) => {
     if (diagnosticos.some((d) => d.codigo === item.codigo)) return;
@@ -521,6 +600,14 @@ export default function HcePage() {
 
       setSealedHash(hash);
       setIsSealed(true);
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+        autosaveTimeoutRef.current = null;
+      }
+      setSaveStatus("saved");
+      if (selectedPatient) {
+        setSelectedPatient((prev) => (prev ? { ...prev, estado: "ATENDIDO" } : prev));
+      }
 
       // Recargar cola de pacientes de Supabase
       await cargarColaEncuentros();
@@ -671,6 +758,22 @@ export default function HcePage() {
           )}
         </div>
       </div>
+
+      {/* Banner de Bloqueo Inmutable Post-Atención */}
+      {(isSealed || selectedPatient?.estado === "ATENDIDO") && selectedPatient && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 px-3.5 py-2 rounded-lg flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+            <span className="font-extrabold text-xs">Historia Clínica Sellada & Cerrada (Modo Solo Lectura)</span>
+            <span className="text-[11px] text-amber-700 hidden sm:inline">&bull; Ley N.° 30024 & NTS N.° 139-MINSA (Acto Médico Inalterable)</span>
+          </div>
+          {sealedHash && (
+            <span className="font-mono text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+              Firma Hash: {sealedHash.slice(0, 16)}...
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Grid Clínico de Alta Densidad (3 Columnas) */}
       <div className="grid lg:grid-cols-12 gap-3">
