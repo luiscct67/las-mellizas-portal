@@ -311,6 +311,330 @@ export default function AdmisionCajaPage() {
     setMonto(TARIFARIO_BASE[srv] || 70);
   };
 
+  // ============================================================================
+  // GENERADORES Y CONTROLADORES DE IMPRESIÓN TÉRMICA POS (80mm / 58mm)
+  // Aislamiento completo: Cero elementos de pantalla, márgenes limpios y corte térmico
+  // ============================================================================
+  const imprimirTicketTermico = (ticket: TransaccionAtencion) => {
+    try {
+      let iframe = document.getElementById("__ticket_thermal_print_frame__") as HTMLIFrameElement | null;
+      if (iframe) {
+        iframe.remove();
+      }
+      iframe = document.createElement("iframe");
+      iframe.id = "__ticket_thermal_print_frame__";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "none";
+      iframe.style.visibility = "hidden";
+      document.body.appendChild(iframe);
+
+      const fechaHoy = new Date().toLocaleDateString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+
+      const sedeNombre = ticket.sede || sede || "Independencia";
+      const operador = cajeroNombre || "Operador de Ventanilla";
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="es">
+          <head>
+            <meta charset="utf-8" />
+            <title>Ticket ${ticket.id}</title>
+            <style>
+              @page {
+                size: 80mm auto;
+                margin: 0mm;
+              }
+              @media print {
+                html, body {
+                  width: 80mm;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+              }
+              body {
+                font-family: 'Courier New', Courier, monospace, system-ui, -apple-system, sans-serif;
+                width: 74mm;
+                margin: 0 auto;
+                padding: 4mm 2mm;
+                color: #000;
+                background: #fff;
+                font-size: 11px;
+                line-height: 1.3;
+              }
+              .text-center { text-align: center; }
+              .text-right { text-align: right; }
+              .font-bold { font-weight: bold; }
+              .text-xl { font-size: 15px; }
+              .text-lg { font-size: 13px; }
+              .text-sm { font-size: 11px; }
+              .text-xs { font-size: 10px; }
+              .divider {
+                border-top: 1px dashed #000;
+                margin: 5px 0;
+              }
+              .divider-double {
+                border-top: 2px solid #000;
+                margin: 5px 0;
+              }
+              .row {
+                display: flex;
+                justify-content: space-between;
+                margin: 2px 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="text-center">
+              <div class="font-bold text-xl" style="letter-spacing: 0.5px;">LAS MELLIZAS PERÚ S.A.C.</div>
+              <div class="text-sm font-bold">CONSULTORIO OBSTÉTRICO ECOGRÁFICO</div>
+              <div class="text-xs">RUC: 20611827335</div>
+              <div class="text-xs font-bold" style="margin-top: 2px;">SEDE: ${sedeNombre.toUpperCase()}</div>
+            </div>
+
+            <div class="divider-double"></div>
+
+            <div class="text-center font-bold text-lg" style="margin: 3px 0;">
+              TICKET: ${ticket.id}
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row">
+              <span class="text-xs">FECHA: ${fechaHoy}</span>
+              <span class="text-xs">HORA: ${ticket.hora}</span>
+            </div>
+            <div class="row">
+              <span class="text-xs">CAJERO/VENTANILLA:</span>
+              <span class="text-xs font-bold">${operador}</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div style="margin-bottom: 2px;">
+              <span class="text-xs font-bold">PACIENTE:</span>
+              <div class="font-bold text-sm">${ticket.paciente.toUpperCase()}</div>
+            </div>
+            <div class="row">
+              <span class="text-xs font-bold">DNI / DOCUMENTO:</span>
+              <span class="font-bold text-sm">${ticket.dni}</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div>
+              <span class="text-xs font-bold">SERVICIO REQUERIDO:</span>
+              <div class="font-bold text-sm" style="margin-top: 1px;">${ticket.servicio}</div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row" style="font-size: 13px; margin: 4px 0;">
+              <span class="font-bold">TOTAL PAGADO:</span>
+              <span class="font-bold">S/ ${ticket.monto.toFixed(2)}</span>
+            </div>
+            <div class="row text-xs">
+              <span>FORMA DE PAGO:</span>
+              <span class="font-bold">${ticket.medioPago}</span>
+            </div>
+            ${
+              ticket.referencia
+                ? `<div class="row text-xs"><span>REFERENCIA / OP:</span><span>${ticket.referencia}</span></div>`
+                : ""
+            }
+
+            <div class="divider-double"></div>
+
+            <div class="text-center text-xs" style="margin-top: 6px;">
+              <div class="font-bold">*** COMPROBANTE DE ATENCIÓN INTERNA ***</div>
+              <div style="margin-top: 4px;">Por favor tome asiento y espere a ser llamado(a) en sala de espera.</div>
+              <div class="text-xs" style="margin-top: 6px; font-size: 9px; color: #444;">
+                Conexión Cifrada &bull; Ley N.° 26842 &bull; Ley N.° 29733
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+
+        setTimeout(() => {
+          iframe?.contentWindow?.focus();
+          iframe?.contentWindow?.print();
+        }, 250);
+      }
+    } catch (err) {
+      console.error("Error al imprimir ticket térmico:", err);
+      window.print();
+    }
+  };
+
+  const imprimirActaTermica = (acta: any) => {
+    if (!acta) return;
+    try {
+      let iframe = document.getElementById("__acta_thermal_print_frame__") as HTMLIFrameElement | null;
+      if (iframe) {
+        iframe.remove();
+      }
+      iframe = document.createElement("iframe");
+      iframe.id = "__acta_thermal_print_frame__";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "none";
+      iframe.style.visibility = "hidden";
+      document.body.appendChild(iframe);
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="es">
+          <head>
+            <meta charset="utf-8" />
+            <title>Acta de Cierre ${acta.id}</title>
+            <style>
+              @page {
+                size: 80mm auto;
+                margin: 0mm;
+              }
+              @media print {
+                html, body {
+                  width: 80mm;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+              }
+              body {
+                font-family: 'Courier New', Courier, monospace, system-ui, -apple-system, sans-serif;
+                width: 74mm;
+                margin: 0 auto;
+                padding: 4mm 2mm;
+                color: #000;
+                background: #fff;
+                font-size: 11px;
+                line-height: 1.3;
+              }
+              .text-center { text-align: center; }
+              .text-right { text-align: right; }
+              .font-bold { font-weight: bold; }
+              .text-lg { font-size: 13px; }
+              .text-xs { font-size: 10px; }
+              .divider {
+                border-top: 1px dashed #000;
+                margin: 5px 0;
+              }
+              .divider-double {
+                border-top: 2px solid #000;
+                margin: 5px 0;
+              }
+              .row {
+                display: flex;
+                justify-content: space-between;
+                margin: 2px 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="text-center">
+              <div class="font-bold text-lg">LAS MELLIZAS PERÚ S.A.C.</div>
+              <div class="text-xs font-bold">ACTA DE ARQUEO & CIERRE DE CAJA</div>
+              <div class="text-xs">SEDE ${acta.sede?.toUpperCase() || sede.toUpperCase()} &bull; ${acta.id}</div>
+            </div>
+
+            <div class="divider-double"></div>
+
+            <div class="row text-xs">
+              <span>CAJERO(A):</span>
+              <span class="font-bold">${acta.cajero}</span>
+            </div>
+            <div class="row text-xs">
+              <span>FECHA / CIERRE:</span>
+              <span>${acta.fechaCierre}</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row">
+              <span>FONDO INICIAL:</span>
+              <span>S/ ${Number(acta.montoApertura || 0).toFixed(2)}</span>
+            </div>
+            <div class="row font-bold">
+              <span>VENTAS EFECTIVO:</span>
+              <span>S/ ${Number(acta.recaudacionEfectivo || 0).toFixed(2)}</span>
+            </div>
+            <div class="row">
+              <span>VENTAS DIGITALES (YAPE/POS):</span>
+              <span>S/ ${Number(acta.recaudacionDigital || 0).toFixed(2)}</span>
+            </div>
+            <div class="row">
+              <span>EGRESOS EN EFECTIVO:</span>
+              <span>-S/ ${Number(acta.totalEgresos || 0).toFixed(2)}</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row font-bold">
+              <span>SALDO TEÓRICO EN CAJA:</span>
+              <span>S/ ${Number(acta.saldoTeorico || 0).toFixed(2)}</span>
+            </div>
+            <div class="row font-bold">
+              <span>EFECTIVO CONTADO:</span>
+              <span>S/ ${Number(acta.efectivoContado || 0).toFixed(2)}</span>
+            </div>
+            <div class="row font-bold" style="font-size: 13px;">
+              <span>DIFERENCIA:</span>
+              <span>S/ ${Number(acta.diferencia || 0).toFixed(2)}</span>
+            </div>
+
+            ${
+              acta.observaciones
+                ? `<div class="divider"></div><div><span class="font-bold text-xs">OBSERVACIONES:</span><div class="text-xs">${acta.observaciones}</div></div>`
+                : ""
+            }
+
+            <div class="divider-double"></div>
+
+            <div style="margin-top: 30px;" class="row">
+              <div style="width: 45%; text-align: center; border-top: 1px solid #000; padding-top: 4px; font-size: 9px;">
+                Firma Cajero
+              </div>
+              <div style="width: 45%; text-align: center; border-top: 1px solid #000; padding-top: 4px; font-size: 9px;">
+                Firma Supervisor
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+
+        setTimeout(() => {
+          iframe?.contentWindow?.focus();
+          iframe?.contentWindow?.print();
+        }, 250);
+      }
+    } catch (err) {
+      console.error("Error al imprimir acta de cierre:", err);
+      window.print();
+    }
+  };
+
   // Procesar Admisión & Cobro con Integridad Transaccional ACID
   const handleProcesarAtencionYCobro = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1495,15 +1819,26 @@ export default function AdmisionCajaPage() {
                     >
                       {tx.estadoConsultorio.replace("_", " ")}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => prepararReagendamientoPara(tx)}
-                      title="Reagendar cita para esta paciente"
-                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition"
-                    >
-                      <Calendar className="w-3 h-3 text-emerald-700" />
-                      <span>Reagendar</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => imprimirTicketTermico(tx)}
+                        title="Reimprimir ticket térmico POS (80mm)"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-neutral-700 hover:text-neutral-950 bg-white hover:bg-neutral-100 border border-neutral-300 px-2 py-1 rounded-lg shadow-xs transition"
+                      >
+                        <Printer className="w-3 h-3 text-neutral-600" />
+                        <span>Ticket</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => prepararReagendamientoPara(tx)}
+                        title="Reagendar cita para esta paciente"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition"
+                      >
+                        <Calendar className="w-3 h-3 text-emerald-700" />
+                        <span>Reagendar</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )))}
@@ -1520,8 +1855,8 @@ export default function AdmisionCajaPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => window.print()}
-                  className="text-xs text-brand-700 font-bold hover:underline flex items-center gap-1"
+                  onClick={() => imprimirTicketTermico(ticketEmitido)}
+                  className="text-xs text-brand-700 hover:text-brand-900 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Imprimir 80mm</span>
@@ -1735,11 +2070,11 @@ export default function AdmisionCajaPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => window.print()}
-                    className="w-1/2 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1"
+                    onClick={() => imprimirActaTermica(actaCierre)}
+                    className="w-1/2 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <Printer className="w-4 h-4" />
-                    <span>Imprimir Acta</span>
+                    <span>Imprimir Acta (80mm)</span>
                   </button>
                   <button
                     type="button"
