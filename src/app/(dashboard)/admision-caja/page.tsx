@@ -182,13 +182,6 @@ export default function AdmisionCajaPage() {
   const [observacionesCierre, setObservacionesCierre] = useState("");
   const [actaCierre, setActaCierre] = useState<any | null>(null);
 
-  // Padrón local de respaldo
-  const padronPacientes: PacienteRegistrado[] = [
-    { dni: "45892147", nombres: "Carla", apellidos: "Mendoza Quispe", telefono: "966 123 456" },
-    { dni: "71245896", nombres: "Yolanda", apellidos: "Flores Huamán", telefono: "966 987 654" },
-    { dni: "42198754", nombres: "Roxana", apellidos: "Palomino Quispe", telefono: "966 333 444" },
-    { dni: "70541298", nombres: "Diana", apellidos: "Huamán Cárdenas", telefono: "966 555 777" },
-  ];
 
   // Listado de atenciones reales de la jornada (cargadas desde Supabase)
   const [transacciones, setTransacciones] = useState<TransaccionAtencion[]>([]);
@@ -310,13 +303,6 @@ export default function AdmisionCajaPage() {
         setBuscandoDni(false);
       }
 
-      // Respaldo secundario local
-      const match = padronPacientes.find((p) => p.dni === numDni);
-      if (match) {
-        setNombres(match.nombres);
-        setApellidos(match.apellidos);
-        setTelefono(match.telefono);
-      }
     }
   };
 

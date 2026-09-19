@@ -173,48 +173,80 @@ export default function SupervisionPage() {
 
   const isAdmin = currentRole === "ADMIN";
 
-  const eventos = [
-    {
-      id: "ev-109",
-      hora: "08:42:15",
-      usuario: "obstetra.yrp@lasmellizasperu.com",
-      rol: "PROFESIONAL",
-      accion: "SELLAR_NOTA_CLINICA",
-      entidad: "nota_clinica",
-      entidadId: "nc-4412",
-      detalle: "Firma SHA-256 generada: e8b912a... Paciente Roxana Palomino (Sede Vivanco)",
-    },
-    {
-      id: "ev-108",
-      hora: "08:35:10",
-      usuario: "admision.ind2@lasmellizasperu.com",
-      rol: "RECEPCION_CAJA",
-      accion: "REGISTRAR_PAGO",
-      entidad: "pago",
-      entidadId: "pg-0812",
-      detalle: "Monto S/ 90.00 Medio: YAPE. Orden ord-ind-880 (Sede Independencia)",
-    },
-    {
-      id: "ev-107",
-      hora: "08:15:30",
-      usuario: "admision.ind2@lasmellizasperu.com",
-      rol: "RECEPCION_CAJA",
-      accion: "CREAR_ENCUENTRO",
-      entidad: "encuentro",
-      entidadId: "enc-ind-001",
-      detalle: "Admisión Sede Independencia. Paciente Carla Mendoza",
-    },
-    {
-      id: "ev-106",
-      hora: "07:45:00",
-      usuario: "admision.viv1@lasmellizasperu.com",
-      rol: "RECEPCION_CAJA",
-      accion: "AUDITORIA_INSPECCION",
-      entidad: "sistema",
-      entidadId: "sys-aud-01",
-      detalle: "Inspección de turnos y validación de libro de caja",
-    },
-  ];
+  interface EventoAuditoria {
+    id: string;
+    hora: string;
+    usuario: string;
+    rol: string;
+    accion: string;
+    entidad: string;
+    entidadId: string;
+    detalle: string;
+  }
+
+  const [eventosAuditoria, setEventosAuditoria] = useState<EventoAuditoria[]>([]);
+  const [cargandoAuditoria, setCargandoAuditoria] = useState(false);
+
+  const cargarAuditoriaReal = async () => {
+    setCargandoAuditoria(true);
+    try {
+      const { data, error } = await supabase
+        .from("auditoria")
+        .select(`
+          id,
+          fecha_hora,
+          accion,
+          entidad,
+          entidad_id,
+          detalle,
+          usuario:usuario_id (
+            nombre_completo,
+            email,
+            rol
+          )
+        `)
+        .order("fecha_hora", { ascending: false })
+        .limit(50);
+
+      if (!error && data) {
+        const mapeados: EventoAuditoria[] = data.map((item: any) => {
+          const usr = item.usuario || {};
+          const d = new Date(item.fecha_hora);
+          const horaStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          let detalleStr = "";
+          if (typeof item.detalle === "string") {
+            detalleStr = item.detalle;
+          } else if (item.detalle && typeof item.detalle === "object") {
+            detalleStr = Object.entries(item.detalle)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" | ");
+          }
+
+          return {
+            id: item.id,
+            hora: horaStr,
+            usuario: usr.email || usr.nombre_completo || "Sistema / Transacción",
+            rol: usr.rol || "AUDITORIA",
+            accion: item.accion,
+            entidad: item.entidad,
+            entidadId: item.entidad_id || "",
+            detalle: detalleStr || `${item.entidad}: ${item.entidad_id || "Operación registrada"}`,
+          };
+        });
+        setEventosAuditoria(mapeados);
+      }
+    } catch (err) {
+      console.warn("Error consultando auditoria:", err);
+    } finally {
+      setCargandoAuditoria(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "auditoria") {
+      cargarAuditoriaReal();
+    }
+  }, [activeTab]);
 
   const handleConfirmarEliminar = async () => {
     if (!usuarioAEliminar || !isAdmin) return;
@@ -666,8 +698,18 @@ export default function SupervisionPage() {
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-neutral-100 flex items-center justify-between">
-              <h2 className="font-bold text-sm text-neutral-800">Log de Eventos Inmutables (Append-Only)</h2>
-              <span className="text-xs text-neutral-400 font-medium">Cumplimiento ANPD & MINSA</span>
+              <div>
+                <h2 className="font-bold text-sm text-neutral-800">Log de Eventos Inmutables (Append-Only)</h2>
+                <span className="text-xs text-neutral-400 font-medium">Cumplimiento ANPD & MINSA &bull; Registro en Tiempo Real</span>
+              </div>
+              <button
+                onClick={cargarAuditoriaReal}
+                disabled={cargandoAuditoria}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl transition disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${cargandoAuditoria ? "animate-spin" : ""}`} />
+                <span>Actualizar Bitácora</span>
+              </button>
             </div>
 
             <div className="overflow-x-auto">
@@ -682,31 +724,46 @@ export default function SupervisionPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100 font-mono text-xs">
-                  {eventos.map((ev) => (
-                    <tr key={ev.id} className="hover:bg-neutral-50/80 transition">
-                      <td className="py-3.5 px-4 text-neutral-500">{ev.hora}</td>
-                      <td className="py-3.5 px-4 text-neutral-900 font-sans font-medium">{ev.usuario}</td>
-                      <td className="py-3.5 px-4">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-700">
-                          {ev.rol}
-                        </span>
+                  {cargandoAuditoria && eventosAuditoria.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-neutral-400">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-brand-700" />
+                        <span className="font-sans">Cargando registros forenses desde Supabase...</span>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`font-bold ${
-                            ev.accion.includes("DENEGADO")
-                              ? "text-rose-600"
-                              : ev.accion.includes("SELLAR")
-                              ? "text-purple-600"
-                              : "text-emerald-600"
-                          }`}
-                        >
-                          {ev.accion}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 font-sans text-xs text-neutral-600">{ev.detalle}</td>
                     </tr>
-                  ))}
+                  ) : eventosAuditoria.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-neutral-400 font-sans">
+                        No se registran eventos de auditoría en la base de datos aún.
+                      </td>
+                    </tr>
+                  ) : (
+                    eventosAuditoria.map((ev) => (
+                      <tr key={ev.id} className="hover:bg-neutral-50/80 transition">
+                        <td className="py-3.5 px-4 text-neutral-500 whitespace-nowrap">{ev.hora}</td>
+                        <td className="py-3.5 px-4 text-neutral-900 font-sans font-medium">{ev.usuario}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-700">
+                            {ev.rol}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`font-bold ${
+                              ev.accion.includes("DENEGADO") || ev.accion.includes("ELIMINAR") || ev.accion.includes("REVERTIR")
+                                ? "text-amber-700"
+                                : ev.accion.includes("SELLAR") || ev.accion.includes("HCE")
+                                ? "text-purple-600"
+                                : "text-emerald-600"
+                            }`}
+                          >
+                            {ev.accion}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-sans text-xs text-neutral-600 break-words max-w-md">{ev.detalle}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
