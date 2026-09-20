@@ -524,10 +524,13 @@ export default function HcePage() {
       .on("broadcast", { event: "nuevo_paciente_en_espera" }, () => {
         cargarColaEncuentros(s);
       })
+      .on("broadcast", { event: "paciente_reprogramado" }, () => {
+        cargarColaEncuentros(s);
+      })
       .subscribe();
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "lm_nuevo_paciente_en_espera") {
+      if (e.key === "lm_nuevo_paciente_en_espera" || e.key === "lm_paciente_reprogramado") {
         cargarColaEncuentros(s);
       }
     };

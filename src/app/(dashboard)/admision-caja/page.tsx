@@ -37,6 +37,8 @@ import {
   Coins,
   Minus,
   ArrowRightLeft,
+  Phone,
+  UserPlus,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
@@ -83,18 +85,37 @@ interface PacienteRegistrado {
 
 interface TransaccionAtencion {
   id: string;
+  encuentroId?: string;
   hora: string;
   dni: string;
   paciente: string;
+  telefono?: string;
   servicio: string;
   monto: number;
   medioPago: "YAPE" | "PLIN" | "EFECTIVO" | "TARJETA_POS" | "TRANSFERENCIA" | "MIXTO";
   referencia?: string;
-  estadoConsultorio: "EN_ESPERA" | "EN_ATENCION" | "ATENDIDO";
+  estadoConsultorio: "EN_ESPERA" | "EN_ATENCION" | "ATENDIDO" | "CANCELADO" | "REPROGRAMADO";
   sede: string;
   items?: ItemCarrito[];
   pagos?: PagoFraccionado[];
   vueltoEntregado?: number;
+}
+
+interface ItemDispensacionMultiple {
+  id: string;
+  producto: ProductoDispensable;
+  cantidad: number;
+}
+
+interface CitaAgendadaDia {
+  id: string;
+  paciente_nombre: string;
+  telefono?: string | null;
+  fecha: string;
+  hora: string;
+  motivo: string;
+  estado: "PROGRAMADA" | "ATENDIDA" | "CANCELADA";
+  site_id?: string;
 }
 
 interface EgresoCaja {
@@ -237,6 +258,11 @@ export default function AdmisionCajaPage() {
   const [reagendarProfesional, setReagendarProfesional] = useState("Médico / Obstetra de Turno");
   const [reagendandoLoading, setReagendandoLoading] = useState(false);
   const [reagendadaExitoMsg, setReagendadaExitoMsg] = useState<string | null>(null);
+  const [reagendarEncuentroId, setReagendarEncuentroId] = useState<string | null>(null);
+
+  // Citas Programadas del Día (Bandeja Minimalista de Recepción)
+  const [citasDelDia, setCitasDelDia] = useState<CitaAgendadaDia[]>([]);
+  const [cargandoCitasDelDia, setCargandoCitasDelDia] = useState(false);
 
   // Formulario Admisión & Carrito Multiservicios
   const [dni, setDni] = useState("");
@@ -285,8 +311,9 @@ export default function AdmisionCajaPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [ticketEmitido, setTicketEmitido] = useState<TransaccionAtencion | null>(null);
 
-  // Dispensación de Insumos & Farmacia (Control de Inventario)
+  // Dispensación de Insumos & Farmacia (Control de Inventario - Sub-carrito por lote)
   const [productosInventario, setProductosInventario] = useState<ProductoDispensable[]>([]);
+  const [itemsDispensacion, setItemsDispensacion] = useState<ItemDispensacionMultiple[]>([]);
   const [productoDispensar, setProductoDispensar] = useState<ProductoDispensable | null>(null);
   const [cantidadDispensar, setCantidadDispensar] = useState<number>(1);
   const [tipoDispensacion, setTipoDispensacion] = useState<"SALIDA_VENTA" | "SALIDA_USO_CLINICO">("SALIDA_VENTA");
@@ -371,7 +398,8 @@ export default function AdmisionCajaPage() {
           paciente:paciente_id (
             dni,
             nombres,
-            apellidos
+            apellidos,
+            telefono
           ),
           sede:site_id (
             nombre
@@ -412,9 +440,11 @@ export default function AdmisionCajaPage() {
 
           return {
             id: `OP-${item.id.slice(0, 6).toUpperCase()}`,
+            encuentroId: item.id,
             hora: horaStr,
             dni: pac.dni || "S/DNI",
             paciente: `${pac.nombres || ""} ${pac.apellidos || ""}`.trim() || "Paciente Registrado",
+            telefono: pac.telefono || "",
             servicio: item.servicio_solicitado,
             monto: Number(ord.monto) || 70,
             medioPago: (pag.medio_pago as any) || "EFECTIVO",
@@ -511,6 +541,103 @@ export default function AdmisionCajaPage() {
     }
   };
 
+  // 5. Cargar Citas Programadas del Día para la Sede (Bandeja Minimalista de Admisión)
+  const cargarCitasDelDia = async (sedeNombre?: string) => {
+    try {
+      setCargandoCitasDelDia(true);
+      const s = sedeNombre || sede;
+      const siteId = getSiteId(s);
+
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const hoyLocal = `${year}-${month}-${day}`;
+
+      const { data, error } = await supabase
+        .from("cita_reagendada")
+        .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id")
+        .eq("site_id", siteId)
+        .eq("fecha", hoyLocal)
+        .order("hora", { ascending: true });
+
+      if (error) {
+        console.warn("Advertencia consultando citas del día:", error.message);
+        return;
+      }
+
+      if (data) {
+        setCitasDelDia(data as CitaAgendadaDia[]);
+      }
+    } catch (err) {
+      console.warn("Error al cargar citas programadas del día:", err);
+    } finally {
+      setCargandoCitasDelDia(false);
+    }
+  };
+
+  // Acción directa: Admitir y Cobrar Paciente con Cita Programada Hoy
+  const handleAdmitirCita = (cita: CitaAgendadaDia) => {
+    const rawNombre = (cita.paciente_nombre || "").trim();
+    const parts = rawNombre.split(" ").filter(Boolean);
+    if (parts.length >= 3) {
+      setNombres(parts.slice(0, -2).join(" "));
+      setApellidos(parts.slice(-2).join(" "));
+    } else if (parts.length === 2) {
+      setNombres(parts[0]);
+      setApellidos(parts[1]);
+    } else {
+      setNombres(rawNombre);
+      setApellidos("");
+    }
+
+    if (cita.telefono) {
+      setTelefono(cita.telefono);
+    }
+
+    // Buscar en catálogo de servicios o asignar el motivo como servicio
+    const matchSrv = CATALOGO_SERVICIOS.find(
+      (s) =>
+        cita.motivo.toLowerCase().includes(s.nombre.toLowerCase()) ||
+        s.nombre.toLowerCase().includes(cita.motivo.toLowerCase())
+    );
+
+    if (matchSrv) {
+      setItemsCarrito([
+        {
+          id: `srv-${Date.now()}`,
+          tipo: "SERVICIO",
+          nombre: matchSrv.nombre,
+          categoria: matchSrv.categoria,
+          cantidad: 1,
+          precioUnitario: matchSrv.precio,
+          precioBaseCatalogo: matchSrv.precio,
+        },
+      ]);
+    } else {
+      setItemsCarrito([
+        {
+          id: `srv-${Date.now()}`,
+          tipo: "SERVICIO",
+          nombre: cita.motivo || "Consulta / Control Programado",
+          categoria: "Consultas",
+          cantidad: 1,
+          precioUnitario: 70,
+          precioBaseCatalogo: 70,
+        },
+      ]);
+    }
+
+    // Abrir acordeón 1 (Admisión)
+    setOpenSection((prev) => ({ ...prev, admision: true, pago: true }));
+
+    // Scroll suave hacia el formulario de admisión
+    const el = document.getElementById("seccion-formulario-admision");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   // Ciclo de Vida Principal (Unificado)
   useEffect(() => {
     const s = sessionStorage.getItem("lm_sede") || "Independencia";
@@ -527,8 +654,9 @@ export default function AdmisionCajaPage() {
 
     cargarTurnoActivo(s);
     cargarProductosInventario(s);
+    cargarCitasDelDia(s);
 
-    // Suscripciones Realtime a nuevas atenciones y egresos
+    // Suscripciones Realtime a nuevas atenciones, egresos, inventario y citas
     const channel = supabase
       .channel("admision-realtime-tx")
       .on("postgres_changes", { event: "*", schema: "public", table: "encuentro" }, () => {
@@ -542,10 +670,31 @@ export default function AdmisionCajaPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "producto_inventario" }, () => {
         cargarProductosInventario(s);
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "cita_reagendada" }, () => {
+        cargarCitasDelDia(s);
+      })
       .subscribe();
+
+    const canalColaMedica = supabase
+      .channel("cola-medica")
+      .on("broadcast", { event: "paciente_reprogramado" }, () => {
+        cargarTransaccionesDelDia(s, turnoActivo?.fechaApertura);
+        cargarCitasDelDia(s);
+      })
+      .subscribe();
+
+    const onStorageSync = (e: StorageEvent) => {
+      if (e.key === "lm_paciente_reprogramado") {
+        cargarTransaccionesDelDia(s, turnoActivo?.fechaApertura);
+        cargarCitasDelDia(s);
+      }
+    };
+    window.addEventListener("storage", onStorageSync);
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(canalColaMedica);
+      window.removeEventListener("storage", onStorageSync);
     };
   }, []);
 
@@ -794,19 +943,88 @@ export default function AdmisionCajaPage() {
     alert("Egreso anulado con éxito.");
   };
 
-  const handleEjecutarDispensacion = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Manejo de Sub-carrito de Farmacia e Insumos (Dispensación Múltiple por Lote)
+  const handleAgregarItemDispensacion = () => {
     if (!productoDispensar) {
-      setDispensacionErrorMsg("Seleccione un insumo o producto del inventario.");
+      setDispensacionErrorMsg("Seleccione un insumo o producto del inventario para agregarlo al lote.");
       return;
     }
     if (cantidadDispensar <= 0) {
-      setDispensacionErrorMsg("La cantidad a dispensar debe ser al menos 1 unidad.");
+      setDispensacionErrorMsg("La cantidad a agregar debe ser al menos 1 unidad.");
       return;
     }
-    if (cantidadDispensar > productoDispensar.stock_actual) {
-      setDispensacionErrorMsg(`Stock insuficiente: solo quedan ${productoDispensar.stock_actual} unidades disponibles.`);
+
+    setDispensacionErrorMsg(null);
+    setDispensacionExitoMsg(null);
+
+    const existente = itemsDispensacion.find((it) => it.producto.id === productoDispensar.id);
+    const cantActualEnLote = existente ? existente.cantidad : 0;
+    const nuevaCantTotal = cantActualEnLote + cantidadDispensar;
+
+    if (nuevaCantTotal > productoDispensar.stock_actual) {
+      setDispensacionErrorMsg(
+        `Stock insuficiente para "${productoDispensar.nombre}". Disponible: ${productoDispensar.stock_actual}, ya en lote: ${cantActualEnLote}, intento agregar: ${cantidadDispensar}.`
+      );
       return;
+    }
+
+    if (existente) {
+      setItemsDispensacion((prev) =>
+        prev.map((it) =>
+          it.producto.id === productoDispensar.id
+            ? { ...it, cantidad: nuevaCantTotal }
+            : it
+        )
+      );
+    } else {
+      setItemsDispensacion((prev) => [
+        ...prev,
+        {
+          id: `disp-item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          producto: productoDispensar,
+          cantidad: cantidadDispensar,
+        },
+      ]);
+    }
+
+    setCantidadDispensar(1);
+  };
+
+  const handleEliminarItemDispensacion = (itemId: string) => {
+    setItemsDispensacion((prev) => prev.filter((it) => it.id !== itemId));
+  };
+
+  const handleModificarCantDispensacion = (itemId: string, nuevaCant: number) => {
+    if (nuevaCant <= 0) {
+      handleEliminarItemDispensacion(itemId);
+      return;
+    }
+    setItemsDispensacion((prev) =>
+      prev.map((it) => {
+        if (it.id === itemId) {
+          const maxStock = it.producto.stock_actual;
+          return { ...it, cantidad: Math.min(nuevaCant, maxStock) };
+        }
+        return it;
+      })
+    );
+  };
+
+  const handleEjecutarDispensacionMultiple = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (itemsDispensacion.length === 0) {
+      setDispensacionErrorMsg("Agregue al menos un insumo al lote de dispensación antes de procesar.");
+      return;
+    }
+
+    // Validar existencias de todo el lote
+    for (const item of itemsDispensacion) {
+      if (item.cantidad > item.producto.stock_actual) {
+        setDispensacionErrorMsg(
+          `Stock insuficiente para "${item.producto.nombre}": solicitado ${item.cantidad}, disponible en almacén ${item.producto.stock_actual}.`
+        );
+        return;
+      }
     }
 
     setIsDispensando(true);
@@ -814,51 +1032,58 @@ export default function AdmisionCajaPage() {
     setDispensacionErrorMsg(null);
 
     try {
-      const currentUserName = cajeroNombre || sessionStorage.getItem("lm_nombre") || "Operador de Caja";
+      const currentUserName = cajeroNombre || sessionStorage.getItem("lm_nombre") || "Operador de Farmacia";
       const siteId = getSiteId(sede);
-
-      const motivoFinal = motivoDispensacion.trim() ||
+      const motivoFinal =
+        motivoDispensacion.trim() ||
         (tipoDispensacion === "SALIDA_VENTA"
-          ? `Venta en caja/mostrador de farmacia`
-          : `Dispensado para procedimiento o uso asistencial`);
+          ? `Venta en mostrador de farmacia / caja (Lote múltiple)`
+          : `Dispensación de insumos para consultorio / uso asistencial`);
 
-      const { error } = await supabase.rpc("registrar_movimiento_inventario", {
-        p_producto_id: productoDispensar.id,
-        p_tipo: tipoDispensacion,
-        p_cantidad: Number(cantidadDispensar),
-        p_motivo: motivoFinal,
-        p_site_id: siteId,
-        p_usuario_nombre: currentUserName,
-      });
-
-      if (error) {
-        console.warn("RPC falló, aplicando actualización directa en tabla:", error.message);
-        // Fallback directo
-        const nuevoStock = productoDispensar.stock_actual - Number(cantidadDispensar);
-        await supabase
-          .from("producto_inventario")
-          .update({ stock_actual: nuevoStock, updated_at: new Date().toISOString() })
-          .eq("id", productoDispensar.id);
-
-        await supabase.from("movimiento_inventario").insert({
-          producto_id: productoDispensar.id,
-          tipo: tipoDispensacion,
-          cantidad: Number(cantidadDispensar),
-          stock_anterior: productoDispensar.stock_actual,
-          stock_nuevo: nuevoStock,
-          motivo: motivoFinal,
-          usuario_nombre: currentUserName,
-          site_id: siteId,
+      // Procesar cada ítem del lote en Kárdex
+      for (const item of itemsDispensacion) {
+        const { error } = await supabase.rpc("registrar_movimiento_inventario", {
+          p_producto_id: item.producto.id,
+          p_tipo: tipoDispensacion,
+          p_cantidad: Number(item.cantidad),
+          p_motivo: `${motivoFinal} [${item.producto.nombre} x${item.cantidad}]`,
+          p_site_id: siteId,
+          p_usuario_nombre: currentUserName,
         });
+
+        if (error) {
+          console.warn(`RPC falló para ${item.producto.nombre}, aplicando actualización directa:`, error.message);
+          const nuevoStock = item.producto.stock_actual - Number(item.cantidad);
+          await supabase
+            .from("producto_inventario")
+            .update({ stock_actual: nuevoStock, updated_at: new Date().toISOString() })
+            .eq("id", item.producto.id);
+
+          await supabase.from("movimiento_inventario").insert({
+            producto_id: item.producto.id,
+            tipo: tipoDispensacion,
+            cantidad: Number(item.cantidad),
+            stock_anterior: item.producto.stock_actual,
+            stock_nuevo: nuevoStock,
+            motivo: `${motivoFinal} [${item.producto.nombre} x${item.cantidad}]`,
+            usuario_nombre: currentUserName,
+            site_id: siteId,
+          });
+        }
       }
 
-      setDispensacionExitoMsg(`Dispensación exitosa: ${cantidadDispensar}x ${productoDispensar.nombre}. Stock actualizado en tiempo real.`);
+      const totalUnidades = itemsDispensacion.reduce((s, it) => s + it.cantidad, 0);
+      setDispensacionExitoMsg(
+        `✓ Dispensación de lote completada con éxito: ${itemsDispensacion.length} insumos diferentes (${totalUnidades} unidades en total). Stock de Kárdex actualizado.`
+      );
+      setItemsDispensacion([]);
+      setProductoDispensar(null);
       setCantidadDispensar(1);
       setMotivoDispensacion("");
       await cargarProductosInventario(sede);
-      setTimeout(() => setDispensacionExitoMsg(null), 4500);
+      setTimeout(() => setDispensacionExitoMsg(null), 5000);
     } catch (err: any) {
-      setDispensacionErrorMsg(err?.message || "Error al procesar la salida en el kárdex.");
+      setDispensacionErrorMsg(err?.message || "Error al procesar la salida de lote en el kárdex.");
     } finally {
       setIsDispensando(false);
     }
@@ -1425,9 +1650,11 @@ export default function AdmisionCajaPage() {
 
     const nuevaTx: TransaccionAtencion = {
       id: encuentroId ? `OP-${encuentroId.slice(0, 6).toUpperCase()}` : `OP-${Math.floor(100 + Math.random() * 900)}`,
+      encuentroId: encuentroId || undefined,
       hora: horaStr,
       dni: dni.trim(),
       paciente: `${nombres.trim()} ${apellidos.trim()}`,
+      telefono: telefono.trim(),
       servicio: resumenServicios,
       monto: montoTotalCarrito,
       medioPago: medioPagoDesc as any,
@@ -1647,6 +1874,7 @@ export default function AdmisionCajaPage() {
     setReagendandoLoading(true);
     try {
       const siteId = getSiteId(reagendarSede);
+      // 1. Insertar la cita en cita_reagendada
       const { error } = await supabase.from("cita_reagendada").insert({
         paciente_nombre: pacienteNom,
         telefono: (reagendarTelefono || telefono).trim() || null,
@@ -1654,14 +1882,62 @@ export default function AdmisionCajaPage() {
         hora: reagendarHora,
         motivo: reagendarMotivo,
         site_id: siteId,
+        estado: "PROGRAMADA",
       });
 
       if (error) {
         setReagendadaExitoMsg("Error al guardar: " + error.message);
-      } else {
-        setReagendadaExitoMsg("✓ Cita registrada exitosamente en el calendario institucional.");
-        setTimeout(() => setReagendadaExitoMsg(null), 4000);
+        return;
       }
+
+      // 2. Si proviene de un encuentro activo en cola de espera, actualizarlo a CANCELADO para retirarlo de la vista del médico
+      if (reagendarEncuentroId) {
+        await supabase
+          .from("encuentro")
+          .update({
+            estado: "CANCELADO",
+            observaciones: `Cita reprogramada para el ${reagendarFecha} a las ${reagendarHora} (${reagendarMotivo})`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", reagendarEncuentroId);
+      }
+
+      // 3. Actualizar la lista local de transacciones para deslistar al paciente de "En Espera"
+      setTransacciones((prev) =>
+        prev.map((t) => {
+          const coincideId = reagendarEncuentroId && (t.encuentroId === reagendarEncuentroId || t.id === reagendarEncuentroId);
+          const coincideNom = pacienteNom && t.paciente.toLowerCase() === pacienteNom.toLowerCase() && t.estadoConsultorio === "EN_ESPERA";
+          if (coincideId || coincideNom) {
+            return { ...t, estadoConsultorio: "CANCELADO" as any };
+          }
+          return t;
+        })
+      );
+
+      // 4. Emitir broadcast Realtime y evento storage para sincronizar HCE y deslistar de inmediato
+      try {
+        const canalCola = supabase.channel("cola-medica");
+        canalCola.send({
+          type: "broadcast",
+          event: "paciente_reprogramado",
+          payload: {
+            encuentroId: reagendarEncuentroId,
+            paciente: pacienteNom,
+            nuevaFecha: reagendarFecha,
+            nuevaHora: reagendarHora,
+          },
+        });
+        localStorage.setItem("lm_paciente_reprogramado", Date.now().toString());
+      } catch (eBroad) {
+        console.warn("Aviso broadcast:", eBroad);
+      }
+
+      // 5. Refrescar citas del día
+      cargarCitasDelDia(sede);
+
+      setReagendadaExitoMsg("✓ Cita reagendada exitosamente. El paciente ha sido retirado de la cola de espera de consultorio.");
+      setReagendarEncuentroId(null);
+      setTimeout(() => setReagendadaExitoMsg(null), 5000);
     } catch {
       setReagendadaExitoMsg("Error de conexión al guardar cita.");
     } finally {
@@ -1671,9 +1947,17 @@ export default function AdmisionCajaPage() {
 
   const prepararReagendamientoPara = (atencion: TransaccionAtencion) => {
     setReagendarPaciente(atencion.paciente);
+    if (atencion.telefono) {
+      setReagendarTelefono(atencion.telefono);
+    }
     setReagendarMotivo(`Control de Seguimiento - ${atencion.servicio}`);
     setReagendarSede(atencion.sede || sede);
+    setReagendarEncuentroId(atencion.encuentroId || (atencion.id.startsWith("OP-") ? null : atencion.id));
     setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
+    const el = document.getElementById("seccion-reagendamiento");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   // Cálculos Financieros del Turno (Aislados estrictamente al turno activo y con soporte Split)
@@ -1868,14 +2152,148 @@ export default function AdmisionCajaPage() {
         </div>
       </div>
 
-      {/* 2. Layout Principal de Dos Columnas Fluidas */}
+      {/* 2. Bandeja Minimalista de Citas Programadas del Día */}
+      <div className="bg-white rounded-3xl p-5 border border-brand-100 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xs shadow-xs">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                  Citas Programadas de Hoy
+                </h2>
+                <span className="text-[10px] bg-purple-100 text-purple-900 font-extrabold px-2 py-0.5 rounded-full">
+                  {citasDelDia.length} {citasDelDia.length === 1 ? "cita" : "citas"}
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500">
+                Sede {sede} &bull; Agendadas previamente &bull; Recepción rápida en ventanilla
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => cargarCitasDelDia(sede)}
+              title="Refrescar lista de citas de hoy"
+              className="p-1.5 text-neutral-500 hover:text-brand-800 hover:bg-neutral-100 rounded-xl transition flex items-center gap-1 text-[11px] font-bold"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${cargandoCitasDelDia ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Actualizar</span>
+            </button>
+          </div>
+        </div>
+
+        {citasDelDia.length === 0 ? (
+          <div className="py-4 px-3 bg-neutral-50/70 border border-neutral-200/70 rounded-2xl text-center text-xs text-neutral-500 flex items-center justify-center gap-2">
+            <Clock className="w-4 h-4 text-neutral-400" />
+            <span>No hay citas programadas para hoy en Sede {sede}. Las citas agendadas desde la plataforma aparecerán aquí en tiempo real.</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {citasDelDia.map((cita) => {
+              const estaEnEspera = transacciones.some(
+                (t) =>
+                  t.estadoConsultorio === "EN_ESPERA" &&
+                  (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+                    cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
+              );
+              const estaAtendida =
+                cita.estado === "ATENDIDA" ||
+                transacciones.some(
+                  (t) =>
+                    t.estadoConsultorio === "ATENDIDO" &&
+                    (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+                      cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
+                );
+
+              const horaLimpia = cita.hora ? cita.hora.slice(0, 5) : "--:--";
+
+              return (
+                <div
+                  key={cita.id}
+                  className="p-3.5 rounded-2xl border border-neutral-200 bg-white hover:border-brand-300 hover:shadow-xs transition flex flex-col justify-between space-y-2.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-neutral-100 text-neutral-900 border border-neutral-200">
+                        {horaLimpia}
+                      </span>
+                      {estaEnEspera ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800">
+                          En Sala de Espera
+                        </span>
+                      ) : estaAtendida ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800">
+                          Atendida
+                        </span>
+                      ) : cita.estado === "CANCELADA" ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800">
+                          Cancelada
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700">
+                          Pendiente de Llegada
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-black text-neutral-900 leading-tight">
+                      {cita.paciente_nombre}
+                    </h4>
+                    <p className="text-[11px] text-neutral-500 mt-0.5 line-clamp-1" title={cita.motivo}>
+                      {cita.motivo}
+                    </p>
+                    {cita.telefono && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-neutral-400" />
+                          {cita.telefono}
+                        </span>
+                        <a
+                          href={`https://wa.me/51${cita.telefono.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Contactar por WhatsApp"
+                          className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-0.5"
+                        >
+                          <MessageSquare className="w-3 h-3 text-emerald-600" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-1 border-t border-neutral-100">
+                    <button
+                      type="button"
+                      onClick={() => handleAdmitirCita(cita)}
+                      className="w-full py-1.5 px-2.5 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-[11px] rounded-xl border border-brand-200 transition flex items-center justify-center gap-1"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 text-brand-700" />
+                      <span>{estaEnEspera ? "Ver / Modificar Admisión" : "+ Admitir / Cobrar"}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 3. Layout Principal de Dos Columnas Fluidas */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* COLUMNA IZQUIERDA: Formulario Desplegable en Acordeones */}
         <div className="lg:col-span-7 space-y-4">
           
           {/* ACORDEÓN 1: Admisión & Paciente */}
-          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+          <div id="seccion-formulario-admision" className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
             <button
               type="button"
               onClick={() => toggleSection("admision")}
@@ -2670,7 +3088,7 @@ export default function AdmisionCajaPage() {
             )}
           </div>
 
-          {/* ACORDEÓN: Dispensación de Insumos Clínicos & Farmacia */}
+          {/* ACORDEÓN: Dispensación de Insumos Clínicos & Farmacia (Sub-carrito por Lote) */}
           <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm relative z-10">
             <button
               type="button"
@@ -2682,11 +3100,18 @@ export default function AdmisionCajaPage() {
                   <Package className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                    Dispensación de Insumos & Farmacia
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                      Dispensación de Insumos & Farmacia
+                    </h3>
+                    {itemsDispensacion.length > 0 && (
+                      <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded-full">
+                        {itemsDispensacion.length} en lote
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-neutral-500">
-                    Kárdex en tiempo real &bull; Salidas por venta o uso asistencial en consultorio
+                    Kárdex en tiempo real &bull; Sub-carrito por lote para ventas o uso clínico
                   </p>
                 </div>
               </div>
@@ -2708,47 +3133,163 @@ export default function AdmisionCajaPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleEjecutarDispensacion} className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-neutral-700 uppercase tracking-wider mb-1">
-                      Insumo / Fármaco a Dispensar *
+                {/* 1. Selector para agregar insumos al sub-carrito */}
+                <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-extrabold text-blue-900 uppercase tracking-wider">
+                      Seleccionar Insumo del Inventario
                     </label>
-                    <select
-                      value={productoDispensar?.id || ""}
-                      onChange={(e) => {
-                        const prod = productosInventario.find((p) => p.id === e.target.value) || null;
-                        setProductoDispensar(prod);
-                      }}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs font-bold bg-white focus:ring-2 focus:ring-brand-700"
-                    >
-                      <option value="">-- Seleccionar del Inventario ({productosInventario.length} disponibles) --</option>
-                      {productosInventario.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nombre} ({p.presentacion}) - Stock: {p.stock_actual} unid. {p.precio_venta > 0 ? `[S/ ${p.precio_venta}]` : ""}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="text-[10px] font-bold text-blue-600 font-mono">
+                      {productosInventario.length} insumos en stock
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                    <div className="sm:col-span-8">
+                      <select
+                        value={productoDispensar?.id || ""}
+                        onChange={(e) => {
+                          const prod = productosInventario.find((p) => p.id === e.target.value) || null;
+                          setProductoDispensar(prod);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-bold bg-white focus:ring-2 focus:ring-blue-600"
+                      >
+                        <option value="">-- Seleccionar insumo a agregar --</option>
+                        {productosInventario.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre} ({p.presentacion}) - Stock: {p.stock_actual} unid. {p.precio_venta > 0 ? `[S/ ${p.precio_venta}]` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-4 flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={productoDispensar?.stock_actual || 999}
+                        value={cantidadDispensar}
+                        onChange={(e) => setCantidadDispensar(Math.max(1, Number(e.target.value)))}
+                        className="w-20 px-2.5 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-black text-center bg-white"
+                        title="Cantidad de unidades"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAgregarItemDispensacion}
+                        disabled={!productoDispensar || (productoDispensar?.stock_actual || 0) <= 0}
+                        className="flex-1 py-2 px-3 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Agregar</span>
+                      </button>
+                    </div>
                   </div>
 
                   {productoDispensar && (
-                    <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
+                    <div className="p-2.5 bg-white border border-blue-200 rounded-xl flex items-center justify-between text-xs">
                       <div>
                         <span className="font-mono text-[10px] text-blue-700 font-bold block">{productoDispensar.codigo}</span>
-                        <span className="font-bold text-blue-950">{productoDispensar.nombre}</span>
-                        <span className="text-[11px] text-blue-700 block">{productoDispensar.presentacion}</span>
+                        <span className="font-bold text-neutral-900">{productoDispensar.nombre}</span>
+                        <span className="text-[11px] text-neutral-500 block">{productoDispensar.presentacion}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] font-bold text-blue-800 uppercase block">Existencias</span>
-                        <span className={`font-mono text-sm font-black ${productoDispensar.stock_actual <= productoDispensar.stock_minimo ? "text-amber-700 animate-pulse" : "text-emerald-700"}`}>
+                        <span className="text-[10px] font-bold text-neutral-400 uppercase block">Existencias</span>
+                        <span className={`font-mono text-xs font-black ${productoDispensar.stock_actual <= productoDispensar.stock_minimo ? "text-amber-700 font-bold" : "text-emerald-700"}`}>
                           {productoDispensar.stock_actual} unid.
                         </span>
-                        {productoDispensar.stock_actual <= productoDispensar.stock_minimo && (
-                          <span className="text-[9px] font-bold text-amber-800 block">Stock Bajo Mín.</span>
-                        )}
                       </div>
                     </div>
                   )}
+                </div>
 
+                {/* 2. Sub-carrito de Lote de Dispensación */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold text-neutral-700 uppercase tracking-wider">
+                      Lote de Insumos a Dispensar ({itemsDispensacion.length})
+                    </span>
+                    {itemsDispensacion.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setItemsDispensacion([])}
+                        className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline"
+                      >
+                        Vaciar lote
+                      </button>
+                    )}
+                  </div>
+
+                  {itemsDispensacion.length === 0 ? (
+                    <div className="p-4 bg-neutral-50 border border-neutral-200/80 rounded-2xl text-center text-xs text-neutral-400">
+                      No hay insumos en el lote. Seleccione productos arriba y pulse &quot;Agregar&quot; para armar el lote de dispensación múltiple.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white text-xs">
+                      {itemsDispensacion.map((it) => {
+                        const subtotal = tipoDispensacion === "SALIDA_VENTA" ? it.cantidad * it.producto.precio_venta : 0;
+                        return (
+                          <div key={it.id} className="p-3 flex items-center justify-between hover:bg-neutral-50/50 transition">
+                            <div className="flex-1 min-w-0 pr-3">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-neutral-900 truncate">{it.producto.nombre}</span>
+                                <span className="text-[10px] font-mono text-neutral-400 shrink-0">{it.producto.codigo}</span>
+                              </div>
+                              <p className="text-[11px] text-neutral-500">{it.producto.presentacion}</p>
+                              {tipoDispensacion === "SALIDA_VENTA" && it.producto.precio_venta > 0 && (
+                                <span className="text-[10px] font-mono text-brand-700 font-bold">
+                                  P. Unit: {formatCurrency(it.producto.precio_venta)} &bull; Subtotal: {formatCurrency(subtotal)}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex items-center border border-neutral-200 rounded-lg overflow-hidden bg-neutral-50">
+                                <button
+                                  type="button"
+                                  onClick={() => handleModificarCantDispensacion(it.id, it.cantidad - 1)}
+                                  className="px-2 py-1 hover:bg-neutral-200 text-neutral-700 font-black text-xs transition"
+                                >
+                                  -
+                                </button>
+                                <span className="px-2.5 py-1 font-mono font-black text-xs text-neutral-900 bg-white">
+                                  {it.cantidad}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={it.cantidad >= it.producto.stock_actual}
+                                  onClick={() => handleModificarCantDispensacion(it.id, it.cantidad + 1)}
+                                  className="px-2 py-1 hover:bg-neutral-200 disabled:opacity-30 text-neutral-700 font-black text-xs transition"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleEliminarItemDispensacion(it.id)}
+                                title="Quitar del lote"
+                                className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Resumen del Lote */}
+                      <div className="p-3 bg-neutral-50 flex items-center justify-between text-xs font-bold text-neutral-700">
+                        <span>Total Unidades a Descargar de Kárdex:</span>
+                        <span className="font-mono font-black text-blue-900">
+                          {itemsDispensacion.reduce((s, it) => s + it.cantidad, 0)} unidades
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Formulario de Destino y Ejecución */}
+                <form onSubmit={handleEjecutarDispensacionMultiple} className="space-y-3 pt-2">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold text-neutral-700 mb-1">
@@ -2766,52 +3307,39 @@ export default function AdmisionCajaPage() {
 
                     <div>
                       <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Cantidad a Dispensar *
+                        Motivo / Paciente Destino / Detalle Asistencial
                       </label>
                       <input
-                        type="number"
-                        min={1}
-                        max={productoDispensar?.stock_actual || 999}
-                        required
-                        value={cantidadDispensar}
-                        onChange={(e) => setCantidadDispensar(Number(e.target.value))}
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-black"
+                        type="text"
+                        value={motivoDispensacion}
+                        onChange={(e) => setMotivoDispensacion(e.target.value)}
+                        placeholder={
+                          dni && nombres
+                            ? `Paciente: ${nombres} ${apellidos} (DNI ${dni})`
+                            : "Ej. Dispensado para colocación DIU, Venta particular, Tratamiento..."
+                        }
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                      Motivo / Paciente Destino / Detalle Asistencial
-                    </label>
-                    <input
-                      type="text"
-                      value={motivoDispensacion}
-                      onChange={(e) => setMotivoDispensacion(e.target.value)}
-                      placeholder={
-                        dni && nombres
-                          ? `Paciente: ${nombres} ${apellidos} (DNI ${dni})`
-                          : "Ej. Dispensado para colocación DIU, Venta particular, Tratamiento tópico..."
-                      }
-                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs"
-                    />
                   </div>
 
                   <div className="pt-1">
                     <button
                       type="submit"
-                      disabled={isDispensando || !productoDispensar || (productoDispensar?.stock_actual || 0) <= 0}
+                      disabled={isDispensando || itemsDispensacion.length === 0}
                       className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       {isDispensando ? (
                         <>
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Actualizando Kárdex...</span>
+                          <span>Actualizando Kárdex por Lote...</span>
                         </>
                       ) : (
                         <>
                           <Boxes className="w-4 h-4" />
-                          <span>Registrar Salida en Kárdex (Operador: {cajeroNombre})</span>
+                          <span>
+                            Procesar Salida de Lote ({itemsDispensacion.length} insumos, {itemsDispensacion.reduce((s, it) => s + it.cantidad, 0)} unid.) &bull; Operador: {cajeroNombre}
+                          </span>
                         </>
                       )}
                     </button>
@@ -2981,7 +3509,7 @@ export default function AdmisionCajaPage() {
           </div>
 
           {/* ACORDEÓN 5: Reagendamiento de Citas & WhatsApp Institucional */}
-          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+          <div id="seccion-reagendamiento" className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
             <button
               type="button"
               onClick={() => toggleSection("reagendamiento")}
@@ -3014,6 +3542,24 @@ export default function AdmisionCajaPage() {
 
             {openSection.reagendamiento && (
               <div className="p-5 space-y-4">
+                {/* Alerta de vinculación con paciente en espera */}
+                {reagendarEncuentroId && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>
+                        Reagendando paciente en espera: <strong>{reagendarPaciente}</strong>. Al confirmar, se retirará automáticamente de la cola del consultorio.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReagendarEncuentroId(null)}
+                      className="text-amber-700 hover:text-amber-900 text-[10px] font-bold underline"
+                    >
+                      Cancelar vinculación
+                    </button>
+                  </div>
+                )}
                 {/* Botón rápido si hay paciente en admisión */}
                 {nombres && (
                   <div className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-2xl border border-neutral-200 text-xs">
@@ -3292,10 +3838,12 @@ export default function AdmisionCajaPage() {
                           ? "bg-amber-100 text-amber-800"
                           : tx.estadoConsultorio === "EN_ATENCION"
                           ? "bg-blue-100 text-blue-800"
+                          : tx.estadoConsultorio === "CANCELADO" || (tx.estadoConsultorio as string) === "REPROGRAMADO"
+                          ? "bg-purple-100 text-purple-800"
                           : "bg-emerald-100 text-emerald-800"
                       }`}
                     >
-                      {tx.estadoConsultorio.replace("_", " ")}
+                      {tx.estadoConsultorio === "CANCELADO" ? "REPROGRAMADO" : tx.estadoConsultorio.replace("_", " ")}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <button
