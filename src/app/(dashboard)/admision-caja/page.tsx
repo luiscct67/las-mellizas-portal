@@ -260,8 +260,10 @@ export default function AdmisionCajaPage() {
   const [reagendadaExitoMsg, setReagendadaExitoMsg] = useState<string | null>(null);
   const [reagendarEncuentroId, setReagendarEncuentroId] = useState<string | null>(null);
 
-  // Citas Programadas del Día (Bandeja Minimalista de Recepción)
+  // Citas Programadas del Día & Próximas Reagendadas
   const [citasDelDia, setCitasDelDia] = useState<CitaAgendadaDia[]>([]);
+  const [proximasCitas, setProximasCitas] = useState<CitaAgendadaDia[]>([]);
+  const [tabBandejaCitas, setTabBandejaCitas] = useState<"HOY" | "PROXIMAS">("HOY");
   const [cargandoCitasDelDia, setCargandoCitasDelDia] = useState(false);
 
   // Formulario Admisión & Carrito Multiservicios
@@ -541,7 +543,7 @@ export default function AdmisionCajaPage() {
     }
   };
 
-  // 5. Cargar Citas Programadas del Día para la Sede (Bandeja Minimalista de Admisión)
+  // 5. Cargar Citas Programadas de Hoy y Próximas Reagendadas para la Sede
   const cargarCitasDelDia = async (sedeNombre?: string) => {
     try {
       setCargandoCitasDelDia(true);
@@ -554,23 +556,33 @@ export default function AdmisionCajaPage() {
       const day = String(d.getDate()).padStart(2, "0");
       const hoyLocal = `${year}-${month}-${day}`;
 
-      const { data, error } = await supabase
+      // 1. Citas programadas estrictamente para HOY
+      const { data: dataHoy, error: errorHoy } = await supabase
         .from("cita_reagendada")
         .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id")
         .eq("site_id", siteId)
         .eq("fecha", hoyLocal)
         .order("hora", { ascending: true });
 
-      if (error) {
-        console.warn("Advertencia consultando citas del día:", error.message);
-        return;
+      if (!errorHoy && dataHoy) {
+        setCitasDelDia(dataHoy as CitaAgendadaDia[]);
       }
 
-      if (data) {
-        setCitasDelDia(data as CitaAgendadaDia[]);
+      // 2. Próximas citas reprogramadas (fechas futuras en esta sede)
+      const { data: dataFuturas, error: errorFuturas } = await supabase
+        .from("cita_reagendada")
+        .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id")
+        .eq("site_id", siteId)
+        .gt("fecha", hoyLocal)
+        .order("fecha", { ascending: true })
+        .order("hora", { ascending: true })
+        .limit(20);
+
+      if (!errorFuturas && dataFuturas) {
+        setProximasCitas(dataFuturas as CitaAgendadaDia[]);
       }
     } catch (err) {
-      console.warn("Error al cargar citas programadas del día:", err);
+      console.warn("Error al cargar citas programadas y reagendadas:", err);
     } finally {
       setCargandoCitasDelDia(false);
     }
@@ -1934,7 +1946,6 @@ export default function AdmisionCajaPage() {
             .from("encuentro")
             .update({
               estado: "CANCELADO",
-              observaciones: `REPROGRAMADO para el ${reagendarFecha} a las ${reagendarHora} (${reagendarMotivo}) por ${currentUserName}`,
               updated_at: new Date().toISOString(),
             })
             .eq("id", encuentroIdACancelar);
@@ -1946,19 +1957,21 @@ export default function AdmisionCajaPage() {
         prev.map((t) => {
           const coincideId = encuentroIdACancelar && (t.encuentroId === encuentroIdACancelar || t.id === encuentroIdACancelar);
           const coincideNom =
-            pacienteNom &&
-            (t.paciente.toLowerCase().includes(pacienteNom.toLowerCase()) ||
-              pacienteNom.toLowerCase().includes(t.paciente.toLowerCase())) &&
-            t.estadoConsultorio === "EN_ESPERA";
+            t.paciente.toLowerCase().includes(pacienteNom.toLowerCase()) ||
+            pacienteNom.toLowerCase().includes(t.paciente.toLowerCase());
 
           if (coincideId || coincideNom) {
-            return { ...t, estadoConsultorio: "CANCELADO" as any };
+            return {
+              ...t,
+              estadoConsultorio: "CANCELADO" as any,
+              observaciones: `Cita reagendada para ${reagendarFecha} ${reagendarHora}`,
+            };
           }
           return t;
         })
       );
 
-      // 4. Emitir broadcast Realtime y evento storage para sincronizar HCE y deslistar de inmediato
+      // 4. Notificar a tiempo real a consultorio médico para que retire al paciente de la cola inmediatamente
       try {
         const canalCola = supabase.channel("cola-medica");
         canalCola.send({
@@ -1976,8 +1989,15 @@ export default function AdmisionCajaPage() {
         console.warn("Aviso broadcast:", eBroad);
       }
 
-      // 5. Refrescar citas del día
-      cargarCitasDelDia(sede);
+      // 5. Refrescar citas del día y próximas
+      await cargarCitasDelDia(sede);
+
+      // Si la fecha es futura, activar la pestaña de próximas citas para que el usuario la vea de inmediato
+      const dNow = new Date();
+      const hoyStr = `${dNow.getFullYear()}-${String(dNow.getMonth() + 1).padStart(2, "0")}-${String(dNow.getDate()).padStart(2, "0")}`;
+      if (reagendarFecha > hoyStr) {
+        setTabBandejaCitas("PROXIMAS");
+      }
 
       setReagendadaExitoMsg("✓ Cita reagendada exitosamente. El paciente ha sido retirado de la cola de espera de consultorio.");
       setReagendarEncuentroId(null);
@@ -2016,7 +2036,6 @@ export default function AdmisionCajaPage() {
           .from("encuentro")
           .update({
             estado: "CANCELADO",
-            observaciones: `Retirado de sala de espera por ${cajeroNombre || "Ventanilla"} el ${new Date().toLocaleDateString()}`,
             updated_at: new Date().toISOString(),
           })
           .eq("id", targetId);
@@ -2193,7 +2212,7 @@ export default function AdmisionCajaPage() {
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-black text-brand-900">Admisión & Caja Unificada</h1>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                <MapPin className="w-3 h-3" /> Sede {sede}
+                <MapPin className="w-3 h-3" /> Sede {normalizarSede(sede)}
               </span>
             </div>
             <p className="text-xs text-neutral-500">
@@ -2234,9 +2253,9 @@ export default function AdmisionCajaPage() {
         </div>
       </div>
 
-      {/* 2. Bandeja Minimalista de Citas Programadas del Día */}
+      {/* 2. Bandeja Minimalista de Citas Programadas del Día & Próximas */}
       <div className="bg-white rounded-3xl p-5 border border-brand-100 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-neutral-100">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xs shadow-xs">
               <Calendar className="w-4 h-4" />
@@ -2244,23 +2263,64 @@ export default function AdmisionCajaPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                  Citas Programadas de Hoy
+                  Bandeja de Citas & Reagendamientos
                 </h2>
                 <span className="text-[10px] bg-purple-100 text-purple-900 font-extrabold px-2 py-0.5 rounded-full">
-                  {citasDelDia.length} {citasDelDia.length === 1 ? "cita" : "citas"}
+                  {citasDelDia.length + proximasCitas.length} {citasDelDia.length + proximasCitas.length === 1 ? "registro" : "registros"}
                 </span>
               </div>
               <p className="text-[11px] text-neutral-500">
-                Sede {sede} &bull; Agendadas previamente &bull; Recepción rápida en ventanilla
+                Sede {normalizarSede(sede)} &bull; Agendadas previamente &bull; Recepción rápida en ventanilla
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Tabs de Selección entre Citas de Hoy y Próximas Reagendadas */}
+            <div className="flex items-center bg-neutral-100 p-1 rounded-xl gap-1">
+              <button
+                type="button"
+                onClick={() => setTabBandejaCitas("HOY")}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  tabBandejaCitas === "HOY"
+                    ? "bg-white text-purple-950 shadow-xs border border-purple-200/60"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
+              >
+                <span>Citas de Hoy</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    tabBandejaCitas === "HOY" ? "bg-purple-100 text-purple-900" : "bg-neutral-200 text-neutral-600"
+                  }`}
+                >
+                  {citasDelDia.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTabBandejaCitas("PROXIMAS")}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  tabBandejaCitas === "PROXIMAS"
+                    ? "bg-white text-purple-950 shadow-xs border border-purple-200/60"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
+              >
+                <span>Próximas Reagendadas</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    tabBandejaCitas === "PROXIMAS" ? "bg-purple-100 text-purple-900" : "bg-neutral-200 text-neutral-600"
+                  }`}
+                >
+                  {proximasCitas.length}
+                </span>
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => cargarCitasDelDia(sede)}
-              title="Refrescar lista de citas de hoy"
+              title="Refrescar lista de citas"
               className="p-1.5 text-neutral-500 hover:text-brand-800 hover:bg-neutral-100 rounded-xl transition flex items-center gap-1 text-[11px] font-bold"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${cargandoCitasDelDia ? "animate-spin" : ""}`} />
@@ -2269,103 +2329,119 @@ export default function AdmisionCajaPage() {
           </div>
         </div>
 
-        {citasDelDia.length === 0 ? (
-          <div className="py-4 px-3 bg-neutral-50/70 border border-neutral-200/70 rounded-2xl text-center text-xs text-neutral-500 flex items-center justify-center gap-2">
-            <Clock className="w-4 h-4 text-neutral-400" />
-            <span>No hay citas programadas para hoy en Sede {sede}. Las citas agendadas desde la plataforma aparecerán aquí en tiempo real.</span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {citasDelDia.map((cita) => {
-              const estaEnEspera = transacciones.some(
-                (t) =>
-                  t.estadoConsultorio === "EN_ESPERA" &&
-                  (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
-                    cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
-              );
-              const estaAtendida =
-                cita.estado === "ATENDIDA" ||
-                transacciones.some(
+        {(() => {
+          const listaActual = tabBandejaCitas === "HOY" ? citasDelDia : proximasCitas;
+          if (listaActual.length === 0) {
+            return (
+              <div className="py-4 px-3 bg-neutral-50/70 border border-neutral-200/70 rounded-2xl text-center text-xs text-neutral-500 flex items-center justify-center gap-2">
+                <Clock className="w-4 h-4 text-neutral-400" />
+                <span>
+                  {tabBandejaCitas === "HOY"
+                    ? `No hay citas programadas para hoy en Sede ${normalizarSede(sede)}. Las citas agendadas aparecerán aquí en tiempo real.`
+                    : `No hay próximas citas reagendadas registradas en Sede ${normalizarSede(sede)}.`}
+                </span>
+              </div>
+            );
+          }
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {listaActual.map((cita) => {
+                const estaEnEspera = transacciones.some(
                   (t) =>
-                    t.estadoConsultorio === "ATENDIDO" &&
+                    t.estadoConsultorio === "EN_ESPERA" &&
                     (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
                       cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
                 );
+                const estaAtendida =
+                  cita.estado === "ATENDIDA" ||
+                  transacciones.some(
+                    (t) =>
+                      t.estadoConsultorio === "ATENDIDO" &&
+                      (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+                        cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
+                  );
 
-              const horaLimpia = cita.hora ? cita.hora.slice(0, 5) : "--:--";
+                const horaLimpia = cita.hora ? cita.hora.slice(0, 5) : "--:--";
 
-              return (
-                <div
-                  key={cita.id}
-                  className="p-3.5 rounded-2xl border border-neutral-200 bg-white hover:border-brand-300 hover:shadow-xs transition flex flex-col justify-between space-y-2.5"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-neutral-100 text-neutral-900 border border-neutral-200">
-                        {horaLimpia}
-                      </span>
-                      {estaEnEspera ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800">
-                          En Sala de Espera
+                return (
+                  <div
+                    key={cita.id}
+                    className="p-3.5 rounded-2xl border border-neutral-200 bg-white hover:border-brand-300 hover:shadow-xs transition flex flex-col justify-between space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {tabBandejaCitas === "PROXIMAS" && (
+                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200">
+                            📅 {cita.fecha}
+                          </span>
+                        )}
+                        <span className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-neutral-100 text-neutral-900 border border-neutral-200">
+                          {horaLimpia}
                         </span>
-                      ) : estaAtendida ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800">
-                          Atendida
-                        </span>
-                      ) : cita.estado === "CANCELADA" ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800">
-                          Cancelada
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700">
-                          Pendiente de Llegada
-                        </span>
+                        {estaEnEspera ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800">
+                            En Sala de Espera
+                          </span>
+                        ) : estaAtendida ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800">
+                            Atendida
+                          </span>
+                        ) : cita.estado === "CANCELADA" ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800">
+                            Cancelada
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700">
+                            {tabBandejaCitas === "PROXIMAS" ? "Reagendada" : "Pendiente de Llegada"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-black text-neutral-900 leading-tight">
+                        {cita.paciente_nombre}
+                      </h4>
+                      <p className="text-[11px] text-neutral-500 mt-0.5 line-clamp-1" title={cita.motivo}>
+                        {cita.motivo}
+                      </p>
+                      {cita.telefono && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-neutral-400" />
+                            {cita.telefono}
+                          </span>
+                          <a
+                            href={`https://wa.me/51${cita.telefono.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Contactar por WhatsApp"
+                            className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-0.5"
+                          >
+                            <MessageSquare className="w-3 h-3 text-emerald-600" />
+                            <span>WhatsApp</span>
+                          </a>
+                        </div>
                       )}
                     </div>
-                  </div>
 
-                  <div>
-                    <h4 className="text-xs font-black text-neutral-900 leading-tight">
-                      {cita.paciente_nombre}
-                    </h4>
-                    <p className="text-[11px] text-neutral-500 mt-0.5 line-clamp-1" title={cita.motivo}>
-                      {cita.motivo}
-                    </p>
-                    {cita.telefono && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-neutral-400" />
-                          {cita.telefono}
-                        </span>
-                        <a
-                          href={`https://wa.me/51${cita.telefono.replace(/\D/g, "")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Contactar por WhatsApp"
-                          className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-0.5"
-                        >
-                          <MessageSquare className="w-3 h-3 text-emerald-600" />
-                          <span>WhatsApp</span>
-                        </a>
-                      </div>
-                    )}
+                    <div className="pt-1 border-t border-neutral-100">
+                      <button
+                        type="button"
+                        onClick={() => handleAdmitirCita(cita)}
+                        className="w-full py-1.5 px-2.5 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-[11px] rounded-xl border border-brand-200 transition flex items-center justify-center gap-1"
+                      >
+                        <UserPlus className="w-3.5 h-3.5 text-brand-700" />
+                        <span>{estaEnEspera ? "Ver / Modificar Admisión" : "+ Admitir / Cobrar"}</span>
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="pt-1 border-t border-neutral-100">
-                    <button
-                      type="button"
-                      onClick={() => handleAdmitirCita(cita)}
-                      className="w-full py-1.5 px-2.5 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-[11px] rounded-xl border border-brand-200 transition flex items-center justify-center gap-1"
-                    >
-                      <UserPlus className="w-3.5 h-3.5 text-brand-700" />
-                      <span>{estaEnEspera ? "Ver / Modificar Admisión" : "+ Admitir / Cobrar"}</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* 3. Layout Principal de Dos Columnas Fluidas */}
@@ -3810,7 +3886,7 @@ export default function AdmisionCajaPage() {
                 </p>
               </div>
               <span className="text-xs font-mono px-2 py-1 rounded-lg bg-white/10 text-brand-200">
-                {sede}
+                Sede {normalizarSede(sede)}
               </span>
             </div>
 
