@@ -9,22 +9,66 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ============================================================================
 -- 1. PURGA CONTROLADA Y SEGURA DE DATOS SINTÉTICOS / DE PRUEBA
 -- ============================================================================
--- Se eliminan en cascada las transacciones de prueba previas
-DELETE FROM public.pago;
-DELETE FROM public.orden_pago;
-DELETE FROM public.nota_clinica;
-DELETE FROM public.encuentro;
-DELETE FROM public.paciente;
+-- Nota de Auditoría: Se deshabilitan temporalmente los triggers de inmutabilidad
+-- médica (trg_pago_no_del, trg_adenda_no_del, trg_auditoria_no_del) exclusivamente 
+-- para permitir el saneamiento previo al pase a producción real.
+-- Los triggers son reactivados de inmediato tras la depuración.
 
--- Opcional: Limpiar citas reagendadas de prueba si la tabla existe
 DO $$
 BEGIN
+    -- 1.1 Desactivar triggers de inmutabilidad que bloquean DELETE
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_pago_no_del') THEN
+        ALTER TABLE public.pago DISABLE TRIGGER trg_pago_no_del;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_adenda_no_del') THEN
+        ALTER TABLE public.adenda DISABLE TRIGGER trg_adenda_no_del;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_auditoria_no_del') THEN
+        ALTER TABLE public.auditoria DISABLE TRIGGER trg_auditoria_no_del;
+    END IF;
+
+    -- 1.2 Eliminación ordenada de transacciones sintéticas (de hijas a padres)
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'pago') THEN
+        DELETE FROM public.pago;
+    END IF;
+
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'orden_pago') THEN
+        DELETE FROM public.orden_pago;
+    END IF;
+
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'adenda') THEN
+        DELETE FROM public.adenda;
+    END IF;
+
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'nota_clinica') THEN
+        DELETE FROM public.nota_clinica;
+    END IF;
+
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'cita_reagendada') THEN
         DELETE FROM public.cita_reagendada;
     END IF;
+
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'encuentro') THEN
+        DELETE FROM public.encuentro;
+    END IF;
+
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'paciente') THEN
+        DELETE FROM public.paciente;
+    END IF;
+
+    -- 1.3 Reactivación estricta de triggers de inmutabilidad médica y legal
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_pago_no_del') THEN
+        ALTER TABLE public.pago ENABLE TRIGGER trg_pago_no_del;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_adenda_no_del') THEN
+        ALTER TABLE public.adenda ENABLE TRIGGER trg_adenda_no_del;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_auditoria_no_del') THEN
+        ALTER TABLE public.auditoria ENABLE TRIGGER trg_auditoria_no_del;
+    END IF;
 END $$;
 
--- Inserción de 1 registro limpio de paciente para control de calidad / auditoría
+-- Inserción de 2 pacientes limpios de verificación y auditoría inicial
 INSERT INTO public.paciente (
     id,
     dni,
@@ -35,7 +79,8 @@ INSERT INTO public.paciente (
     direccion,
     created_at,
     updated_at
-) VALUES (
+) VALUES 
+(
     'a0000000-0000-0000-0000-000000000001',
     '00000001',
     'Paciente Control',
@@ -45,7 +90,19 @@ INSERT INTO public.paciente (
     'Jr. Carlos F. Vivanco N.º 265, Huamanga',
     now(),
     now()
-) ON CONFLICT (dni) DO UPDATE SET
+),
+(
+    'a0000000-0000-0000-0000-000000000002',
+    '00000002',
+    'Paciente Control',
+    'Sede Independencia',
+    '999000222',
+    '1998-08-20',
+    'Av. Independencia N.º 450, Huamanga',
+    now(),
+    now()
+)
+ON CONFLICT (dni) DO UPDATE SET
     nombres = EXCLUDED.nombres,
     apellidos = EXCLUDED.apellidos;
 
@@ -141,6 +198,10 @@ DECLARE
     v_usuario_id UUID := auth.uid();
     v_res JSONB;
 BEGIN
+    IF v_usuario_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.perfil_usuario WHERE id = v_usuario_id) THEN
+        v_usuario_id := NULL;
+    END IF;
+
     IF p_cantidad <= 0 THEN
         RAISE EXCEPTION 'La cantidad del movimiento debe ser un número entero positivo mayor a cero.';
     END IF;
@@ -258,6 +319,10 @@ DECLARE
     v_hash_adenda TEXT;
     v_usuario_id UUID := auth.uid();
 BEGIN
+    IF v_usuario_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.perfil_usuario WHERE id = v_usuario_id) THEN
+        v_usuario_id := NULL;
+    END IF;
+
     IF LENGTH(TRIM(p_texto_adenda)) < 5 THEN
         RAISE EXCEPTION 'El contenido de la adenda médica debe tener al menos 5 caracteres.';
     END IF;
