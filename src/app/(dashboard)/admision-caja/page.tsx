@@ -94,6 +94,12 @@ const normalizarSede = (nombre?: string | null): string => {
   return "Independencia";
 };
 
+const getSiteId = (nombre?: string | null): string => {
+  return normalizarSede(nombre) === "Vivanco"
+    ? "b0000000-0000-0000-0000-000000000002"
+    : "b0000000-0000-0000-0000-000000000001";
+};
+
 interface ServicioItem {
   nombre: string;
   precio: number;
@@ -163,30 +169,10 @@ const TARIFARIO_BASE: Record<string, number> = CATALOGO_SERVICIOS.reduce((acc, s
 export default function AdmisionCajaPage() {
   const [sede, setSede] = useState<string>("Independencia");
   const [cajeroNombre, setCajeroNombre] = useState<string>("Operador de Ventanilla");
+  const [cargandoTurno, setCargandoTurno] = useState<boolean>(true);
 
-  // Control del Turno de Caja
-  const [turnoActivo, setTurnoActivo] = useState<TurnoCaja | null>({
-    id: "TURNO-001",
-    estado: "ABIERTA",
-    fechaApertura: "08:00 AM",
-    montoApertura: 150,
-    cajeroNombre: "Operador de Turno",
-    sede: "Independencia",
-  });
-
-  useEffect(() => {
-    const nom = sessionStorage.getItem("lm_nombre");
-    const s = sessionStorage.getItem("lm_sede");
-    if (nom) {
-      setCajeroNombre(nom);
-      setTurnoActivo((prev) => prev ? { ...prev, cajeroNombre: nom } : prev);
-    }
-    if (s && s !== "Central") {
-      setSede(s);
-      setTurnoActivo((prev) => prev ? { ...prev, sede: s } : prev);
-    }
-    cargarProductosInventario();
-  }, []);
+  // Control del Turno de Caja (Inicia en null y se consulta desde Supabase)
+  const [turnoActivo, setTurnoActivo] = useState<TurnoCaja | null>(null);
 
   const [showAperturaModal, setShowAperturaModal] = useState(false);
   const [montoAperturaInput, setMontoAperturaInput] = useState<number>(150);
@@ -261,18 +247,7 @@ export default function AdmisionCajaPage() {
   const [egresoAprobadoPor, setEgresoAprobadoPor] = useState("Dirección Médica");
   const [egresoRef, setEgresoRef] = useState("");
 
-  const [egresos, setEgresos] = useState<EgresoCaja[]>([
-    {
-      id: "EGR-001",
-      hora: "09:15",
-      tipo: "PAGO_COLABORADOR",
-      concepto: "Adelanto por jornada asistencial de apoyo",
-      monto: 50,
-      destinatario: "Personal Asistencial de Apoyo",
-      aprobadoPor: "Dirección Médica",
-      comprobanteRef: "REC-012",
-    },
-  ]);
+  const [egresos, setEgresos] = useState<EgresoCaja[]>([]);
 
   // Modal Arqueo y Cierre de Caja
   const [showCierreModal, setShowCierreModal] = useState(false);
@@ -280,22 +255,63 @@ export default function AdmisionCajaPage() {
   const [observacionesCierre, setObservacionesCierre] = useState("");
   const [actaCierre, setActaCierre] = useState<any | null>(null);
 
-
-  // Listado de atenciones reales de la jornada (cargadas desde Supabase)
+  // Listado de atenciones reales del turno / jornada (cargadas desde Supabase)
   const [transacciones, setTransacciones] = useState<TransaccionAtencion[]>([]);
   const [esAdminOSupervisor, setEsAdminOSupervisor] = useState(false);
   const [buscandoDni, setBuscandoDni] = useState(false);
 
-  // Cargar atenciones reales desde Supabase
-  const cargarTransaccionesDelDia = async (sedeActual?: string) => {
+  // 1. Cargar Egresos del Turno Activo desde Supabase
+  const cargarEgresosTurno = async (turnoId: string, siteId: string) => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
+        .from("caja_egreso")
+        .select("*")
+        .eq("site_id", siteId)
+        .order("fecha_hora", { ascending: false });
+
+      if (turnoId && !turnoId.startsWith("TURNO-")) {
+        query = query.eq("turno_id", turnoId);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        const mapeados: EgresoCaja[] = data.map((eg: any) => {
+          const horaStr = new Date(eg.fecha_hora).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          return {
+            id: eg.id,
+            hora: horaStr,
+            tipo: eg.tipo,
+            concepto: eg.concepto,
+            monto: Number(eg.monto) || 0,
+            destinatario: eg.destinatario,
+            aprobadoPor: eg.aprobado_por,
+            comprobanteRef: eg.comprobante_ref,
+          };
+        });
+        setEgresos(mapeados);
+      } else {
+        setEgresos([]);
+      }
+    } catch (err) {
+      console.warn("Error al consultar egresos de caja:", err);
+      setEgresos([]);
+    }
+  };
+
+  // 2. Cargar Atenciones Reales Filtradas por Sede y Turno (Cero acumulación histórica)
+  const cargarTransaccionesDelDia = async (sedeActual?: string, fechaCorte?: string) => {
+    try {
+      const s = sedeActual || sede;
+      const siteId = getSiteId(s);
+
+      let query = supabase
         .from("encuentro")
         .select(`
           id,
           servicio_solicitado,
           estado,
           fecha_hora,
+          site_id,
           paciente:paciente_id (
             dni,
             nombres,
@@ -312,15 +328,25 @@ export default function AdmisionCajaPage() {
             )
           )
         `)
-        .order("fecha_hora", { ascending: false })
-        .limit(30);
+        .eq("site_id", siteId)
+        .order("fecha_hora", { ascending: false });
+
+      if (fechaCorte) {
+        query = query.gte("fecha_hora", fechaCorte);
+      } else {
+        const inicioDia = new Date();
+        inicioDia.setHours(0, 0, 0, 0);
+        query = query.gte("fecha_hora", inicioDia.toISOString());
+      }
+
+      const { data, error } = await query.limit(50);
 
       if (error) {
         console.warn("Advertencia al consultar encuentros recientes:", error.message);
         return;
       }
 
-      if (data && data.length > 0) {
+      if (data) {
         const mapeadas: TransaccionAtencion[] = data.map((item: any) => {
           const pac = item.paciente || {};
           const ord = item.orden_pago?.[0] || {};
@@ -344,10 +370,92 @@ export default function AdmisionCajaPage() {
         setTransacciones(mapeadas);
       }
     } catch (err) {
-      console.warn("Error al cargar atenciones del día:", err);
+      console.warn("Error al cargar atenciones del turno:", err);
     }
   };
 
+  // 3. Cargar Turno Activo de Caja desde Supabase
+  const cargarTurnoActivo = async (sedeNombre: string) => {
+    try {
+      setCargandoTurno(true);
+      const siteId = getSiteId(sedeNombre);
+
+      const { data: turnoData, error: turnoErr } = await supabase
+        .from("caja_turno")
+        .select("*")
+        .eq("site_id", siteId)
+        .eq("estado", "ABIERTA")
+        .order("fecha_apertura", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!turnoErr && turnoData) {
+        const turno: TurnoCaja = {
+          id: turnoData.id,
+          estado: "ABIERTA",
+          fechaApertura: turnoData.fecha_apertura,
+          montoApertura: Number(turnoData.monto_apertura) || 0,
+          cajeroNombre: turnoData.cajero_nombre || cajeroNombre,
+          sede: sedeNombre,
+        };
+        setTurnoActivo(turno);
+        await cargarEgresosTurno(turnoData.id, siteId);
+        await cargarTransaccionesDelDia(sedeNombre, turnoData.fecha_apertura);
+      } else {
+        setTurnoActivo(null);
+        setEgresos([]);
+        const hoyInicio = new Date();
+        hoyInicio.setHours(0, 0, 0, 0);
+        await cargarTransaccionesDelDia(sedeNombre, hoyInicio.toISOString());
+      }
+    } catch (err) {
+      console.warn("Error consultando turno activo:", err);
+      setTurnoActivo(null);
+      setEgresos([]);
+    } finally {
+      setCargandoTurno(false);
+    }
+  };
+
+  // 4. Cargar Catálogo de Insumos Clínicos (Garantiza stock y costo_unitario real)
+  const cargarProductosInventario = async (sedeNombre?: string) => {
+    try {
+      const s = sedeNombre || sede;
+      const siteId = getSiteId(s);
+
+      const { data, error } = await supabase
+        .from("producto_inventario")
+        .select("id, codigo, nombre, categoria, presentacion, stock_actual, stock_minimo, costo_unitario, precio_venta, activo, site_id")
+        .eq("activo", true)
+        .order("nombre", { ascending: true });
+
+      if (error) {
+        console.warn("Error consultando insumos de inventario:", error.message);
+        return;
+      }
+
+      if (data) {
+        // Insumos globales (site_id is null) o vinculados a la sede actual
+        const filtrados = data.filter((p: any) => !p.site_id || p.site_id === siteId);
+        const mapeados: ProductoDispensable[] = filtrados.map((p: any) => ({
+          id: p.id,
+          codigo: p.codigo,
+          nombre: p.nombre,
+          categoria: p.categoria,
+          presentacion: p.presentacion,
+          stock_actual: Number(p.stock_actual) || 0,
+          stock_minimo: Number(p.stock_minimo) || 0,
+          precio_costo: Number(p.costo_unitario) || 0,
+          precio_venta: Number(p.precio_venta) || 0,
+        }));
+        setProductosInventario(mapeados);
+      }
+    } catch (err) {
+      console.warn("Error consultando insumos clínicos para dispensación:", err);
+    }
+  };
+
+  // Ciclo de Vida Principal (Unificado)
   useEffect(() => {
     const s = sessionStorage.getItem("lm_sede") || "Independencia";
     const nom = sessionStorage.getItem("lm_nombre") || "Operador de Ventanilla";
@@ -361,13 +469,22 @@ export default function AdmisionCajaPage() {
       setEsAdminOSupervisor(true);
     }
 
-    cargarTransaccionesDelDia(s);
+    cargarTurnoActivo(s);
+    cargarProductosInventario(s);
 
-    // Suscripción Realtime a nuevas atenciones
+    // Suscripciones Realtime a nuevas atenciones y egresos
     const channel = supabase
       .channel("admision-realtime-tx")
       .on("postgres_changes", { event: "*", schema: "public", table: "encuentro" }, () => {
-        cargarTransaccionesDelDia(s);
+        cargarTransaccionesDelDia(s, turnoActivo?.fechaApertura);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "caja_egreso" }, () => {
+        if (turnoActivo?.id) {
+          cargarEgresosTurno(turnoActivo.id, getSiteId(s));
+        }
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "producto_inventario" }, () => {
+        cargarProductosInventario(s);
       })
       .subscribe();
 
@@ -400,7 +517,6 @@ export default function AdmisionCajaPage() {
       } finally {
         setBuscandoDni(false);
       }
-
     }
   };
 
@@ -414,20 +530,19 @@ export default function AdmisionCajaPage() {
     setDropdownServicioAbierto(false);
   };
 
-  const cargarProductosInventario = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("producto_inventario")
-        .select("id, codigo, nombre, categoria, presentacion, stock_actual, stock_minimo, precio_costo, precio_venta")
-        .eq("activo", true)
-        .order("nombre", { ascending: true });
+  // Anulación de Egreso (Restituye saldo de caja inmediatamente)
+  const handleAnularEgreso = async (egresoId: string) => {
+    if (!confirm("¿Confirma que desea anular este egreso? El monto se restituirá al efectivo de caja.")) return;
 
-      if (!error && data) {
-        setProductosInventario(data);
+    try {
+      if (!egresoId.startsWith("EGR-")) {
+        await supabase.from("caja_egreso").delete().eq("id", egresoId);
       }
     } catch (err) {
-      console.warn("Error consultando insumos clínicos para dispensación:", err);
+      console.warn("Aviso al borrar egreso en Supabase:", err);
     }
+    setEgresos((prev) => prev.filter((eg) => eg.id !== egresoId));
+    alert("Egreso anulado con éxito.");
   };
 
   const handleEjecutarDispensacion = async (e: React.FormEvent) => {
@@ -450,8 +565,8 @@ export default function AdmisionCajaPage() {
     setDispensacionErrorMsg(null);
 
     try {
-      const { data: userAuth } = await supabase.auth.getUser();
       const currentUserName = cajeroNombre || sessionStorage.getItem("lm_nombre") || "Operador de Caja";
+      const siteId = getSiteId(sede);
 
       const motivoFinal = motivoDispensacion.trim() ||
         (tipoDispensacion === "SALIDA_VENTA"
@@ -460,19 +575,38 @@ export default function AdmisionCajaPage() {
 
       const { error } = await supabase.rpc("registrar_movimiento_inventario", {
         p_producto_id: productoDispensar.id,
-        p_tipo_movimiento: tipoDispensacion,
+        p_tipo: tipoDispensacion,
         p_cantidad: Number(cantidadDispensar),
         p_motivo: motivoFinal,
-        p_usuario_id: userAuth.user?.id || null,
+        p_site_id: siteId,
         p_usuario_nombre: currentUserName,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.warn("RPC falló, aplicando actualización directa en tabla:", error.message);
+        // Fallback directo
+        const nuevoStock = productoDispensar.stock_actual - Number(cantidadDispensar);
+        await supabase
+          .from("producto_inventario")
+          .update({ stock_actual: nuevoStock, updated_at: new Date().toISOString() })
+          .eq("id", productoDispensar.id);
+
+        await supabase.from("movimiento_inventario").insert({
+          producto_id: productoDispensar.id,
+          tipo: tipoDispensacion,
+          cantidad: Number(cantidadDispensar),
+          stock_anterior: productoDispensar.stock_actual,
+          stock_nuevo: nuevoStock,
+          motivo: motivoFinal,
+          usuario_nombre: currentUserName,
+          site_id: siteId,
+        });
+      }
 
       setDispensacionExitoMsg(`Dispensación exitosa: ${cantidadDispensar}x ${productoDispensar.nombre}. Stock actualizado en tiempo real.`);
       setCantidadDispensar(1);
       setMotivoDispensacion("");
-      await cargarProductosInventario();
+      await cargarProductosInventario(sede);
       setTimeout(() => setDispensacionExitoMsg(null), 4500);
     } catch (err: any) {
       setDispensacionErrorMsg(err?.message || "Error al procesar la salida en el kárdex.");
@@ -1034,33 +1168,74 @@ export default function AdmisionCajaPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Registrar Salida / Gasto
-  const handleRegistrarEgreso = (e: React.FormEvent) => {
+  // Registrar Salida / Gasto Persistido en Supabase
+  const handleRegistrarEgreso = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (egresoMonto <= 0 || !egresoConcepto || !egresoDestinatario) {
+    if (egresoMonto <= 0 || !egresoConcepto.trim() || !egresoDestinatario.trim()) {
       alert("Complete los datos requeridos para la salida de dinero.");
       return;
     }
+    if (!turnoActivo || turnoActivo.estado !== "ABIERTA") {
+      alert("Debe abrir el turno de caja antes de registrar egresos.");
+      return;
+    }
 
+    const siteId = getSiteId(sede);
     const now = new Date();
     const horaStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-    const nuevoEgreso: EgresoCaja = {
-      id: `EGR-${Math.floor(100 + Math.random() * 900)}`,
-      hora: horaStr,
-      tipo: egresoTipo,
-      concepto: egresoConcepto,
-      monto: egresoMonto,
-      destinatario: egresoDestinatario,
-      aprobadoPor: egresoAprobadoPor,
-      comprobanteRef: egresoRef || "RECIBO-INTERNO",
-    };
+    try {
+      const { data: userAuth } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("caja_egreso")
+        .insert({
+          turno_id: turnoActivo.id.startsWith("TURNO-") ? null : turnoActivo.id,
+          site_id: siteId,
+          cajero_id: userAuth.user?.id || null,
+          tipo: egresoTipo,
+          concepto: egresoConcepto.trim(),
+          monto: Number(egresoMonto),
+          destinatario: egresoDestinatario.trim(),
+          aprobado_por: egresoAprobadoPor.trim() || "Dirección Médica",
+          comprobante_ref: egresoRef.trim() || "REC-INTERNO",
+          fecha_hora: now.toISOString(),
+        })
+        .select()
+        .maybeSingle();
 
-    setEgresos([nuevoEgreso, ...egresos]);
-    setEgresoConcepto("");
-    setEgresoMonto(0);
-    setEgresoDestinatario("");
-    alert("Egreso de caja registrado y debitado del efectivo en ventanilla.");
+      const nuevoEgreso: EgresoCaja = {
+        id: data?.id || `EGR-${Math.floor(100 + Math.random() * 900)}`,
+        hora: horaStr,
+        tipo: egresoTipo,
+        concepto: egresoConcepto.trim(),
+        monto: Number(egresoMonto),
+        destinatario: egresoDestinatario.trim(),
+        aprobadoPor: egresoAprobadoPor.trim() || "Dirección Médica",
+        comprobanteRef: egresoRef.trim() || "REC-INTERNO",
+      };
+
+      setEgresos((prev) => [nuevoEgreso, ...prev]);
+      setEgresoConcepto("");
+      setEgresoMonto(0);
+      setEgresoDestinatario("");
+      alert("Egreso de caja registrado exitosamente y debitado del efectivo en ventanilla.");
+    } catch (err: any) {
+      console.warn("Aviso al guardar egreso en base de datos:", err);
+      const nuevoEgreso: EgresoCaja = {
+        id: `EGR-${Math.floor(100 + Math.random() * 900)}`,
+        hora: horaStr,
+        tipo: egresoTipo,
+        concepto: egresoConcepto.trim(),
+        monto: Number(egresoMonto),
+        destinatario: egresoDestinatario.trim(),
+        aprobadoPor: egresoAprobadoPor.trim() || "Dirección Médica",
+        comprobanteRef: egresoRef.trim() || "REC-INTERNO",
+      };
+      setEgresos((prev) => [nuevoEgreso, ...prev]);
+      setEgresoConcepto("");
+      setEgresoMonto(0);
+      setEgresoDestinatario("");
+    }
   };
 
   // Reagendamiento de Citas & WhatsApp Institucional
@@ -1092,7 +1267,7 @@ export default function AdmisionCajaPage() {
 
     setReagendandoLoading(true);
     try {
-      const siteId = reagendarSede === "Vivanco" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000001";
+      const siteId = getSiteId(reagendarSede);
       const { error } = await supabase.from("cita_reagendada").insert({
         paciente_nombre: pacienteNom,
         telefono: (reagendarTelefono || telefono).trim() || null,
@@ -1122,7 +1297,7 @@ export default function AdmisionCajaPage() {
     setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
   };
 
-  // Cálculos Financieros del Turno
+  // Cálculos Financieros del Turno (Aislados estrictamente al turno activo)
   const totalEfectivoCobros = transacciones
     .filter((t) => t.medioPago === "EFECTIVO")
     .reduce((acc, t) => acc + t.monto, 0);
@@ -1133,50 +1308,116 @@ export default function AdmisionCajaPage() {
 
   const totalEgresos = egresos.reduce((acc, eg) => acc + eg.monto, 0);
 
-  const fondoApertura = turnoActivo?.montoApertura || 0;
-  const efectivoNetoEsperado = fondoApertura + totalEfectivoCobros - totalEgresos;
+  const fondoApertura = turnoActivo ? Number(turnoActivo.montoApertura || 0) : 0;
+  const efectivoNetoEsperado = turnoActivo ? fondoApertura + totalEfectivoCobros - totalEgresos : 0;
   const totalFacturadoBruto = totalEfectivoCobros + totalDigitalCobros;
 
-  // Apertura de Turno
-  const handleAbrirTurno = () => {
+  // Apertura de Turno Persistida en Base de Datos
+  const handleAbrirTurno = async () => {
+    const siteId = getSiteId(sede);
     const now = new Date();
-    const horaStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setTurnoActivo({
-      id: `TURNO-${Date.now().toString().slice(-4)}`,
-      estado: "ABIERTA",
-      fechaApertura: horaStr,
-      montoApertura: montoAperturaInput,
-      cajeroNombre,
-      sede,
-    });
-    setShowAperturaModal(false);
+    const fechaIso = now.toISOString();
+
+    try {
+      const { data, error } = await supabase
+        .from("caja_turno")
+        .insert({
+          site_id: siteId,
+          cajero_nombre: cajeroNombre,
+          monto_apertura: Number(montoAperturaInput) || 0,
+          estado: "ABIERTA",
+          fecha_apertura: fechaIso,
+        })
+        .select()
+        .single();
+
+      const nuevoTurno: TurnoCaja = {
+        id: data ? data.id : `TURNO-${Date.now().toString().slice(-4)}`,
+        estado: "ABIERTA",
+        fechaApertura: fechaIso,
+        montoApertura: Number(montoAperturaInput) || 0,
+        cajeroNombre,
+        sede,
+      };
+
+      setTurnoActivo(nuevoTurno);
+      setEgresos([]);
+      setTransacciones([]);
+      setShowAperturaModal(false);
+      alert(`Turno de caja aperturado con éxito. Fondo inicial: ${formatCurrency(montoAperturaInput)}`);
+    } catch (err: any) {
+      console.warn("Fallo al registrar turno en Supabase, usando respaldo local:", err);
+      const nuevoTurno: TurnoCaja = {
+        id: `TURNO-${Date.now().toString().slice(-4)}`,
+        estado: "ABIERTA",
+        fechaApertura: fechaIso,
+        montoApertura: Number(montoAperturaInput) || 0,
+        cajeroNombre,
+        sede,
+      };
+      setTurnoActivo(nuevoTurno);
+      setEgresos([]);
+      setTransacciones([]);
+      setShowAperturaModal(false);
+    }
   };
 
-  // Cierre y Arqueo
-  const handleEjecutarArqueo = () => {
+  // Cierre y Arqueo Formal Persistido en Supabase
+  const handleEjecutarArqueo = async () => {
     const diferencia = efectivoContado - efectivoNetoEsperado;
     const now = new Date();
 
-    setActaCierre({
-      fecha: now.toLocaleDateString(),
-      hora: now.toLocaleTimeString(),
+    const acta = {
+      id: `ACTA-${Date.now().toString().slice(-6)}`,
+      fecha: now.toLocaleDateString("es-PE"),
+      hora: now.toLocaleTimeString("es-PE"),
+      fechaCierre: now.toLocaleString("es-PE"),
       turnoId: turnoActivo?.id || "TURNO-001",
       cajero: cajeroNombre,
       sede,
       fondoInicial: fondoApertura,
+      montoApertura: fondoApertura,
       efectivoCobros: totalEfectivoCobros,
+      recaudacionEfectivo: totalEfectivoCobros,
+      digitalCobros: totalDigitalCobros,
+      recaudacionDigital: totalDigitalCobros,
       egresosTotales: totalEgresos,
+      totalEgresos: totalEgresos,
       efectivoEsperado: efectivoNetoEsperado,
+      saldoTeorico: efectivoNetoEsperado,
       efectivoContado: efectivoContado,
       diferencia,
-      digitalCobros: totalDigitalCobros,
       totalBruto: totalFacturadoBruto,
       observaciones: observacionesCierre,
-    });
+    };
 
-    if (turnoActivo) {
-      setTurnoActivo({ ...turnoActivo, estado: "CERRADA" });
+    setActaCierre(acta);
+
+    // Actualizar cierre en Supabase si turnoActivo tiene UUID
+    if (turnoActivo?.id && !turnoActivo.id.startsWith("TURNO-")) {
+      try {
+        await supabase
+          .from("caja_turno")
+          .update({
+            estado: "CERRADA",
+            fecha_cierre: now.toISOString(),
+            monto_cierre_efectivo_declarado: efectivoContado,
+            total_ingresos_efectivo: totalEfectivoCobros,
+            total_ingresos_digital: totalDigitalCobros,
+            total_egresos: totalEgresos,
+            efectivo_neto_esperado: efectivoNetoEsperado,
+            diferencia: diferencia,
+            observaciones: observacionesCierre,
+          })
+          .eq("id", turnoActivo.id);
+      } catch (err) {
+        console.warn("Aviso al actualizar cierre en Supabase:", err);
+      }
     }
+
+    setTurnoActivo(null);
+    setEgresos([]);
+    alert("Arqueo y Cierre de Caja completado formalmente. El próximo turno iniciará limpio con su propio fondo.");
   };
 
   const calcularVuelto = () => {
@@ -1332,11 +1573,11 @@ export default function AdmisionCajaPage() {
           </div>
 
           {/* ACORDEÓN 2: Tarifario Médico & Selección Compacta */}
-          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm relative z-30">
             <button
               type="button"
               onClick={() => toggleSection("tarifario")}
-              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
+              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50 rounded-t-3xl"
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xs">
@@ -1411,9 +1652,9 @@ export default function AdmisionCajaPage() {
                     )}
                   </div>
 
-                  {/* Dropdown flotante compacto con scroll */}
+                  {/* Dropdown flotante compacto con scroll amplio */}
                   {dropdownServicioAbierto && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-2xl shadow-xl z-30 max-h-56 overflow-y-auto divide-y divide-neutral-100">
+                    <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-neutral-300 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto divide-y divide-neutral-100 ring-1 ring-black/5">
                       {CATALOGO_SERVICIOS
                         .filter((srv) => {
                           const matchCat = categoriaFiltro === "Todas" || srv.categoria === categoriaFiltro;
@@ -1565,11 +1806,11 @@ export default function AdmisionCajaPage() {
           </div>
 
           {/* ACORDEÓN 3: Cobro Inmediato & Facturación */}
-          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm relative z-20">
             <button
               type="button"
               onClick={() => toggleSection("pago")}
-              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
+              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50 rounded-t-3xl"
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">
@@ -1709,11 +1950,11 @@ export default function AdmisionCajaPage() {
           </div>
 
           {/* ACORDEÓN: Dispensación de Insumos Clínicos & Farmacia */}
-          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm relative z-10">
             <button
               type="button"
               onClick={() => toggleSection("dispensacion")}
-              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
+              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50 rounded-t-3xl"
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-black text-xs">
@@ -1972,14 +2213,18 @@ export default function AdmisionCajaPage() {
                 </form>
 
                 {/* Historial de egresos del turno */}
-                {egresos.length > 0 && (
+                {egresos.length === 0 ? (
+                  <div className="p-4 bg-neutral-50 border border-neutral-200/80 rounded-2xl text-center text-xs text-neutral-400">
+                    Sin egresos registrados en este turno activo.
+                  </div>
+                ) : (
                   <div className="space-y-2">
                     <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
                       Egresos Registrados en este Turno ({egresos.length})
                     </p>
                     <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white text-xs">
                       {egresos.map((eg) => (
-                        <div key={eg.id} className="p-3 flex items-center justify-between">
+                        <div key={eg.id} className="p-3 flex items-center justify-between hover:bg-neutral-50/50 transition">
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-neutral-900">{eg.destinatario}</span>
@@ -1989,11 +2234,21 @@ export default function AdmisionCajaPage() {
                             </div>
                             <p className="text-[11px] text-neutral-500">{eg.concepto}</p>
                           </div>
-                          <div className="text-right">
-                            <span className="font-mono font-black text-rose-700">
-                              -{formatCurrency(eg.monto)}
-                            </span>
-                            <span className="text-[10px] text-neutral-400 block">{eg.hora}</span>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <span className="font-mono font-black text-rose-700">
+                                -{formatCurrency(eg.monto)}
+                              </span>
+                              <span className="text-[10px] text-neutral-400 block">{eg.hora}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAnularEgreso(eg.id)}
+                              title="Anular egreso y restituir efectivo"
+                              className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
                       ))}

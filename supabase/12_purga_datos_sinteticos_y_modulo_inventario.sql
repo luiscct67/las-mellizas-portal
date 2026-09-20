@@ -44,6 +44,15 @@ BEGIN
         DELETE FROM public.nota_clinica;
     END IF;
 
+    -- 1.2.1 Eliminación de egresos y turnos de prueba de caja
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'caja_egreso') THEN
+        DELETE FROM public.caja_egreso;
+    END IF;
+
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'caja_turno') THEN
+        DELETE FROM public.caja_turno;
+    END IF;
+
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'cita_reagendada') THEN
         DELETE FROM public.cita_reagendada;
     END IF;
@@ -517,3 +526,16 @@ ON CONFLICT (codigo) DO UPDATE SET
     costo_unitario = EXCLUDED.costo_unitario,
     stock_actual = EXCLUDED.stock_actual,
     stock_minimo = EXCLUDED.stock_minimo;
+
+-- ============================================================================
+-- 7. PERMISOS DE ANULACIÓN / GESTIÓN DE EGRESOS EN CAJA
+-- ============================================================================
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'caja_egreso') THEN
+        DROP POLICY IF EXISTS "Eliminar egresos autorizados" ON public.caja_egreso;
+        CREATE POLICY "Eliminar egresos autorizados" ON public.caja_egreso
+        FOR DELETE TO authenticated
+        USING (true);
+    END IF;
+END $$;
