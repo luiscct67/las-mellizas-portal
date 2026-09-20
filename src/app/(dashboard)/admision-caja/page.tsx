@@ -28,9 +28,25 @@ import {
   MessageSquare,
   Check,
   Send,
+  Package,
+  Boxes,
+  Tag,
+  Filter,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
+
+export interface ProductoDispensable {
+  id: string;
+  codigo: string;
+  nombre: string;
+  categoria: string;
+  presentacion: string;
+  stock_actual: number;
+  stock_minimo: number;
+  precio_costo: number;
+  precio_venta: number;
+}
 
 interface PacienteRegistrado {
   dni: string;
@@ -81,11 +97,17 @@ const normalizarSede = (nombre?: string | null): string => {
 interface ServicioItem {
   nombre: string;
   precio: number;
-  categoria: "Ecografías" | "Consultas" | "Procedimientos" | "Laboratorio";
+  categoria: "Ecografías" | "Consultas" | "Procedimientos" | "Laboratorio" | "Packs Promocionales";
   descripcion?: string;
 }
 
 const CATALOGO_SERVICIOS: ServicioItem[] = [
+  // --- PACKS PROMOCIONALES INTEGRALES ---
+  { nombre: "Pack Integral: Consulta + Ecografía 5D + PAP", precio: 220, categoria: "Packs Promocionales", descripcion: "Paquete ginecológico preventivo integral y ecografía HD" },
+  { nombre: "Pack Embarazo Control Inicial: Eco Genética + Perfil Prenatal", precio: 210, categoria: "Packs Promocionales", descripcion: "Descarte genético I trimestre + analítica completa" },
+  { nombre: "Pack Chequeo Ginecológico Anual: Colposcopía + PAP + Eco Transvaginal", precio: 190, categoria: "Packs Promocionales", descripcion: "Chequeo preventivo integral femenino anual" },
+  { nombre: "Pack Descarte ITS Integral: Rápido Dual + Frotis Vaginal + Orina", precio: 110, categoria: "Packs Promocionales", descripcion: "Evaluación integral de salud urogenital" },
+
   // --- ECOGRAFÍAS OBSTÉTRICAS Y GENERALES ---
   { nombre: "Ecografía Especializada (4D/5D)", precio: 150, categoria: "Ecografías", descripcion: "Visualización en tiempo real HD Live con video" },
   { nombre: "Ecografía Obstétrica Morfológica", precio: 140, categoria: "Ecografías", descripcion: "Semana 20-24, evaluación anatómica completa" },
@@ -163,6 +185,7 @@ export default function AdmisionCajaPage() {
       setSede(s);
       setTurnoActivo((prev) => prev ? { ...prev, sede: s } : prev);
     }
+    cargarProductosInventario();
   }, []);
 
   const [showAperturaModal, setShowAperturaModal] = useState(false);
@@ -173,17 +196,19 @@ export default function AdmisionCajaPage() {
     admision: boolean;
     tarifario: boolean;
     pago: boolean;
+    dispensacion: boolean;
     egresos: boolean;
     reagendamiento: boolean;
   }>({
     admision: true,
     tarifario: true,
     pago: true,
+    dispensacion: false,
     egresos: false,
     reagendamiento: false,
   });
 
-  const toggleSection = (section: "admision" | "tarifario" | "pago" | "egresos" | "reagendamiento") => {
+  const toggleSection = (section: "admision" | "tarifario" | "pago" | "dispensacion" | "egresos" | "reagendamiento") => {
     setOpenSection((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
@@ -205,6 +230,9 @@ export default function AdmisionCajaPage() {
   const [telefono, setTelefono] = useState("");
   const [servicio, setServicio] = useState("Control Prenatal Reenfocado");
   const [monto, setMonto] = useState<number>(70);
+  const [precioBaseCatalogo, setPrecioBaseCatalogo] = useState<number>(70);
+  const [motivoAjusteTarifa, setMotivoAjusteTarifa] = useState<string>("");
+  const [dropdownServicioAbierto, setDropdownServicioAbierto] = useState<boolean>(false);
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>("Todas");
   const [busquedaServicio, setBusquedaServicio] = useState<string>("");
   const [esServicioPersonalizado, setEsServicioPersonalizado] = useState(false);
@@ -214,6 +242,16 @@ export default function AdmisionCajaPage() {
   const [efectivoRecibido, setEfectivoRecibido] = useState<number>(100);
   const [isProcessing, setIsProcessing] = useState(false);
   const [ticketEmitido, setTicketEmitido] = useState<TransaccionAtencion | null>(null);
+
+  // Dispensación de Insumos & Farmacia (Control de Inventario)
+  const [productosInventario, setProductosInventario] = useState<ProductoDispensable[]>([]);
+  const [productoDispensar, setProductoDispensar] = useState<ProductoDispensable | null>(null);
+  const [cantidadDispensar, setCantidadDispensar] = useState<number>(1);
+  const [tipoDispensacion, setTipoDispensacion] = useState<"SALIDA_VENTA" | "SALIDA_USO_CLINICO">("SALIDA_VENTA");
+  const [motivoDispensacion, setMotivoDispensacion] = useState<string>("");
+  const [isDispensando, setIsDispensando] = useState<boolean>(false);
+  const [dispensacionExitoMsg, setDispensacionExitoMsg] = useState<string | null>(null);
+  const [dispensacionErrorMsg, setDispensacionErrorMsg] = useState<string | null>(null);
 
   // Formulario Egresos y Pagos a Colaboradores
   const [egresoTipo, setEgresoTipo] = useState<"GASTO_MENOR" | "VIATICO" | "PAGO_COLABORADOR" | "INSUMOS_MEDICOS" | "OTRO">("PAGO_COLABORADOR");
@@ -369,7 +407,78 @@ export default function AdmisionCajaPage() {
   const handleSelectServicio = (srv: string, precioDefecto?: number) => {
     setEsServicioPersonalizado(false);
     setServicio(srv);
-    setMonto(precioDefecto ?? TARIFARIO_BASE[srv] ?? 70);
+    const p = precioDefecto ?? TARIFARIO_BASE[srv] ?? 70;
+    setMonto(p);
+    setPrecioBaseCatalogo(p);
+    setMotivoAjusteTarifa("");
+    setDropdownServicioAbierto(false);
+  };
+
+  const cargarProductosInventario = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("producto_inventario")
+        .select("id, codigo, nombre, categoria, presentacion, stock_actual, stock_minimo, precio_costo, precio_venta")
+        .eq("activo", true)
+        .order("nombre", { ascending: true });
+
+      if (!error && data) {
+        setProductosInventario(data);
+      }
+    } catch (err) {
+      console.warn("Error consultando insumos clínicos para dispensación:", err);
+    }
+  };
+
+  const handleEjecutarDispensacion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productoDispensar) {
+      setDispensacionErrorMsg("Seleccione un insumo o producto del inventario.");
+      return;
+    }
+    if (cantidadDispensar <= 0) {
+      setDispensacionErrorMsg("La cantidad a dispensar debe ser al menos 1 unidad.");
+      return;
+    }
+    if (cantidadDispensar > productoDispensar.stock_actual) {
+      setDispensacionErrorMsg(`Stock insuficiente: solo quedan ${productoDispensar.stock_actual} unidades disponibles.`);
+      return;
+    }
+
+    setIsDispensando(true);
+    setDispensacionExitoMsg(null);
+    setDispensacionErrorMsg(null);
+
+    try {
+      const { data: userAuth } = await supabase.auth.getUser();
+      const currentUserName = cajeroNombre || sessionStorage.getItem("lm_nombre") || "Operador de Caja";
+
+      const motivoFinal = motivoDispensacion.trim() ||
+        (tipoDispensacion === "SALIDA_VENTA"
+          ? `Venta en caja/mostrador de farmacia`
+          : `Dispensado para procedimiento o uso asistencial`);
+
+      const { error } = await supabase.rpc("registrar_movimiento_inventario", {
+        p_producto_id: productoDispensar.id,
+        p_tipo_movimiento: tipoDispensacion,
+        p_cantidad: Number(cantidadDispensar),
+        p_motivo: motivoFinal,
+        p_usuario_id: userAuth.user?.id || null,
+        p_usuario_nombre: currentUserName,
+      });
+
+      if (error) throw error;
+
+      setDispensacionExitoMsg(`Dispensación exitosa: ${cantidadDispensar}x ${productoDispensar.nombre}. Stock actualizado en tiempo real.`);
+      setCantidadDispensar(1);
+      setMotivoDispensacion("");
+      await cargarProductosInventario();
+      setTimeout(() => setDispensacionExitoMsg(null), 4500);
+    } catch (err: any) {
+      setDispensacionErrorMsg(err?.message || "Error al procesar la salida en el kárdex.");
+    } finally {
+      setIsDispensando(false);
+    }
   };
 
   // ============================================================================
@@ -1222,7 +1331,7 @@ export default function AdmisionCajaPage() {
             )}
           </div>
 
-          {/* ACORDEÓN 2: Tarifario Médico */}
+          {/* ACORDEÓN 2: Tarifario Médico & Selección Compacta */}
           <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
             <button
               type="button"
@@ -1235,10 +1344,15 @@ export default function AdmisionCajaPage() {
                 </div>
                 <div>
                   <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                    Tarifario & Servicio Médico
+                    Tarifario & Selección de Servicio
                   </h3>
                   <p className="text-[11px] text-neutral-500">
                     Seleccionado: <strong>{servicio}</strong> &bull; {formatCurrency(monto)}
+                    {monto !== precioBaseCatalogo && (
+                      <span className="ml-1 text-amber-700 font-bold">
+                        (Ajuste: {formatCurrency(monto - precioBaseCatalogo)})
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -1246,79 +1360,146 @@ export default function AdmisionCajaPage() {
             </button>
 
             {openSection.tarifario && (
-              <div className="p-5 space-y-3">
-                {/* Filtros de Categoría y Búsqueda */}
-                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
-                  <div className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded-xl text-[11px] font-bold">
-                    {(["Todas", "Ecografías", "Consultas", "Procedimientos", "Laboratorio"] as const).map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setCategoriaFiltro(cat)}
-                        className={`px-2.5 py-1 rounded-lg transition ${
-                          categoriaFiltro === cat
-                            ? "bg-white text-neutral-900 shadow-xs"
-                            : "text-neutral-500 hover:text-neutral-900"
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="relative min-w-[180px]">
-                    <input
-                      type="text"
-                      value={busquedaServicio}
-                      onChange={(e) => setBusquedaServicio(e.target.value)}
-                      placeholder="Buscar en tarifario..."
-                      className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-neutral-300 text-xs bg-white focus:ring-1 focus:ring-brand-700"
-                    />
-                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-2" />
-                  </div>
+              <div className="p-4 space-y-3.5">
+                {/* Categorías Rápidas */}
+                <div className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded-xl text-[11px] font-bold">
+                  {(["Todas", "Packs Promocionales", "Ecografías", "Consultas", "Procedimientos", "Laboratorio"] as const).map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategoriaFiltro(cat)}
+                      className={`px-2.5 py-1 rounded-lg transition ${
+                        categoriaFiltro === cat
+                          ? "bg-white text-neutral-900 shadow-xs"
+                          : "text-neutral-500 hover:text-neutral-900"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Catálogo de Servicios Cuadriculado */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-                  {CATALOGO_SERVICIOS
-                    .filter((srv) => {
-                      const matchCat = categoriaFiltro === "Todas" || srv.categoria === categoriaFiltro;
-                      const matchBusq =
-                        !busquedaServicio ||
-                        srv.nombre.toLowerCase().includes(busquedaServicio.toLowerCase()) ||
-                        (srv.descripcion && srv.descripcion.toLowerCase().includes(busquedaServicio.toLowerCase()));
-                      return matchCat && matchBusq;
-                    })
-                    .map((srv) => {
-                      const isSelected = !esServicioPersonalizado && servicio === srv.nombre;
-                      return (
-                        <button
-                          key={srv.nombre}
-                          type="button"
-                          onClick={() => handleSelectServicio(srv.nombre, srv.precio)}
-                          className={`p-2.5 rounded-2xl border text-left transition flex items-center justify-between ${
-                            isSelected
-                              ? "border-brand-700 bg-brand-50/80 ring-2 ring-brand-700/20"
-                              : "border-neutral-200 bg-white hover:bg-neutral-50"
-                          }`}
-                        >
-                          <div className="pr-2 truncate">
-                            <p className="text-xs font-bold text-neutral-900 truncate">{srv.nombre}</p>
-                            {srv.descripcion && (
-                              <p className="text-[10px] text-neutral-400 truncate">{srv.descripcion}</p>
-                            )}
-                            <p className="text-[11px] font-extrabold text-brand-700 mt-0.5">
+                {/* Selector Compacto Autocomplete / Combobox */}
+                <div className="relative">
+                  <label className="block text-[11px] font-bold text-neutral-700 uppercase tracking-wider mb-1">
+                    Buscar y Seleccionar Servicio del Catálogo
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={dropdownServicioAbierto ? busquedaServicio : (esServicioPersonalizado ? servicioPersonalizadoNombre : servicio)}
+                      onFocus={() => {
+                        setDropdownServicioAbierto(true);
+                        setBusquedaServicio("");
+                      }}
+                      onChange={(e) => {
+                        setBusquedaServicio(e.target.value);
+                        setDropdownServicioAbierto(true);
+                      }}
+                      placeholder="Escriba el nombre o especialidad del servicio..."
+                      className="w-full pl-9 pr-10 py-2 rounded-xl border border-neutral-300 text-xs font-bold bg-white focus:ring-2 focus:ring-brand-700"
+                    />
+                    <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
+                    {dropdownServicioAbierto && (
+                      <button
+                        type="button"
+                        onClick={() => setDropdownServicioAbierto(false)}
+                        className="absolute right-2.5 top-2 text-neutral-400 hover:text-neutral-700 text-xs font-bold p-0.5"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown flotante compacto con scroll */}
+                  {dropdownServicioAbierto && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-2xl shadow-xl z-30 max-h-56 overflow-y-auto divide-y divide-neutral-100">
+                      {CATALOGO_SERVICIOS
+                        .filter((srv) => {
+                          const matchCat = categoriaFiltro === "Todas" || srv.categoria === categoriaFiltro;
+                          const matchBusq =
+                            !busquedaServicio ||
+                            srv.nombre.toLowerCase().includes(busquedaServicio.toLowerCase()) ||
+                            (srv.descripcion && srv.descripcion.toLowerCase().includes(busquedaServicio.toLowerCase()));
+                          return matchCat && matchBusq;
+                        })
+                        .map((srv) => (
+                          <div
+                            key={srv.nombre}
+                            onClick={() => handleSelectServicio(srv.nombre, srv.precio)}
+                            className="p-2.5 px-3.5 hover:bg-brand-50/70 cursor-pointer flex items-center justify-between transition text-xs"
+                          >
+                            <div className="truncate pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-neutral-900">{srv.nombre}</span>
+                                <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-neutral-100 text-neutral-600">
+                                  {srv.categoria}
+                                </span>
+                              </div>
+                              {srv.descripcion && (
+                                <p className="text-[10px] text-neutral-400 truncate mt-0.5">{srv.descripcion}</p>
+                              )}
+                            </div>
+                            <span className="font-extrabold text-brand-700 font-mono shrink-0">
                               {formatCurrency(srv.precio)}
-                            </p>
+                            </span>
                           </div>
-                          {isSelected && <CheckCircle2 className="w-4 h-4 text-brand-700 shrink-0" />}
-                        </button>
-                      );
-                    })}
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Tarjeta de Servicio Seleccionado & Tarifa Flexible */}
+                <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Servicio Seleccionado</span>
+                      <span className="text-xs font-black text-neutral-900">{servicio}</span>
+                      <span className="text-[11px] text-neutral-500 block font-mono">
+                        Tarifa base catálogo: {formatCurrency(precioBaseCatalogo)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">
+                          Monto a Cobrar (S/) *
+                        </label>
+                        <input
+                          type="number"
+                          step="1"
+                          min={0}
+                          value={monto || ""}
+                          onChange={(e) => setMonto(Number(e.target.value))}
+                          className="w-28 px-2.5 py-1.5 rounded-xl border border-brand-300 text-xs font-mono font-black text-brand-800 bg-white focus:ring-2 focus:ring-brand-700"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Campo de justificación si hay descuento o variación comercial */}
+                  {monto !== precioBaseCatalogo && (
+                    <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 space-y-1">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
+                        <span className="flex items-center gap-1">
+                          <Tag className="w-3 h-3 text-amber-700" />
+                          <span>Ajuste de Precio / Descuento Aplicado</span>
+                        </span>
+                        <span>Diferencia: {formatCurrency(monto - precioBaseCatalogo)}</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={motivoAjusteTarifa}
+                        onChange={(e) => setMotivoAjusteTarifa(e.target.value)}
+                        placeholder="Justificación del descuento o tarifa preferencial (ej. Campaña, Pack, Convenio)..."
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-amber-300 text-xs bg-white text-neutral-800 placeholder-neutral-400"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Opción de Servicio Personalizado */}
-                <div className="pt-2 border-t border-neutral-100">
+                <div className="pt-1">
                   {!esServicioPersonalizado ? (
                     <button
                       type="button"
@@ -1343,7 +1524,7 @@ export default function AdmisionCajaPage() {
                           }}
                           className="text-[10px] text-neutral-500 hover:text-neutral-900 font-bold"
                         >
-                          ✕ Cancelar y volver al tarifario
+                          ✕ Cancelar y volver al catálogo
                         </button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1527,7 +1708,158 @@ export default function AdmisionCajaPage() {
             )}
           </div>
 
-          {/* ACORDEÓN 4: Salidas de Dinero / Gastos & Pagos a Colaboradores */}
+          {/* ACORDEÓN: Dispensación de Insumos Clínicos & Farmacia */}
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleSection("dispensacion")}
+              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-black text-xs">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                    Dispensación de Insumos & Farmacia
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Kárdex en tiempo real &bull; Salidas por venta o uso asistencial en consultorio
+                  </p>
+                </div>
+              </div>
+              {openSection.dispensacion ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+            </button>
+
+            {openSection.dispensacion && (
+              <div className="p-5 space-y-4">
+                {dispensacionExitoMsg && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-800 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{dispensacionExitoMsg}</span>
+                  </div>
+                )}
+                {dispensacionErrorMsg && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs font-bold text-rose-800 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{dispensacionErrorMsg}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleEjecutarDispensacion} className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-neutral-700 uppercase tracking-wider mb-1">
+                      Insumo / Fármaco a Dispensar *
+                    </label>
+                    <select
+                      value={productoDispensar?.id || ""}
+                      onChange={(e) => {
+                        const prod = productosInventario.find((p) => p.id === e.target.value) || null;
+                        setProductoDispensar(prod);
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs font-bold bg-white focus:ring-2 focus:ring-brand-700"
+                    >
+                      <option value="">-- Seleccionar del Inventario ({productosInventario.length} disponibles) --</option>
+                      {productosInventario.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} ({p.presentacion}) - Stock: {p.stock_actual} unid. {p.precio_venta > 0 ? `[S/ ${p.precio_venta}]` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {productoDispensar && (
+                    <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-mono text-[10px] text-blue-700 font-bold block">{productoDispensar.codigo}</span>
+                        <span className="font-bold text-blue-950">{productoDispensar.nombre}</span>
+                        <span className="text-[11px] text-blue-700 block">{productoDispensar.presentacion}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-blue-800 uppercase block">Existencias</span>
+                        <span className={`font-mono text-sm font-black ${productoDispensar.stock_actual <= productoDispensar.stock_minimo ? "text-amber-700 animate-pulse" : "text-emerald-700"}`}>
+                          {productoDispensar.stock_actual} unid.
+                        </span>
+                        {productoDispensar.stock_actual <= productoDispensar.stock_minimo && (
+                          <span className="text-[9px] font-bold text-amber-800 block">Stock Bajo Mín.</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Tipo de Salida *
+                      </label>
+                      <select
+                        value={tipoDispensacion}
+                        onChange={(e) => setTipoDispensacion(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white font-bold"
+                      >
+                        <option value="SALIDA_VENTA">Venta a Paciente (Farmacia / Mostrador)</option>
+                        <option value="SALIDA_USO_CLINICO">Uso Clínico Asistencial (Consultorio)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Cantidad a Dispensar *
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={productoDispensar?.stock_actual || 999}
+                        required
+                        value={cantidadDispensar}
+                        onChange={(e) => setCantidadDispensar(Number(e.target.value))}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                      Motivo / Paciente Destino / Detalle Asistencial
+                    </label>
+                    <input
+                      type="text"
+                      value={motivoDispensacion}
+                      onChange={(e) => setMotivoDispensacion(e.target.value)}
+                      placeholder={
+                        dni && nombres
+                          ? `Paciente: ${nombres} ${apellidos} (DNI ${dni})`
+                          : "Ej. Dispensado para colocación DIU, Venta particular, Tratamiento tópico..."
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs"
+                    />
+                  </div>
+
+                  <div className="pt-1">
+                    <button
+                      type="submit"
+                      disabled={isDispensando || !productoDispensar || (productoDispensar?.stock_actual || 0) <= 0}
+                      className="w-full py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {isDispensando ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Actualizando Kárdex...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Boxes className="w-4 h-4" />
+                          <span>Registrar Salida en Kárdex (Operador: {cajeroNombre})</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+
+          {/* ACORDEÓN: Salidas de Dinero / Gastos & Pagos a Colaboradores */}
           <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
             <button
               type="button"

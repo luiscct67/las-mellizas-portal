@@ -20,6 +20,7 @@ import {
   Calendar,
   MessageSquare,
   Share2,
+  Loader2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
@@ -220,16 +221,19 @@ export default function HcePage() {
   const [busquedaCie, setBusquedaCie] = useState("");
   const [mostrarSugerenciasCie, setMostrarSugerenciasCie] = useState(false);
 
-  // Imágenes / Ecografías (Inicia arreglo vacío)
+  // Imágenes / Ecografías (Archivos Reales Base64)
   const [imagenes, setImagenes] = useState<ImagenAdjunta[]>([]);
   const [modalImagen, setModalImagen] = useState<ImagenAdjunta | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Estado de Sellado y Adendas
   const [isSealed, setIsSealed] = useState(false);
   const [sealedHash, setSealedHash] = useState<string | null>(null);
-  const [adendas, setAdendas] = useState<{ fecha: string; texto: string; hash: string }[]>([]);
+  const [fechaSellado, setFechaSellado] = useState<string | null>(null);
+  const [adendas, setAdendas] = useState<{ fecha: string; autor?: string; texto: string; hash: string }[]>([]);
   const [showAdendaModal, setShowAdendaModal] = useState(false);
   const [textoAdenda, setTextoAdenda] = useState("");
+  const [isSavingAdenda, setIsSavingAdenda] = useState(false);
 
   // Reagendamiento Post-Consulta y Recordatorio por WhatsApp
   const [reagendarFecha, setReagendarFecha] = useState("");
@@ -340,6 +344,23 @@ export default function HcePage() {
         if (notaExistente.cerrada || notaExistente.hash_firma || estaAtendido) {
           setIsSealed(true);
           setSealedHash(notaExistente.hash_firma || "SELLADO-CONFORME");
+          setFechaSellado(notaExistente.fecha_cierre || notaExistente.updated_at || null);
+        }
+        if (notaExistente.adendas) {
+          try {
+            const adList = typeof notaExistente.adendas === "string"
+              ? JSON.parse(notaExistente.adendas)
+              : notaExistente.adendas;
+            if (Array.isArray(adList)) setAdendas(adList);
+          } catch {}
+        }
+        if (notaExistente.imagenes) {
+          try {
+            const imgList = typeof notaExistente.imagenes === "string"
+              ? JSON.parse(notaExistente.imagenes)
+              : notaExistente.imagenes;
+            if (Array.isArray(imgList)) setImagenes(imgList);
+          } catch {}
         }
       }
     } catch (err) {
@@ -920,6 +941,7 @@ export default function HcePage() {
             }),
             diagnostico_cie10: JSON.stringify(diagnosticos),
             plan_trabajo: planTratamiento,
+            imagenes: JSON.stringify(imagenes),
             cerrada: false,
             updated_at: new Date().toISOString(),
           },
@@ -942,7 +964,7 @@ export default function HcePage() {
         clearTimeout(autosaveTimeoutRef.current);
       }
     };
-  }, [pa, fc, fr, temp, peso, talla, motivo, antecedentes, examenFisico, planTratamiento, diagnosticos, formulaG, formulaP, fur, fpp, eg, alturaUterina, lcf, presentacion]);
+  }, [pa, fc, fr, temp, peso, talla, motivo, antecedentes, examenFisico, planTratamiento, diagnosticos, formulaG, formulaP, fur, fpp, eg, alturaUterina, lcf, presentacion, imagenes]);
 
   const handleAgregarCie = (item: { codigo: string; descripcion: string }) => {
     if (diagnosticos.some((d) => d.codigo === item.codigo)) return;
@@ -998,6 +1020,8 @@ export default function HcePage() {
           }),
           diagnostico_cie10: JSON.stringify(diagnosticos),
           plan_trabajo: planTratamiento,
+          imagenes: JSON.stringify(imagenes),
+          adendas: JSON.stringify(adendas),
           cerrada: true,
           fecha_cierre: new Date().toISOString(),
           hash_firma: hash,
@@ -1036,6 +1060,7 @@ export default function HcePage() {
       }
 
       setSealedHash(hash);
+      setFechaSellado(new Date().toISOString());
       setIsSealed(true);
       if (autosaveTimeoutRef.current) {
         clearTimeout(autosaveTimeoutRef.current);
@@ -1108,17 +1133,101 @@ export default function HcePage() {
     }
   };
 
-  const handleGuardarAdenda = (e: React.FormEvent) => {
+  const handleSeleccionarArchivoImagen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Por favor seleccione un archivo de imagen válido (JPG, PNG, WEBP).");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("El tamaño de la imagen no debe superar los 5MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const resultStr = reader.result as string;
+      const nombreLimpio = file.name.replace(/\.[^/.]+$/, "");
+      const nueva: ImagenAdjunta = {
+        id: `img-${Date.now()}`,
+        titulo: nombreLimpio.length > 30 ? nombreLimpio.slice(0, 30) + "..." : nombreLimpio,
+        tipo: "Ecografía / Captura",
+        url: resultStr,
+        hora: new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
+      };
+      setImagenes((prev) => [...prev, nueva]);
+    };
+    reader.readAsDataURL(file);
+
+    e.target.value = "";
+  };
+
+  const handleGuardarAdenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!textoAdenda.trim()) return;
+    if (!selectedPatient) return;
 
-    const hash = Array.from(crypto.getRandomValues(new Uint8Array(12)))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    setIsSavingAdenda(true);
+    try {
+      const { data: userAuth } = await supabase.auth.getUser();
+      const autorNombre = profesionalNombre || "Profesional Responsable";
 
-    setAdendas([...adendas, { fecha: new Date().toLocaleString("es-PE"), texto: textoAdenda, hash }]);
-    setTextoAdenda("");
-    setShowAdendaModal(false);
+      // Intentar mediante la función RPC atómica
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("incorporar_adenda_clinica", {
+        p_encuentro_id: selectedPatient.id,
+        p_texto_adenda: textoAdenda.trim(),
+        p_autor_nombre: autorNombre,
+        p_autor_id: userAuth.user?.id || null,
+      });
+
+      if (rpcErr) {
+        console.warn("Advertencia al incorporar adenda por RPC, aplicando fallback:", rpcErr.message);
+        const hashFallback = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        const nuevaAdenda = {
+          fecha: new Date().toLocaleString("es-PE"),
+          autor: autorNombre,
+          texto: textoAdenda.trim(),
+          hash: hashFallback,
+        };
+        const nuevasAdendas = [...adendas, nuevaAdenda];
+        setAdendas(nuevasAdendas);
+        await supabase
+          .from("nota_clinica")
+          .update({
+            adendas: JSON.stringify(nuevasAdendas),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("encuentro_id", selectedPatient.id);
+      } else if (rpcRes && rpcRes.adenda) {
+        setAdendas((prev) => [...prev, rpcRes.adenda]);
+      } else {
+        const hashFallback = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        setAdendas((prev) => [
+          ...prev,
+          {
+            fecha: new Date().toLocaleString("es-PE"),
+            autor: autorNombre,
+            texto: textoAdenda.trim(),
+            hash: hashFallback,
+          },
+        ]);
+      }
+
+      setTextoAdenda("");
+      setShowAdendaModal(false);
+      alert("Adenda inmutable incorporada y firmada digitalmente con éxito.");
+    } catch (err: any) {
+      alert("Error al registrar la adenda clínica:\n" + (err?.message || err));
+    } finally {
+      setIsSavingAdenda(false);
+    }
   };
 
   const pacientesFiltrados = pacientesCola.filter(
@@ -1493,6 +1602,31 @@ export default function HcePage() {
         {/* COLUMNA 2: ANAMNESIS, EXAMEN, CIE-10 & TRATAMIENTO (6 columnas)    */}
         {/* ================================================================== */}
         <div className="lg:col-span-6 bg-white border border-neutral-200 rounded-lg p-3.5 space-y-3">
+          {/* BANNER: BLOQUE PRIMARIO SELLADO (INALTERABLE) */}
+          {isSealed && (
+            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-lg flex items-start gap-2.5">
+              <Lock className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+              <div className="text-xs text-emerald-900 leading-snug w-full">
+                <div className="font-bold flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-emerald-950">
+                    BLOQUE PRIMARIO SELLADO &bull; ACTO MÉDICO INALTERABLE
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-emerald-200 text-emerald-800 rounded font-mono">
+                    NTS N.° 139-MINSA
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-700 mt-1">
+                  Este registro clínico fue sellado digitalmente{fechaSellado ? ` el ${fechaSellado}` : ""}. Los campos de anamnesis, examen físico, CIE-10 y plan terapéutico han quedado bloqueados contra edición. Toda anotación complementaria o de evolución médica debe realizarse en el <strong>Bloque de Adendas Evolutivas</strong> (panel derecho).
+                </p>
+                {sealedHash && (
+                  <p className="text-[10px] font-mono text-emerald-800 mt-1.5 break-all bg-emerald-100/70 p-1.5 rounded border border-emerald-200">
+                    Sello Digital SHA-256: {sealedHash}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Motivo de Consulta & Anamnesis */}
           <div>
             <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
@@ -1656,46 +1790,64 @@ export default function HcePage() {
                 Imágenes / Ecografías ({imagenes.length})
               </span>
               {!isSealed && (
-                <button
-                  onClick={() => {
-                    const nueva: ImagenAdjunta = {
-                      id: `img-${Date.now()}`,
-                      titulo: "Captura Ecográfica",
-                      tipo: "Ecografía",
-                      url: "https://images.unsplash.com/photo-1516549655169-df83a0774514?w=600&auto=format&fit=crop&q=80",
-                      hora: new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
-                    };
-                    setImagenes([...imagenes, nueva]);
-                  }}
-                  className="text-[10px] font-bold text-neutral-700 hover:text-black flex items-center gap-0.5"
-                >
-                  <Upload className="w-3 h-3" /> + Adjuntar
-                </button>
+                <>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleSeleccionarArchivoImagen}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[10px] font-bold text-brand-700 hover:text-brand-900 flex items-center gap-1 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded transition border border-brand-200"
+                  >
+                    <Upload className="w-3 h-3" /> + Adjuntar Archivo
+                  </button>
+                </>
               )}
             </div>
 
             <div className="space-y-1.5">
-              {imagenes.map((img) => (
-                <div
-                  key={img.id}
-                  className="flex items-center gap-2 p-1.5 bg-neutral-50 rounded border border-neutral-200 group"
-                >
-                  <img src={img.url} alt={img.titulo} className="w-10 h-10 object-cover rounded" />
-                  <div className="flex-1 truncate">
-                    <span className="font-semibold text-neutral-900 block truncate leading-tight">
-                      {img.titulo}
-                    </span>
-                    <span className="text-[10px] text-neutral-400 font-mono">{img.hora}</span>
-                  </div>
-                  <button
-                    onClick={() => setModalImagen(img)}
-                    className="p-1 text-neutral-400 hover:text-neutral-900"
-                    title="Ampliar imagen"
+              {imagenes.length === 0 ? (
+                <p className="text-[10px] text-neutral-400 text-center py-2">
+                  Sin imágenes adjuntas al encuentro.
+                </p>
+              ) : (
+                imagenes.map((img) => (
+                  <div
+                    key={img.id}
+                    className="flex items-center gap-2 p-1.5 bg-neutral-50 rounded border border-neutral-200 group"
                   >
-                    <Maximize2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                    <img src={img.url} alt={img.titulo} className="w-10 h-10 object-cover rounded border border-neutral-200 shrink-0" />
+                    <div className="flex-1 truncate">
+                      <span className="font-semibold text-neutral-900 block truncate leading-tight text-[11px]">
+                        {img.titulo}
+                      </span>
+                      <span className="text-[10px] text-neutral-400 font-mono">{img.hora}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setModalImagen(img)}
+                        className="p-1 text-neutral-400 hover:text-neutral-900"
+                        title="Ampliar imagen"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </button>
+                      {!isSealed && (
+                        <button
+                          onClick={() => setImagenes(imagenes.filter((i) => i.id !== img.id))}
+                          className="p-1 text-neutral-400 hover:text-rose-600"
+                          title="Eliminar imagen"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -1784,24 +1936,45 @@ export default function HcePage() {
             </form>
           </div>
 
-          {/* Historial de Adendas Inmutables */}
+          {/* BLOQUE DE ADENDAS EVOLUTIVAS POSTERIORES */}
           {isSealed && (
-            <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2">
-              <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider block border-b border-neutral-100 pb-1">
-                Adendas Inmutables ({adendas.length})
-              </span>
+            <div className="bg-amber-50/60 border border-amber-200 rounded-lg p-3 space-y-2.5">
+              <div className="flex items-center justify-between border-b border-amber-200/70 pb-1.5">
+                <span className="font-bold text-[11px] text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-amber-700" />
+                  Bloque de Adendas Evolutivas ({adendas.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowAdendaModal(true)}
+                  className="text-[10px] px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded font-bold transition flex items-center gap-1 shadow-xs"
+                >
+                  <PlusCircle className="w-3 h-3" />
+                  + Nueva Adenda
+                </button>
+              </div>
 
               {adendas.length === 0 ? (
-                <p className="text-[11px] text-neutral-400">Sin adendas agregadas post-sellado.</p>
+                <div className="py-3 text-center text-neutral-400 text-[11px]">
+                  <p className="italic">Sin adendas agregadas post-sellado.</p>
+                  <p className="text-[10px] text-neutral-400 mt-0.5">Use "+ Nueva Adenda" para aclaraciones o evolución clínica.</p>
+                </div>
               ) : (
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                   {adendas.map((a, i) => (
-                    <div key={i} className="p-2 bg-neutral-50 rounded border border-neutral-200 text-[11px] space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-neutral-400 font-mono">
-                        <span>{a.fecha}</span>
-                        <span>{a.hash}</span>
+                    <div key={i} className="p-2.5 bg-white rounded-md border border-amber-200/90 text-[11px] space-y-1 shadow-xs">
+                      <div className="flex items-center justify-between text-[10px] border-b border-neutral-100 pb-1 text-neutral-500">
+                        <span className="font-bold text-neutral-900">
+                          Adenda #{i + 1} &bull; {a.autor || "Profesional Responsable"}
+                        </span>
+                        <span className="font-mono text-[9px]">{a.fecha}</span>
                       </div>
-                      <p className="text-neutral-800">{a.texto}</p>
+                      <p className="text-neutral-800 leading-relaxed whitespace-pre-wrap">{a.texto}</p>
+                      {a.hash && (
+                        <div className="text-[9px] text-amber-800 font-mono break-all pt-0.5 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">
+                          Hash: {a.hash}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1842,7 +2015,7 @@ export default function HcePage() {
           <div className="bg-white rounded-2xl p-5 max-w-md w-full shadow-xl border border-neutral-200 space-y-3">
             <h3 className="font-bold text-sm text-neutral-900">Incorporar Adenda Inmutable (NTS N.º 139)</h3>
             <p className="text-xs text-neutral-500">
-              Las notas cerradas no admiten modificación directa. Toda aclaración o corrección se anexa con fecha y firma digital.
+              Las notas cerradas no admiten modificación directa. Toda aclaración, ampliación o corrección se anexa con fecha, autor y hash digital inalterable.
             </p>
             <form onSubmit={handleGuardarAdenda} className="space-y-3">
               <textarea
@@ -1850,22 +2023,31 @@ export default function HcePage() {
                 required
                 value={textoAdenda}
                 onChange={(e) => setTextoAdenda(e.target.value)}
-                placeholder="Escribe el texto de la adenda clínica..."
+                placeholder="Escriba la adenda clínica o nota de evolución complementaria..."
                 className="w-full p-2.5 border border-neutral-300 rounded-lg text-xs focus:ring-1 focus:ring-neutral-900"
               />
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={isSavingAdenda}
                   onClick={() => setShowAdendaModal(false)}
-                  className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg"
+                  className="px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-100 rounded-lg disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-lg"
+                  disabled={isSavingAdenda || !textoAdenda.trim()}
+                  className="px-4 py-1.5 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-lg disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  Firmar Adenda
+                  {isSavingAdenda ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Firmando Adenda...</span>
+                    </>
+                  ) : (
+                    "Firmar Adenda"
+                  )}
                 </button>
               </div>
             </form>

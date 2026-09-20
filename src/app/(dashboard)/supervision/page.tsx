@@ -23,6 +23,13 @@ import {
   Trash2,
   X,
   AlertTriangle,
+  Package,
+  Plus,
+  Search,
+  ArrowDownRight,
+  ArrowUpRight,
+  SlidersHorizontal,
+  Archive,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
@@ -47,8 +54,36 @@ interface UsuarioCredencial {
   activo: boolean;
 }
 
+export interface ProductoInventario {
+  id: string;
+  codigo: string;
+  nombre: string;
+  categoria: string;
+  presentacion: string;
+  stock_actual: number;
+  stock_minimo: number;
+  precio_costo: number;
+  precio_venta: number;
+  activo: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MovimientoInventario {
+  id: string;
+  producto_id: string;
+  producto?: { nombre: string; codigo: string };
+  tipo_movimiento: "ENTRADA_COMPRA" | "SALIDA_VENTA" | "SALIDA_USO_CLINICO" | "SALIDA_MERMA" | "AJUSTE_INVENTARIO";
+  cantidad: number;
+  stock_anterior: number;
+  stock_nuevo: number;
+  motivo?: string;
+  usuario_nombre?: string;
+  created_at: string;
+}
+
 export default function SupervisionPage() {
-  const [activeTab, setActiveTab] = useState<"personal" | "auditoria">("personal");
+  const [activeTab, setActiveTab] = useState<"personal" | "auditoria" | "inventario">("personal");
   const [usuarios, setUsuarios] = useState<UsuarioCredencial[]>([]);
   const [currentRole, setCurrentRole] = useState<string>("ADMIN");
 
@@ -92,6 +127,37 @@ export default function SupervisionPage() {
   const [adminConfirmPassword, setAdminConfirmPassword] = useState("");
   const [isAdminPasswordSaving, setIsAdminPasswordSaving] = useState(false);
   const [adminPasswordMsg, setAdminPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Estados para Módulo de Control de Inventario & Stock
+  const [productosInventario, setProductosInventario] = useState<ProductoInventario[]>([]);
+  const [cargandoInventario, setCargandoInventario] = useState(false);
+  const [filtroCategoriaInv, setFiltroCategoriaInv] = useState<string>("Todas");
+  const [busquedaInv, setBusquedaInv] = useState<string>("");
+  const [soloBajoStock, setSoloBajoStock] = useState(false);
+  const [vistaInventario, setVistaInventario] = useState<"catalogo" | "movimientos">("catalogo");
+  const [movimientosInventario, setMovimientosInventario] = useState<MovimientoInventario[]>([]);
+  const [cargandoMovimientos, setCargandoMovimientos] = useState(false);
+
+  // Modal Crear / Editar Producto
+  const [showProductoModal, setShowProductoModal] = useState(false);
+  const [productoEditando, setProductoEditando] = useState<ProductoInventario | null>(null);
+  const [prodCodigo, setProdCodigo] = useState("");
+  const [prodNombre, setProdNombre] = useState("");
+  const [prodCategoria, setProdCategoria] = useState("Medicamento");
+  const [prodPresentacion, setProdPresentacion] = useState("");
+  const [prodStockActual, setProdStockActual] = useState<number>(10);
+  const [prodStockMinimo, setProdStockMinimo] = useState<number>(5);
+  const [prodPrecioCosto, setProdPrecioCosto] = useState<number>(0);
+  const [prodPrecioVenta, setProdPrecioVenta] = useState<number>(0);
+  const [isSavingProducto, setIsSavingProducto] = useState(false);
+
+  // Modal Ajuste / Movimiento Rápido de Stock
+  const [showMovimientoModal, setShowMovimientoModal] = useState(false);
+  const [productoParaMovimiento, setProductoParaMovimiento] = useState<ProductoInventario | null>(null);
+  const [movTipo, setMovTipo] = useState<"ENTRADA_COMPRA" | "AJUSTE_INVENTARIO" | "SALIDA_MERMA">("ENTRADA_COMPRA");
+  const [movCantidad, setMovCantidad] = useState<number>(1);
+  const [movMotivo, setMovMotivo] = useState("");
+  const [isSavingMovimiento, setIsSavingMovimiento] = useState(false);
 
   const cargarPersonal = async () => {
     try {
@@ -242,11 +308,189 @@ export default function SupervisionPage() {
     }
   };
 
+  const cargarInventario = async () => {
+    setCargandoInventario(true);
+    try {
+      const { data, error } = await supabase
+        .from("producto_inventario")
+        .select("*")
+        .order("categoria", { ascending: true })
+        .order("nombre", { ascending: true });
+
+      if (!error && data) {
+        setProductosInventario(data);
+      }
+    } catch (err) {
+      console.warn("Error cargando inventario:", err);
+    } finally {
+      setCargandoInventario(false);
+    }
+  };
+
+  const cargarMovimientos = async () => {
+    setCargandoMovimientos(true);
+    try {
+      const { data, error } = await supabase
+        .from("movimiento_inventario")
+        .select(`
+          id,
+          producto_id,
+          tipo_movimiento,
+          cantidad,
+          stock_anterior,
+          stock_nuevo,
+          motivo,
+          usuario_nombre,
+          created_at,
+          producto:producto_id (
+            nombre,
+            codigo
+          )
+        `)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (!error && data) {
+        setMovimientosInventario(data as any);
+      }
+    } catch (err) {
+      console.warn("Error cargando movimientos:", err);
+    } finally {
+      setCargandoMovimientos(false);
+    }
+  };
+
+  const handleAbrirNuevoProducto = () => {
+    setProductoEditando(null);
+    setProdCodigo(`INV-${Date.now().toString().slice(-4)}`);
+    setProdNombre("");
+    setProdCategoria("Medicamento");
+    setProdPresentacion("Caja / Frasco / Unidad");
+    setProdStockActual(10);
+    setProdStockMinimo(5);
+    setProdPrecioCosto(0);
+    setProdPrecioVenta(0);
+    setShowProductoModal(true);
+  };
+
+  const handleAbrirEditarProducto = (p: ProductoInventario) => {
+    setProductoEditando(p);
+    setProdCodigo(p.codigo);
+    setProdNombre(p.nombre);
+    setProdCategoria(p.categoria);
+    setProdPresentacion(p.presentacion);
+    setProdStockActual(p.stock_actual);
+    setProdStockMinimo(p.stock_minimo);
+    setProdPrecioCosto(p.precio_costo);
+    setProdPrecioVenta(p.precio_venta);
+    setShowProductoModal(true);
+  };
+
+  const handleGuardarProducto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdmin) {
+      alert("Operación restringida: Solo el Administrador General puede modificar el catálogo de inventario.");
+      return;
+    }
+    setIsSavingProducto(true);
+    try {
+      if (productoEditando) {
+        const { error } = await supabase
+          .from("producto_inventario")
+          .update({
+            codigo: prodCodigo.trim().toUpperCase(),
+            nombre: prodNombre.trim(),
+            categoria: prodCategoria,
+            presentacion: prodPresentacion.trim(),
+            stock_minimo: Number(prodStockMinimo),
+            precio_costo: Number(prodPrecioCosto),
+            precio_venta: Number(prodPrecioVenta),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", productoEditando.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("producto_inventario")
+          .insert({
+            codigo: prodCodigo.trim().toUpperCase(),
+            nombre: prodNombre.trim(),
+            categoria: prodCategoria,
+            presentacion: prodPresentacion.trim(),
+            stock_actual: Number(prodStockActual),
+            stock_minimo: Number(prodStockMinimo),
+            precio_costo: Number(prodPrecioCosto),
+            precio_venta: Number(prodPrecioVenta),
+            activo: true,
+          });
+
+        if (error) throw error;
+      }
+
+      setShowProductoModal(false);
+      cargarInventario();
+    } catch (err: any) {
+      alert("Error al guardar producto:\n" + (err?.message || err));
+    } finally {
+      setIsSavingProducto(false);
+    }
+  };
+
+  const handleAbrirMovimiento = (p: ProductoInventario) => {
+    setProductoParaMovimiento(p);
+    setMovTipo("ENTRADA_COMPRA");
+    setMovCantidad(1);
+    setMovMotivo("");
+    setShowMovimientoModal(true);
+  };
+
+  const handleRegistrarMovimiento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productoParaMovimiento) return;
+    if (movCantidad <= 0) {
+      alert("La cantidad debe ser mayor a 0.");
+      return;
+    }
+
+    setIsSavingMovimiento(true);
+    try {
+      const { data: userAuth } = await supabase.auth.getUser();
+      const currentUserName = sessionStorage.getItem("lm_nombre") || "Administración General";
+
+      const { error } = await supabase.rpc("registrar_movimiento_inventario", {
+        p_producto_id: productoParaMovimiento.id,
+        p_tipo_movimiento: movTipo,
+        p_cantidad: Number(movCantidad),
+        p_motivo: movMotivo.trim() || `Ajuste administrativo (${movTipo})`,
+        p_usuario_id: userAuth.user?.id || null,
+        p_usuario_nombre: currentUserName,
+      });
+
+      if (error) throw error;
+
+      setShowMovimientoModal(false);
+      await cargarInventario();
+      if (vistaInventario === "movimientos") {
+        await cargarMovimientos();
+      }
+    } catch (err: any) {
+      alert("Error al registrar movimiento:\n" + (err?.message || err));
+    } finally {
+      setIsSavingMovimiento(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "auditoria") {
       cargarAuditoriaReal();
+    } else if (activeTab === "inventario") {
+      cargarInventario();
+      if (vistaInventario === "movimientos") {
+        cargarMovimientos();
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, vistaInventario]);
 
   const handleConfirmarEliminar = async () => {
     if (!usuarioAEliminar || !isAdmin) return;
@@ -336,7 +580,7 @@ export default function SupervisionPage() {
     const cleanNombre = editNombre.trim();
     const cleanColegiatura = editColegiatura.trim() || null;
     const cleanEspecialidad = editEspecialidad.trim() || null;
-    const siteId = editSede === "Vivanco" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000001";
+    const siteId = editSede === "Todas las Sedes" ? null : (editSede === "Vivanco" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000001");
 
     let success = false;
     let errorMessage = "";
@@ -535,6 +779,15 @@ export default function SupervisionPage() {
               <span>Alta de Nuevo Colaborador</span>
             </button>
           )}
+          {activeTab === "inventario" && isAdmin && (
+            <button
+              onClick={handleAbrirNuevoProducto}
+              className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nuevo Insumo / Producto</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -546,7 +799,7 @@ export default function SupervisionPage() {
             <div>
               <span className="font-extrabold">Modo Administrador General Activo:</span>
               <span className="ml-1 text-emerald-800">
-                Tienes autorización para <strong>editar los datos sintéticos de cualquier colaborador</strong> (nombres reales, correos y colegiaturas CMP/COP) y emitir contraseñas temporales.
+                Tienes autorización para <strong>editar los datos de cualquier colaborador</strong>, gestionar credenciales, configurar sedes y administrar el catálogo y stock de inventario.
               </span>
             </div>
           </div>
@@ -560,7 +813,7 @@ export default function SupervisionPage() {
           <div>
             <span className="font-extrabold">Perfil Auditor / Supervisión (Solo Lectura):</span>
             <span className="ml-1 text-purple-800">
-              La edición de colaboradores y reseteo de claves está reservada exclusivamente a la <strong>Dirección General (ADMIN)</strong> para garantizar la segregación de funciones.
+              La edición de colaboradores y catálogo de insumos está reservada a la <strong>Dirección General (ADMIN)</strong> para garantizar la segregación de funciones.
             </span>
           </div>
         </div>
@@ -578,6 +831,23 @@ export default function SupervisionPage() {
         >
           <Users className="w-4 h-4" />
           <span>Gestión de Personal & Credenciales ({usuarios.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("inventario")}
+          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+            activeTab === "inventario"
+              ? "border-brand-700 text-brand-700"
+              : "border-transparent text-neutral-500 hover:text-neutral-800"
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>Control de Inventario & Insumos ({productosInventario.length})</span>
+          {productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length > 0 && (
+            <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-300 animate-pulse">
+              {productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length} bajo mín.
+            </span>
+          )}
         </button>
 
         <button
@@ -793,6 +1063,361 @@ export default function SupervisionPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contenido Pestaña Control de Inventario & Insumos */}
+      {activeTab === "inventario" && (
+        <div className="space-y-4">
+          {/* Métricas y Resumen de Stock */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Catálogo Registrado</span>
+                <span className="text-xl font-black text-neutral-900">{productosInventario.length}</span>
+                <span className="text-[10px] text-neutral-400 block mt-0.5">Insumos y fármacos</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center font-bold">
+                <Package className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Alertas Stock Mínimo</span>
+                <span className={`text-xl font-black ${productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                  {productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length}
+                </span>
+                <span className="text-[10px] text-neutral-400 block mt-0.5">Requieren reposición</span>
+              </div>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length > 0 ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+              }`}>
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Valor Costo Inventario</span>
+                <span className="text-xl font-black text-neutral-900">
+                  {formatCurrency(productosInventario.reduce((acc, p) => acc + (p.stock_actual * p.precio_costo), 0))}
+                </span>
+                <span className="text-[10px] text-neutral-400 block mt-0.5">Inversión operativa en stock</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
+                <DollarSign className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Valor Comercial Estimado</span>
+                <span className="text-xl font-black text-emerald-700">
+                  {formatCurrency(productosInventario.reduce((acc, p) => acc + (p.stock_actual * p.precio_venta), 0))}
+                </span>
+                <span className="text-[10px] text-neutral-400 block mt-0.5">Venta potencial en sedes</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                <Activity className="w-5 h-5 text-emerald-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Selector de Sub-vista: Catálogo vs Historial */}
+          <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVistaInventario("catalogo")}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs transition ${
+                    vistaInventario === "catalogo"
+                      ? "bg-brand-700 text-white shadow-xs"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  }`}
+                >
+                  Existencias & Catálogo ({productosInventario.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVistaInventario("movimientos");
+                    cargarMovimientos();
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs transition ${
+                    vistaInventario === "movimientos"
+                      ? "bg-brand-700 text-white shadow-xs"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  }`}
+                >
+                  Kárdex & Movimientos de Stock ({movimientosInventario.length})
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    cargarInventario();
+                    if (vistaInventario === "movimientos") cargarMovimientos();
+                  }}
+                  disabled={cargandoInventario || cargandoMovimientos}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl transition disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${cargandoInventario || cargandoMovimientos ? "animate-spin" : ""}`} />
+                  <span>Actualizar</span>
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={handleAbrirNuevoProducto}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl transition shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Nuevo Insumo</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* VISTA 1: Catálogo de Productos y Existencias */}
+            {vistaInventario === "catalogo" && (
+              <div>
+                {/* Barra de Filtros */}
+                <div className="p-3 bg-neutral-50/60 border-b border-neutral-100 flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between">
+                  <div className="flex flex-wrap gap-1">
+                    {(["Todas", "Medicamento", "Insumo Médico", "Reactivo / Laboratorio", "Material Descartable", "Dispositivo Anticonceptivo"] as const).map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setFiltroCategoriaInv(cat)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                          filtroCategoriaInv === cat
+                            ? "bg-white text-neutral-900 border border-neutral-200 shadow-xs"
+                            : "text-neutral-500 hover:text-neutral-900"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSoloBajoStock(!soloBajoStock)}
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${
+                        soloBajoStock
+                          ? "bg-amber-100 border-amber-300 text-amber-900"
+                          : "bg-white border-neutral-300 text-neutral-600 hover:bg-neutral-50"
+                      }`}
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Solo Bajo Stock Mínimo</span>
+                    </button>
+
+                    <div className="relative min-w-[200px]">
+                      <input
+                        type="text"
+                        value={busquedaInv}
+                        onChange={(e) => setBusquedaInv(e.target.value)}
+                        placeholder="Buscar por nombre o código..."
+                        className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-neutral-300 text-xs bg-white focus:ring-1 focus:ring-brand-700"
+                      />
+                      <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-2" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tabla de Existencias */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-neutral-50 text-neutral-600 text-xs font-bold uppercase tracking-wider border-b border-neutral-200">
+                      <tr>
+                        <th className="py-3 px-4">Código</th>
+                        <th className="py-3 px-4">Insumo / Producto</th>
+                        <th className="py-3 px-4">Categoría</th>
+                        <th className="py-3 px-4">Presentación</th>
+                        <th className="py-3 px-4 text-center">Stock Actual</th>
+                        <th className="py-3 px-4 text-center">Mínimo</th>
+                        <th className="py-3 px-4 text-right">P. Costo</th>
+                        <th className="py-3 px-4 text-right">P. Venta</th>
+                        <th className="py-3 px-4 text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                      {cargandoInventario && productosInventario.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="py-8 text-center text-neutral-400 font-sans">
+                            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-brand-700" />
+                            <span>Cargando existencias desde Supabase...</span>
+                          </td>
+                        </tr>
+                      ) : (
+                        productosInventario
+                          .filter((p) => {
+                            const matchCat = filtroCategoriaInv === "Todas" || p.categoria === filtroCategoriaInv;
+                            const matchStock = !soloBajoStock || p.stock_actual <= p.stock_minimo;
+                            const matchBusq =
+                              !busquedaInv ||
+                              p.nombre.toLowerCase().includes(busquedaInv.toLowerCase()) ||
+                              p.codigo.toLowerCase().includes(busquedaInv.toLowerCase()) ||
+                              p.presentacion.toLowerCase().includes(busquedaInv.toLowerCase());
+                            return matchCat && matchStock && matchBusq;
+                          })
+                          .map((p) => {
+                            const esCritico = p.stock_actual <= 0;
+                            const esBajo = p.stock_actual <= p.stock_minimo;
+                            return (
+                              <tr key={p.id} className="hover:bg-neutral-50/80 transition">
+                                <td className="py-3.5 px-4">
+                                  <span className="font-mono text-xs font-bold text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
+                                    {p.codigo}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 font-bold text-neutral-900">
+                                  {p.nombre}
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
+                                    {p.categoria}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 text-neutral-500 text-xs">
+                                  {p.presentacion}
+                                </td>
+                                <td className="py-3.5 px-4 text-center">
+                                  <span
+                                    className={`inline-flex items-center gap-1 font-mono font-black text-xs px-2.5 py-1 rounded-full ${
+                                      esCritico
+                                        ? "bg-rose-100 text-rose-800 border border-rose-300"
+                                        : esBajo
+                                        ? "bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
+                                        : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                    }`}
+                                  >
+                                    {p.stock_actual} unidades
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 text-center font-mono text-neutral-500 text-xs">
+                                  {p.stock_minimo}
+                                </td>
+                                <td className="py-3.5 px-4 text-right font-mono text-xs text-neutral-600">
+                                  {formatCurrency(p.precio_costo)}
+                                </td>
+                                <td className="py-3.5 px-4 text-right font-mono text-xs font-bold text-neutral-900">
+                                  {formatCurrency(p.precio_venta)}
+                                </td>
+                                <td className="py-3.5 px-4 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAbrirMovimiento(p)}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg border border-brand-200 transition"
+                                      title="Entrada, Salida o Ajuste de Stock"
+                                    >
+                                      <SlidersHorizontal className="w-3 h-3" />
+                                      <span>Ajuste</span>
+                                    </button>
+                                    {isAdmin && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAbrirEditarProducto(p)}
+                                        className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition"
+                                        title="Editar Ficha de Insumo"
+                                      >
+                                        <Edit3 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* VISTA 2: Historial Kárdex de Movimientos */}
+            {vistaInventario === "movimientos" && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm font-sans">
+                  <thead className="bg-neutral-50 text-neutral-600 text-xs font-bold uppercase tracking-wider border-b border-neutral-200">
+                    <tr>
+                      <th className="py-3 px-4">Fecha & Hora</th>
+                      <th className="py-3 px-4">Insumo / Fármaco</th>
+                      <th className="py-3 px-4">Tipo Movimiento</th>
+                      <th className="py-3 px-4 text-center">Cantidad</th>
+                      <th className="py-3 px-4 text-center">Kárdex (Previo ➔ Nuevo)</th>
+                      <th className="py-3 px-4">Motivo / Detalle Clínico</th>
+                      <th className="py-3 px-4">Responsable</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 text-xs">
+                    {cargandoMovimientos && movimientosInventario.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-neutral-400">
+                          <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-brand-700" />
+                          <span>Cargando kárdex de movimientos...</span>
+                        </td>
+                      </tr>
+                    ) : movimientosInventario.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-neutral-400 font-sans">
+                          No se han registrado movimientos de inventario en el período.
+                        </td>
+                      </tr>
+                    ) : (
+                      movimientosInventario.map((m) => (
+                        <tr key={m.id} className="hover:bg-neutral-50/80 transition">
+                          <td className="py-3 px-4 text-neutral-500 font-mono whitespace-nowrap">
+                            {new Date(m.created_at).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="font-bold text-neutral-900 block">{m.producto?.nombre || "Insumo"}</span>
+                            <span className="font-mono text-[10px] text-neutral-400">{m.producto?.codigo}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full ${
+                                m.tipo_movimiento.startsWith("ENTRADA")
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                  : m.tipo_movimiento === "SALIDA_MERMA"
+                                  ? "bg-rose-100 text-rose-800 border border-rose-300"
+                                  : "bg-blue-100 text-blue-800 border border-blue-300"
+                              }`}
+                            >
+                              {m.tipo_movimiento.startsWith("ENTRADA") ? (
+                                <ArrowDownRight className="w-3 h-3" />
+                              ) : (
+                                <ArrowUpRight className="w-3 h-3" />
+                              )}
+                              {m.tipo_movimiento}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center font-mono font-bold text-neutral-900">
+                            {m.cantidad}
+                          </td>
+                          <td className="py-3 px-4 text-center font-mono text-[11px] text-neutral-500">
+                            <span className="text-neutral-400">{m.stock_anterior}</span> ➔{" "}
+                            <span className="font-bold text-neutral-900">{m.stock_nuevo}</span>
+                          </td>
+                          <td className="py-3 px-4 text-neutral-600 max-w-xs truncate">
+                            {m.motivo || "-"}
+                          </td>
+                          <td className="py-3 px-4 font-medium text-neutral-800">
+                            {m.usuario_nombre || "Operador"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1305,6 +1930,274 @@ export default function SupervisionPage() {
                     </>
                   ) : (
                     <span>Actualizar Mi Contraseña</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Crear / Editar Insumo o Fármaco */}
+      {showProductoModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-neutral-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center font-bold">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-neutral-900">
+                    {productoEditando ? "Editar Ficha de Insumo" : "Dar de Alta Nuevo Insumo / Fármaco"}
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">Gestión de Catálogo de Inventario & Precios</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowProductoModal(false)}
+                className="p-1 hover:bg-neutral-100 rounded-lg text-neutral-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarProducto} className="space-y-3">
+              <div className="grid grid-cols-3 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">Código *</label>
+                  <input
+                    type="text"
+                    required
+                    value={prodCodigo}
+                    onChange={(e) => setProdCodigo(e.target.value)}
+                    placeholder="INV-MED-01"
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono uppercase font-bold focus:ring-2 focus:ring-brand-700"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">Categoría *</label>
+                  <select
+                    value={prodCategoria}
+                    onChange={(e) => setProdCategoria(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white focus:ring-2 focus:ring-brand-700"
+                  >
+                    <option value="Medicamento">Medicamento</option>
+                    <option value="Insumo Médico">Insumo Médico</option>
+                    <option value="Reactivo / Laboratorio">Reactivo / Laboratorio</option>
+                    <option value="Material Descartable">Material Descartable</option>
+                    <option value="Dispositivo Anticonceptivo">Dispositivo Anticonceptivo</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-700 mb-1">Nombre Comercial / Genérico *</label>
+                <input
+                  type="text"
+                  required
+                  value={prodNombre}
+                  onChange={(e) => setProdNombre(e.target.value)}
+                  placeholder="Ej. Óvulos de Metronidazol + Nistatina"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-bold focus:ring-2 focus:ring-brand-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-700 mb-1">Presentación / Formato *</label>
+                <input
+                  type="text"
+                  required
+                  value={prodPresentacion}
+                  onChange={(e) => setProdPresentacion(e.target.value)}
+                  placeholder="Ej. Caja x 10 óvulos vaginales / Ampolla 1ml"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-brand-700"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 bg-neutral-50 p-3 rounded-2xl border border-neutral-200">
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                    {productoEditando ? "Stock Actual (Inalterable aquí)" : "Stock Inicial *"}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    disabled={Boolean(productoEditando)}
+                    value={prodStockActual}
+                    onChange={(e) => setProdStockActual(Number(e.target.value))}
+                    className={`w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold ${
+                      productoEditando ? "bg-neutral-100 text-neutral-500" : "bg-white"
+                    }`}
+                  />
+                  {productoEditando && (
+                    <span className="text-[10px] text-neutral-400 block mt-0.5">Ajuste vía Kárdex</span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">Stock Mínimo (Alerta) *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={prodStockMinimo}
+                    onChange={(e) => setProdStockMinimo(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">Costo Unitario (S/) *</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    required
+                    value={prodPrecioCosto}
+                    onChange={(e) => setProdPrecioCosto(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">Precio de Venta (S/) *</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    required
+                    value={prodPrecioVenta}
+                    onChange={(e) => setProdPrecioVenta(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => setShowProductoModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProducto}
+                  className="px-5 py-2 text-xs font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl shadow inline-flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  {isSavingProducto ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <span>Guardar Producto</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajuste / Movimiento Rápido de Stock */}
+      {showMovimientoModal && productoParaMovimiento && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-neutral-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-bold">
+                  <SlidersHorizontal className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-neutral-900">Ajuste de Stock / Kárdex</h3>
+                  <p className="text-[11px] text-neutral-500 font-mono">{productoParaMovimiento.codigo}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMovimientoModal(false)}
+                className="p-1 hover:bg-neutral-100 rounded-lg text-neutral-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200 text-xs">
+              <span className="font-bold text-neutral-900 block">{productoParaMovimiento.nombre}</span>
+              <div className="flex items-center justify-between text-[11px] text-neutral-500 mt-1">
+                <span>Presentación: {productoParaMovimiento.presentacion}</span>
+                <span className="font-mono font-bold text-brand-700">Stock Actual: {productoParaMovimiento.stock_actual} unid.</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleRegistrarMovimiento} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-700 mb-1">Tipo de Operación *</label>
+                <select
+                  value={movTipo}
+                  onChange={(e) => setMovTipo(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white font-bold focus:ring-2 focus:ring-brand-700"
+                >
+                  <option value="ENTRADA_COMPRA">ENTRADA: Compra o Recepción de Proveedor (+)</option>
+                  <option value="AJUSTE_INVENTARIO">AJUSTE: Rectificación por Inventario Físico (+/-)</option>
+                  <option value="SALIDA_MERMA">SALIDA: Merma, Vencimiento o Deterioro (-)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-700 mb-1">Cantidad a Mover *</label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={movCantidad}
+                  onChange={(e) => setMovCantidad(Number(e.target.value))}
+                  placeholder="Cantidad..."
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-black focus:ring-2 focus:ring-brand-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-neutral-700 mb-1">Motivo / Justificación Obligatoria *</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={movMotivo}
+                  onChange={(e) => setMovMotivo(e.target.value)}
+                  placeholder="Ej: Factura Proveedor F001-2384, Conteo mensual de cierre, Descarte por fecha de exp..."
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs leading-relaxed focus:ring-2 focus:ring-brand-700"
+                />
+              </div>
+
+              <p className="text-[10px] text-neutral-400">
+                🔒 Se registrará en la bitácora de auditoría inmutable con su identidad institucional como responsable.
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => setShowMovimientoModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingMovimiento}
+                  className="px-5 py-2 text-xs font-bold bg-brand-700 hover:bg-brand-800 text-white rounded-xl shadow inline-flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  {isSavingMovimiento ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Procesando...</span>
+                    </>
+                  ) : (
+                    <span>Registrar Movimiento</span>
                   )}
                 </button>
               </div>
