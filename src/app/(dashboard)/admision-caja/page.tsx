@@ -32,6 +32,11 @@ import {
   Boxes,
   Tag,
   Filter,
+  ShoppingCart,
+  Trash2,
+  Coins,
+  Minus,
+  ArrowRightLeft,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
@@ -48,6 +53,27 @@ export interface ProductoDispensable {
   precio_venta: number;
 }
 
+export interface ItemCarrito {
+  id: string;
+  tipo: "SERVICIO" | "PRODUCTO" | "PACK";
+  codigo?: string;
+  nombre: string;
+  categoria?: string;
+  cantidad: number;
+  precioUnitario: number;
+  precioBaseCatalogo: number;
+  motivoAjuste?: string;
+  productoId?: string;
+}
+
+export interface PagoFraccionado {
+  id: string;
+  medio: "EFECTIVO" | "YAPE" | "PLIN" | "TARJETA_POS" | "TRANSFERENCIA";
+  monto: number;
+  montoEntregado?: number;
+  referencia?: string;
+}
+
 interface PacienteRegistrado {
   dni: string;
   nombres: string;
@@ -62,10 +88,13 @@ interface TransaccionAtencion {
   paciente: string;
   servicio: string;
   monto: number;
-  medioPago: "YAPE" | "PLIN" | "EFECTIVO" | "TARJETA_POS";
+  medioPago: "YAPE" | "PLIN" | "EFECTIVO" | "TARJETA_POS" | "TRANSFERENCIA" | "MIXTO";
   referencia?: string;
   estadoConsultorio: "EN_ESPERA" | "EN_ATENCION" | "ATENDIDO";
   sede: string;
+  items?: ItemCarrito[];
+  pagos?: PagoFraccionado[];
+  vueltoEntregado?: number;
 }
 
 interface EgresoCaja {
@@ -209,23 +238,50 @@ export default function AdmisionCajaPage() {
   const [reagendandoLoading, setReagendandoLoading] = useState(false);
   const [reagendadaExitoMsg, setReagendadaExitoMsg] = useState<string | null>(null);
 
-  // Formulario Admisión & Cobro
+  // Formulario Admisión & Carrito Multiservicios
   const [dni, setDni] = useState("");
   const [nombres, setNombres] = useState("");
   const [apellidos, setApellidos] = useState("");
   const [telefono, setTelefono] = useState("");
-  const [servicio, setServicio] = useState("Control Prenatal Reenfocado");
-  const [monto, setMonto] = useState<number>(70);
-  const [precioBaseCatalogo, setPrecioBaseCatalogo] = useState<number>(70);
-  const [motivoAjusteTarifa, setMotivoAjusteTarifa] = useState<string>("");
+
+  // Carrito de Consumo (Servicios, Procedimientos, Packs, Insumos)
+  const [itemsCarrito, setItemsCarrito] = useState<ItemCarrito[]>([
+    {
+      id: "srv-default-1",
+      tipo: "SERVICIO",
+      nombre: "Control Prenatal Reenfocado",
+      categoria: "Consultas",
+      cantidad: 1,
+      precioUnitario: 70,
+      precioBaseCatalogo: 70,
+    },
+  ]);
+
+  // Buscador y Selectores de Catálogo
+  const [tipoCatalogoAgregar, setTipoCatalogoAgregar] = useState<"SERVICIOS" | "FARMACIA">("SERVICIOS");
   const [dropdownServicioAbierto, setDropdownServicioAbierto] = useState<boolean>(false);
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>("Todas");
   const [busquedaServicio, setBusquedaServicio] = useState<string>("");
+  const [busquedaFarmacia, setBusquedaFarmacia] = useState<string>("");
   const [esServicioPersonalizado, setEsServicioPersonalizado] = useState(false);
   const [servicioPersonalizadoNombre, setServicioPersonalizadoNombre] = useState("");
-  const [medioPago, setMedioPago] = useState<"YAPE" | "PLIN" | "EFECTIVO" | "TARJETA_POS">("YAPE");
-  const [referencia, setReferencia] = useState("");
-  const [efectivoRecibido, setEfectivoRecibido] = useState<number>(100);
+  const [servicioPersonalizadoPrecio, setServicioPersonalizadoPrecio] = useState<number>(70);
+
+  // Pagos Mixtos y Fraccionados (Split Payment)
+  const [modoSplit, setModoSplit] = useState<boolean>(false);
+  const [medioPagoUnico, setMedioPagoUnico] = useState<"EFECTIVO" | "YAPE" | "PLIN" | "TARJETA_POS">("EFECTIVO");
+  const [referenciaUnica, setReferenciaUnica] = useState("");
+  const [efectivoEntregadoUnico, setEfectivoEntregadoUnico] = useState<number>(100);
+  const [pagosFraccionados, setPagosFraccionados] = useState<PagoFraccionado[]>([
+    {
+      id: "pago-1",
+      medio: "EFECTIVO",
+      monto: 70,
+      montoEntregado: 70,
+      referencia: "Ventanilla",
+    },
+  ]);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [ticketEmitido, setTicketEmitido] = useState<TransaccionAtencion | null>(null);
 
@@ -520,14 +576,207 @@ export default function AdmisionCajaPage() {
     }
   };
 
-  const handleSelectServicio = (srv: string, precioDefecto?: number) => {
-    setEsServicioPersonalizado(false);
-    setServicio(srv);
-    const p = precioDefecto ?? TARIFARIO_BASE[srv] ?? 70;
-    setMonto(p);
-    setPrecioBaseCatalogo(p);
-    setMotivoAjusteTarifa("");
+  // Cálculos derivados del Carrito de Consumo
+  const montoTotalCarrito = itemsCarrito.reduce(
+    (acc, it) => acc + (it.cantidad * it.precioUnitario),
+    0
+  );
+  const servicio = itemsCarrito.length > 0
+    ? itemsCarrito.map((i) => `${i.cantidad > 1 ? `${i.cantidad}x ` : ""}${i.nombre}`).join(" + ")
+    : "Sin servicios";
+  const monto = montoTotalCarrito;
+  const precioBaseCatalogo = itemsCarrito.reduce(
+    (acc, it) => acc + (it.cantidad * it.precioBaseCatalogo),
+    0
+  );
+  const medioPago = !modoSplit ? medioPagoUnico : "MIXTO";
+
+  // Control de Pagos Fraccionados (Split Payment)
+  const totalCobradoPlanificado = modoSplit
+    ? pagosFraccionados.reduce((acc, p) => acc + (Number(p.monto) || 0), 0)
+    : montoTotalCarrito;
+
+  const saldoPendiente = Math.max(0, montoTotalCarrito - totalCobradoPlanificado);
+
+  // Vuelto en efectivo (Monto Entregado - Monto Requerido)
+  const vueltoEfectivo = modoSplit
+    ? pagosFraccionados
+        .filter((p) => p.medio === "EFECTIVO")
+        .reduce((acc, p) => acc + Math.max(0, (Number(p.montoEntregado) || Number(p.monto)) - Number(p.monto)), 0)
+    : (medioPagoUnico === "EFECTIVO" ? Math.max(0, (Number(efectivoEntregadoUnico) || 0) - montoTotalCarrito) : 0);
+
+  const handleAgregarServicioAlCarrito = (srvNombre: string, precioDefecto?: number, categoria?: string) => {
+    const p = precioDefecto ?? TARIFARIO_BASE[srvNombre] ?? 70;
+    setItemsCarrito((prev) => {
+      const existe = prev.find((item) => item.nombre === srvNombre && item.tipo !== "PRODUCTO");
+      if (existe) {
+        return prev.map((item) =>
+          item.id === existe.id ? { ...item, cantidad: item.cantidad + 1 } : item
+        );
+      }
+      const nuevoItem: ItemCarrito = {
+        id: `srv-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        tipo: categoria === "Packs Promocionales" ? "PACK" : "SERVICIO",
+        nombre: srvNombre,
+        categoria: categoria || "Consultas",
+        cantidad: 1,
+        precioUnitario: p,
+        precioBaseCatalogo: p,
+      };
+      return [...prev, nuevoItem];
+    });
     setDropdownServicioAbierto(false);
+    setBusquedaServicio("");
+  };
+
+  const handleAgregarProductoAlCarrito = (prod: ProductoDispensable) => {
+    if (prod.stock_actual <= 0) {
+      alert(`El producto "${prod.nombre}" no cuenta con existencias disponibles en este momento.`);
+      return;
+    }
+    const precio = prod.precio_venta > 0 ? prod.precio_venta : prod.precio_costo;
+    setItemsCarrito((prev) => {
+      const existe = prev.find((item) => item.productoId === prod.id);
+      if (existe) {
+        if (existe.cantidad >= prod.stock_actual) {
+          alert(`No hay más existencias disponibles de "${prod.nombre}" (Stock en bodega: ${prod.stock_actual}).`);
+          return prev;
+        }
+        return prev.map((item) =>
+          item.id === existe.id ? { ...item, cantidad: item.cantidad + 1 } : item
+        );
+      }
+      const nuevoItem: ItemCarrito = {
+        id: `prod-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        tipo: "PRODUCTO",
+        codigo: prod.codigo,
+        nombre: `${prod.nombre} (${prod.presentacion})`,
+        categoria: prod.categoria,
+        cantidad: 1,
+        precioUnitario: precio,
+        precioBaseCatalogo: precio,
+        productoId: prod.id,
+      };
+      return [...prev, nuevoItem];
+    });
+    setBusquedaFarmacia("");
+  };
+
+  const handleAgregarPersonalizadoAlCarrito = (nombre: string, precio: number) => {
+    if (!nombre.trim()) {
+      alert("Ingrese el nombre del procedimiento o servicio especial.");
+      return;
+    }
+    const p = Number(precio) || 50;
+    const nuevoItem: ItemCarrito = {
+      id: `custom-${Date.now()}`,
+      tipo: "SERVICIO",
+      nombre: nombre.trim(),
+      categoria: "Procedimientos",
+      cantidad: 1,
+      precioUnitario: p,
+      precioBaseCatalogo: p,
+    };
+    setItemsCarrito((prev) => [...prev, nuevoItem]);
+    setEsServicioPersonalizado(false);
+    setServicioPersonalizadoNombre("");
+  };
+
+  const handleEliminarItemCarrito = (id: string) => {
+    setItemsCarrito((prev) => prev.filter((it) => it.id !== id));
+  };
+
+  const handleModificarCantidadItem = (id: string, nuevaCant: number) => {
+    if (nuevaCant <= 0) {
+      handleEliminarItemCarrito(id);
+      return;
+    }
+    setItemsCarrito((prev) =>
+      prev.map((it) => {
+        if (it.id === id) {
+          if (it.productoId) {
+            const prod = productosInventario.find((p) => p.id === it.productoId);
+            if (prod && nuevaCant > prod.stock_actual) {
+              alert(`Stock insuficiente: solo quedan ${prod.stock_actual} unidades.`);
+              return it;
+            }
+          }
+          return { ...it, cantidad: nuevaCant };
+        }
+        return it;
+      })
+    );
+  };
+
+  const handleModificarPrecioItem = (id: string, nuevoPrecio: number, motivo?: string) => {
+    setItemsCarrito((prev) =>
+      prev.map((it) => {
+        if (it.id === id) {
+          return {
+            ...it,
+            precioUnitario: Number(nuevoPrecio) || 0,
+            motivoAjuste: motivo !== undefined ? motivo : it.motivoAjuste,
+          };
+        }
+        return it;
+      })
+    );
+  };
+
+  // Gestión de Pagos Fraccionados (Split Payment)
+  const handleSeleccionarPagoRapido = (medio: "EFECTIVO" | "YAPE" | "PLIN" | "TARJETA_POS") => {
+    setModoSplit(false);
+    setMedioPagoUnico(medio);
+    if (medio === "EFECTIVO") {
+      setEfectivoEntregadoUnico(montoTotalCarrito >= 100 ? Math.ceil(montoTotalCarrito / 50) * 50 : 100);
+    }
+  };
+
+  const handleActivarModoSplit = () => {
+    setModoSplit(true);
+    if (pagosFraccionados.length === 0) {
+      setPagosFraccionados([
+        {
+          id: `pago-${Date.now()}`,
+          medio: "EFECTIVO",
+          monto: Math.round(montoTotalCarrito / 2),
+          montoEntregado: Math.round(montoTotalCarrito / 2),
+          referencia: "Ventanilla",
+        },
+        {
+          id: `pago-${Date.now() + 1}`,
+          medio: "YAPE",
+          monto: montoTotalCarrito - Math.round(montoTotalCarrito / 2),
+          referencia: "",
+        },
+      ]);
+    }
+  };
+
+  const handleAgregarPagoFraccionado = () => {
+    const cubierto = pagosFraccionados.reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
+    const restante = Math.max(0, montoTotalCarrito - cubierto);
+    const nuevoPago: PagoFraccionado = {
+      id: `pago-${Date.now()}`,
+      medio: "YAPE",
+      monto: restante,
+      referencia: "",
+    };
+    setPagosFraccionados((prev) => [...prev, nuevoPago]);
+  };
+
+  const handleEliminarPagoFraccionado = (id: string) => {
+    if (pagosFraccionados.length <= 1) {
+      alert("Debe mantener al menos un medio de pago.");
+      return;
+    }
+    setPagosFraccionados((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleActualizarPagoFraccionado = (id: string, campos: Partial<PagoFraccionado>) => {
+    setPagosFraccionados((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...campos } : p))
+    );
   };
 
   // Anulación de Egreso (Restituye saldo de caja inmediatamente)
@@ -734,8 +983,21 @@ export default function AdmisionCajaPage() {
             <div class="divider"></div>
 
             <div>
-              <span class="text-xs font-bold">SERVICIO REQUERIDO:</span>
-              <div class="font-bold text-sm" style="margin-top: 1px;">${ticket.servicio}</div>
+              <span class="text-xs font-bold">DETALLE DE LA ATENCIÓN:</span>
+              ${
+                ticket.items && ticket.items.length > 0
+                  ? ticket.items
+                      .map(
+                        (it) => `
+                    <div class="row" style="margin: 2px 0;">
+                      <span class="text-xs">${it.cantidad}x ${it.nombre}</span>
+                      <span class="text-xs font-bold">S/ ${(it.cantidad * it.precioUnitario).toFixed(2)}</span>
+                    </div>
+                  `
+                      )
+                      .join("")
+                  : `<div class="font-bold text-sm" style="margin-top: 1px;">${ticket.servicio}</div>`
+              }
             </div>
 
             <div class="divider"></div>
@@ -744,15 +1006,35 @@ export default function AdmisionCajaPage() {
               <span class="font-bold">TOTAL PAGADO:</span>
               <span class="font-bold">S/ ${ticket.monto.toFixed(2)}</span>
             </div>
-            <div class="row text-xs">
-              <span>FORMA DE PAGO:</span>
-              <span class="font-bold">${ticket.medioPago}</span>
+
+            <div class="divider"></div>
+
+            <div>
+              <span class="text-xs font-bold">DESGLOSE DE PAGO:</span>
+              ${
+                ticket.pagos && ticket.pagos.length > 0
+                  ? ticket.pagos
+                      .map(
+                        (p) => `
+                    <div class="row text-xs" style="margin: 2px 0;">
+                      <span>${p.medio}${p.referencia ? ` (${p.referencia})` : ""}</span>
+                      <span class="font-bold">S/ ${Number(p.monto).toFixed(2)}</span>
+                    </div>
+                  `
+                      )
+                      .join("")
+                  : `<div class="row text-xs"><span>FORMA DE PAGO:</span><span class="font-bold">${ticket.medioPago}</span></div>
+                     ${ticket.referencia ? `<div class="row text-xs"><span>REFERENCIA / OP:</span><span>${ticket.referencia}</span></div>` : ""}`
+              }
+              ${
+                ticket.vueltoEntregado && ticket.vueltoEntregado > 0
+                  ? `<div class="row text-xs font-bold" style="margin-top: 3px; border-top: 1px dotted #000; padding-top: 2px;">
+                      <span>VUELTO ENTREGADO:</span>
+                      <span>S/ ${ticket.vueltoEntregado.toFixed(2)}</span>
+                    </div>`
+                  : ""
+              }
             </div>
-            ${
-              ticket.referencia
-                ? `<div class="row text-xs"><span>REFERENCIA / OP:</span><span>${ticket.referencia}</span></div>`
-                : ""
-            }
 
             <div class="divider-double"></div>
 
@@ -939,11 +1221,11 @@ export default function AdmisionCajaPage() {
     }
   };
 
-  // Procesar Admisión & Cobro con Integridad Transaccional ACID
+  // Procesar Admisión & Cobro con Integridad Transaccional ACID (Multiservicios & Split Payment)
   const handleProcesarAtencionYCobro = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dni || !nombres || !apellidos) {
-      alert("Por favor complete los datos obligatorios del paciente.");
+      alert("Por favor complete los datos obligatorios del paciente (DNI, Nombres y Apellidos).");
       return;
     }
 
@@ -952,8 +1234,36 @@ export default function AdmisionCajaPage() {
       return;
     }
 
+    if (itemsCarrito.length === 0) {
+      alert("El carrito está vacío. Agregue al menos un servicio o producto antes de cobrar.");
+      return;
+    }
+
     if (!turnoActivo || turnoActivo.estado === "CERRADA") {
       alert("Debe realizar la Apertura de Caja antes de procesar cobros.");
+      return;
+    }
+
+    // Resolver desglose de pagos finales
+    const pagosFinales: PagoFraccionado[] = modoSplit
+      ? pagosFraccionados.filter((p) => Number(p.monto) > 0)
+      : [
+          {
+            id: `pago-${Date.now()}`,
+            medio: medioPagoUnico,
+            monto: montoTotalCarrito,
+            montoEntregado: medioPagoUnico === "EFECTIVO" ? (Number(efectivoEntregadoUnico) || montoTotalCarrito) : montoTotalCarrito,
+            referencia: referenciaUnica.trim() || (medioPagoUnico === "EFECTIVO" ? "EFECTIVO-VENTANILLA" : "OP-DIRECTA"),
+          },
+        ];
+
+    const totalCubierto = pagosFinales.reduce((acc, p) => acc + Number(p.monto), 0);
+    if (totalCubierto < montoTotalCarrito) {
+      alert(
+        `Monto insuficiente: El total cubierto (${formatCurrency(totalCubierto)}) no alcanza el total a cobrar (${formatCurrency(
+          montoTotalCarrito
+        )}).\nFaltan ${formatCurrency(montoTotalCarrito - totalCubierto)}.`
+      );
       return;
     }
 
@@ -961,38 +1271,43 @@ export default function AdmisionCajaPage() {
 
     const now = new Date();
     const horaStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const esVivanco = normalizarSede(sede) === "Vivanco";
-    const siteId = esVivanco
-      ? "b0000000-0000-0000-0000-000000000002"
-      : "b0000000-0000-0000-0000-000000000001";
+    const siteId = getSiteId(sede);
+    const resumenServicios = itemsCarrito
+      .map((i) => `${i.cantidad > 1 ? `${i.cantidad}x ` : ""}${i.nombre}`)
+      .join(" + ");
+    const medioPagoDesc = !modoSplit
+      ? medioPagoUnico
+      : pagosFinales.length === 1
+      ? pagosFinales[0].medio
+      : "MIXTO";
 
     let encuentroId = "";
     let txExito = false;
     let mensajeError = "";
 
-    // 1. Intentar registrar atómicamente con función RPC
+    // 1. Intentar registrar atómicamente con la nueva función RPC Multiservicio
     try {
-      const { data: rpcRes, error: rpcErr } = await supabase.rpc("registrar_atencion_y_cobro", {
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("registrar_atencion_y_cobro_multiservicio", {
         p_dni: dni.trim(),
         p_nombres: nombres.trim(),
         p_apellidos: apellidos.trim(),
         p_telefono: telefono.trim() || "000000000",
         p_site_id: siteId,
-        p_servicio: servicio,
-        p_monto: monto,
-        p_medio_pago: medioPago,
-        p_referencia: referencia || (medioPago === "EFECTIVO" ? "EFECTIVO-VENTANILLA" : "OP-DIRECTA"),
+        p_items: itemsCarrito,
+        p_monto_total: montoTotalCarrito,
+        p_pagos: pagosFinales,
+        p_usuario_nombre: cajeroNombre || "Cajero Ventanilla",
       });
 
       if (!rpcErr && rpcRes?.encuentro_id) {
         encuentroId = rpcRes.encuentro_id;
         txExito = true;
       } else if (rpcErr) {
-        console.warn("RPC no disponible o falló:", rpcErr.message);
+        console.warn("RPC Multiservicio no disponible o falló:", rpcErr.message);
         mensajeError = rpcErr.message;
       }
     } catch (errRpc: any) {
-      console.warn("Fallo RPC:", errRpc);
+      console.warn("Fallo al llamar RPC Multiservicio:", errRpc);
       mensajeError = errRpc?.message || String(errRpc);
     }
 
@@ -1016,7 +1331,7 @@ export default function AdmisionCajaPage() {
           .single();
 
         if (pacErr || !pacData) {
-          throw new Error("Fallo al registrar paciente en base de datos: " + (pacErr?.message || "Error desconocido"));
+          throw new Error("Fallo al registrar paciente en base de datos: " + (pacErr?.message || "Error de red"));
         }
 
         // Crear Encuentro
@@ -1025,7 +1340,7 @@ export default function AdmisionCajaPage() {
           .insert({
             paciente_id: pacData.id,
             site_id: siteId,
-            servicio_solicitado: servicio,
+            servicio_solicitado: resumenServicios,
             estado: "EN_ESPERA",
             fecha_hora: new Date().toISOString(),
           })
@@ -1033,20 +1348,21 @@ export default function AdmisionCajaPage() {
           .single();
 
         if (encErr || !encData) {
-          throw new Error("Fallo al registrar encuentro clínico: " + (encErr?.message || "Error de seguridad RLS"));
+          throw new Error("Fallo al registrar encuentro clínico: " + (encErr?.message || "Error RLS"));
         }
 
         encuentroId = encData.id;
 
-        // Crear Orden de Pago
+        // Crear Orden de Pago con desglose de items
         const { data: ordData, error: ordErr } = await supabase
           .from("orden_pago")
           .insert({
             encuentro_id: encData.id,
             paciente_id: pacData.id,
             site_id: siteId,
-            servicio: servicio,
-            monto: monto,
+            servicio: resumenServicios,
+            monto: montoTotalCarrito,
+            items: itemsCarrito,
             estado: "PAGADO",
           })
           .select()
@@ -1054,24 +1370,54 @@ export default function AdmisionCajaPage() {
 
         if (ordData) {
           const { data: userAuth } = await supabase.auth.getUser();
-          await supabase.from("pago").insert({
-            orden_id: ordData.id,
-            cajero_id: userAuth.user?.id,
-            medio_pago: medioPago,
-            monto: monto,
-            referencia: referencia || (medioPago === "EFECTIVO" ? "EFECTIVO-VENTANILLA" : "OP-DIRECTA"),
-            fecha_hora: new Date().toISOString(),
-          });
+          const cajeroId = userAuth.user?.id;
+
+          // Registrar cada pago fraccionado en public.pago
+          for (const p of pagosFinales) {
+            await supabase.from("pago").insert({
+              orden_id: ordData.id,
+              cajero_id: cajeroId,
+              medio_pago: p.medio,
+              monto: Number(p.monto),
+              referencia: p.referencia?.trim() || (p.medio === "EFECTIVO" ? "EFECTIVO-VENTANILLA" : "OP-SPLIT"),
+              fecha_hora: new Date().toISOString(),
+            });
+          }
+
+          // Descontar inventario para productos clínicos del carrito
+          for (const it of itemsCarrito) {
+            if (it.productoId) {
+              const prod = productosInventario.find((p) => p.id === it.productoId);
+              if (prod) {
+                const nuevoStock = Math.max(0, prod.stock_actual - it.cantidad);
+                await supabase
+                  .from("producto_inventario")
+                  .update({ stock_actual: nuevoStock, updated_at: new Date().toISOString() })
+                  .eq("id", it.productoId);
+
+                await supabase.from("movimiento_inventario").insert({
+                  producto_id: it.productoId,
+                  tipo: "SALIDA_VENTA",
+                  cantidad: it.cantidad,
+                  stock_anterior: prod.stock_actual,
+                  stock_nuevo: nuevoStock,
+                  motivo: "Dispensación en Carrito Multiservicios (Admisión/Caja)",
+                  usuario_nombre: cajeroNombre || "Cajero Ventanilla",
+                  site_id: siteId,
+                });
+              }
+            }
+          }
         }
 
         txExito = true;
       } catch (directErr: any) {
-        console.error("Error definitivo de persistencia:", directErr);
+        console.error("Error definitivo de persistencia multiservicios:", directErr);
         setIsProcessing(false);
         alert(
           "Error de persistencia en Supabase:\n\n" +
             (directErr?.message || mensajeError || "Compruebe la conexión a la base de datos.") +
-            "\n\nPor favor ejecute el Script 10 en Supabase SQL Editor si no lo ha aplicado aún."
+            "\n\nPor favor aplique el Script 13 en Supabase SQL Editor."
         );
         return;
       }
@@ -1082,12 +1428,15 @@ export default function AdmisionCajaPage() {
       hora: horaStr,
       dni: dni.trim(),
       paciente: `${nombres.trim()} ${apellidos.trim()}`,
-      servicio,
-      monto,
-      medioPago,
-      referencia: referencia || (medioPago === "EFECTIVO" ? "EFECTIVO-VENTANILLA" : "OP-DIRECTA"),
+      servicio: resumenServicios,
+      monto: montoTotalCarrito,
+      medioPago: medioPagoDesc as any,
+      referencia: pagosFinales.map((p) => p.referencia).filter(Boolean).join(" | ") || (medioPagoUnico === "EFECTIVO" ? "EFECTIVO" : "DIGITAL"),
       estadoConsultorio: "EN_ESPERA",
       sede: normalizarSede(sede),
+      items: [...itemsCarrito],
+      pagos: [...pagosFinales],
+      vueltoEntregado: vueltoEfectivo,
     };
 
     // Notificar en tiempo real a los médicos conectados vía Supabase Realtime
@@ -1109,12 +1458,42 @@ export default function AdmisionCajaPage() {
     setTicketEmitido(nuevaTx);
     setIsProcessing(false);
 
-    // Limpiar formulario para el siguiente paciente
+    // Si hubo vuelto en efectivo, alertar visualmente al cajero
+    if (vueltoEfectivo > 0) {
+      alert(`¡Cobro registrado con éxito!\n\n💵 VUELTO A ENTREGAR AL PACIENTE: ${formatCurrency(vueltoEfectivo)}`);
+    }
+
+    // Refrescar stock de inventario por si hubo salidas de farmacia
+    cargarProductosInventario(sede);
+
+    // Limpiar formulario para el siguiente paciente (dejando carrito en estado inicial)
     setDni("");
     setNombres("");
     setApellidos("");
     setTelefono("");
-    setReferencia("");
+    setReferenciaUnica("");
+    setItemsCarrito([
+      {
+        id: `srv-${Date.now()}`,
+        tipo: "SERVICIO",
+        nombre: "Control Prenatal Reenfocado",
+        categoria: "Consultas",
+        cantidad: 1,
+        precioUnitario: 70,
+        precioBaseCatalogo: 70,
+      },
+    ]);
+    setModoSplit(false);
+    setMedioPagoUnico("EFECTIVO");
+    setPagosFraccionados([
+      {
+        id: `pago-${Date.now()}`,
+        medio: "EFECTIVO",
+        monto: 70,
+        montoEntregado: 70,
+        referencia: "Ventanilla",
+      },
+    ]);
   };
 
   // Exportación segura de libro de recaudación (Ley N.° 29733 - Minimización de datos)
@@ -1297,14 +1676,26 @@ export default function AdmisionCajaPage() {
     setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
   };
 
-  // Cálculos Financieros del Turno (Aislados estrictamente al turno activo)
-  const totalEfectivoCobros = transacciones
-    .filter((t) => t.medioPago === "EFECTIVO")
-    .reduce((acc, t) => acc + t.monto, 0);
+  // Cálculos Financieros del Turno (Aislados estrictamente al turno activo y con soporte Split)
+  const totalEfectivoCobros = transacciones.reduce((acc, t) => {
+    if (t.pagos && t.pagos.length > 0) {
+      const efSplit = t.pagos
+        .filter((p) => p.medio === "EFECTIVO")
+        .reduce((sum, p) => sum + Number(p.monto), 0);
+      return acc + efSplit;
+    }
+    return t.medioPago === "EFECTIVO" ? acc + t.monto : acc;
+  }, 0);
 
-  const totalDigitalCobros = transacciones
-    .filter((t) => t.medioPago !== "EFECTIVO")
-    .reduce((acc, t) => acc + t.monto, 0);
+  const totalDigitalCobros = transacciones.reduce((acc, t) => {
+    if (t.pagos && t.pagos.length > 0) {
+      const digSplit = t.pagos
+        .filter((p) => p.medio !== "EFECTIVO")
+        .reduce((sum, p) => sum + Number(p.monto), 0);
+      return acc + digSplit;
+    }
+    return t.medioPago !== "EFECTIVO" ? acc + t.monto : acc;
+  }, 0);
 
   const totalEgresos = egresos.reduce((acc, eg) => acc + eg.monto, 0);
 
@@ -1421,9 +1812,7 @@ export default function AdmisionCajaPage() {
   };
 
   const calcularVuelto = () => {
-    if (medioPago !== "EFECTIVO") return 0;
-    const v = efectivoRecibido - monto;
-    return v > 0 ? v : 0;
+    return vueltoEfectivo;
   };
 
   return (
@@ -1572,7 +1961,7 @@ export default function AdmisionCajaPage() {
             )}
           </div>
 
-          {/* ACORDEÓN 2: Tarifario Médico & Selección Compacta */}
+          {/* ACORDEÓN 2: Carrito Multiservicios & Insumos */}
           <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm relative z-30">
             <button
               type="button"
@@ -1581,19 +1970,14 @@ export default function AdmisionCajaPage() {
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xs">
-                  2
+                  <ShoppingCart className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                    Tarifario & Selección de Servicio
+                    Carrito Multiservicios & Insumos
                   </h3>
                   <p className="text-[11px] text-neutral-500">
-                    Seleccionado: <strong>{servicio}</strong> &bull; {formatCurrency(monto)}
-                    {monto !== precioBaseCatalogo && (
-                      <span className="ml-1 text-amber-700 font-bold">
-                        (Ajuste: {formatCurrency(monto - precioBaseCatalogo)})
-                      </span>
-                    )}
+                    <strong>{itemsCarrito.length} {itemsCarrito.length === 1 ? "ítem" : "ítems"}</strong> &bull; Total a pagar: <strong className="text-brand-800 font-mono">{formatCurrency(montoTotalCarrito)}</strong>
                   </p>
                 </div>
               </div>
@@ -1601,202 +1985,360 @@ export default function AdmisionCajaPage() {
             </button>
 
             {openSection.tarifario && (
-              <div className="p-4 space-y-3.5">
-                {/* Categorías Rápidas */}
-                <div className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded-xl text-[11px] font-bold">
-                  {(["Todas", "Packs Promocionales", "Ecografías", "Consultas", "Procedimientos", "Laboratorio"] as const).map((cat) => (
+              <div className="p-4 space-y-4">
+                {/* Selector de Catálogo para Agregar: SERVICIOS / PACKS vs INSUMOS DE FARMACIA */}
+                <div className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2.5">
+                  <div className="flex gap-1.5">
                     <button
-                      key={cat}
                       type="button"
-                      onClick={() => setCategoriaFiltro(cat)}
-                      className={`px-2.5 py-1 rounded-lg transition ${
-                        categoriaFiltro === cat
-                          ? "bg-white text-neutral-900 shadow-xs"
-                          : "text-neutral-500 hover:text-neutral-900"
+                      onClick={() => setTipoCatalogoAgregar("SERVICIOS")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        tipoCatalogoAgregar === "SERVICIOS"
+                          ? "bg-purple-700 text-white shadow-xs"
+                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                       }`}
                     >
-                      {cat}
+                      <span>+ Servicio / Pack</span>
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => setTipoCatalogoAgregar("FARMACIA")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                        tipoCatalogoAgregar === "FARMACIA"
+                          ? "bg-blue-700 text-white shadow-xs"
+                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                      }`}
+                    >
+                      <Package className="w-3.5 h-3.5" />
+                      <span>+ Insumo / Farmacia</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setEsServicioPersonalizado(!esServicioPersonalizado)}
+                    className="text-[11px] font-bold text-brand-700 hover:text-brand-900 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Otro / Personalizado</span>
+                  </button>
                 </div>
 
-                {/* Selector Compacto Autocomplete / Combobox */}
-                <div className="relative">
-                  <label className="block text-[11px] font-bold text-neutral-700 uppercase tracking-wider mb-1">
-                    Buscar y Seleccionar Servicio del Catálogo
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={dropdownServicioAbierto ? busquedaServicio : (esServicioPersonalizado ? servicioPersonalizadoNombre : servicio)}
-                      onFocus={() => {
-                        setDropdownServicioAbierto(true);
-                        setBusquedaServicio("");
-                      }}
-                      onChange={(e) => {
-                        setBusquedaServicio(e.target.value);
-                        setDropdownServicioAbierto(true);
-                      }}
-                      placeholder="Escriba el nombre o especialidad del servicio..."
-                      className="w-full pl-9 pr-10 py-2 rounded-xl border border-neutral-300 text-xs font-bold bg-white focus:ring-2 focus:ring-brand-700"
-                    />
-                    <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
-                    {dropdownServicioAbierto && (
+                {/* Si selecciona SERVICIOS: Buscador con Filtro de Categorías */}
+                {tipoCatalogoAgregar === "SERVICIOS" && (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded-xl text-[11px] font-bold">
+                      {(["Todas", "Packs Promocionales", "Ecografías", "Consultas", "Procedimientos", "Laboratorio"] as const).map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCategoriaFiltro(cat)}
+                          className={`px-2.5 py-1 rounded-lg transition ${
+                            categoriaFiltro === cat
+                              ? "bg-white text-neutral-900 shadow-xs"
+                              : "text-neutral-500 hover:text-neutral-900"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="relative">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={busquedaServicio}
+                          onFocus={() => setDropdownServicioAbierto(true)}
+                          onChange={(e) => {
+                            setBusquedaServicio(e.target.value);
+                            setDropdownServicioAbierto(true);
+                          }}
+                          placeholder="Escriba para buscar servicio y agregar al carrito..."
+                          className="w-full pl-9 pr-10 py-2 rounded-xl border border-neutral-300 text-xs font-bold bg-white focus:ring-2 focus:ring-purple-700"
+                        />
+                        <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
+                        {dropdownServicioAbierto && (
+                          <button
+                            type="button"
+                            onClick={() => setDropdownServicioAbierto(false)}
+                            className="absolute right-2.5 top-2 text-neutral-400 hover:text-neutral-700 text-xs font-bold p-0.5"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {dropdownServicioAbierto && (
+                        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-neutral-300 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto divide-y divide-neutral-100 ring-1 ring-black/5">
+                          {CATALOGO_SERVICIOS
+                            .filter((srv) => {
+                              const matchCat = categoriaFiltro === "Todas" || srv.categoria === categoriaFiltro;
+                              const matchBusq =
+                                !busquedaServicio ||
+                                srv.nombre.toLowerCase().includes(busquedaServicio.toLowerCase()) ||
+                                (srv.descripcion && srv.descripcion.toLowerCase().includes(busquedaServicio.toLowerCase()));
+                              return matchCat && matchBusq;
+                            })
+                            .map((srv) => (
+                              <div
+                                key={srv.nombre}
+                                onClick={() => handleAgregarServicioAlCarrito(srv.nombre, srv.precio, srv.categoria)}
+                                className="p-2.5 px-3.5 hover:bg-purple-50/70 cursor-pointer flex items-center justify-between transition text-xs"
+                              >
+                                <div className="truncate pr-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-neutral-900">{srv.nombre}</span>
+                                    <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-neutral-100 text-neutral-600">
+                                      {srv.categoria}
+                                    </span>
+                                  </div>
+                                  {srv.descripcion && (
+                                    <p className="text-[10px] text-neutral-400 truncate mt-0.5">{srv.descripcion}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-extrabold text-purple-700 font-mono shrink-0">
+                                    {formatCurrency(srv.precio)}
+                                  </span>
+                                  <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded-md">
+                                    + Añadir
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Si selecciona FARMACIA: Buscador rápido de Insumos */}
+                {tipoCatalogoAgregar === "FARMACIA" && (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={busquedaFarmacia}
+                        onChange={(e) => setBusquedaFarmacia(e.target.value)}
+                        placeholder="Buscar insumo, ampolla, óvulo o fármaco del inventario..."
+                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-neutral-300 text-xs font-bold bg-white focus:ring-2 focus:ring-blue-700"
+                      />
+                      <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto divide-y divide-neutral-100 border border-neutral-200 rounded-2xl bg-white text-xs">
+                      {productosInventario
+                        .filter((p) =>
+                          !busquedaFarmacia ||
+                          p.nombre.toLowerCase().includes(busquedaFarmacia.toLowerCase()) ||
+                          p.codigo.toLowerCase().includes(busquedaFarmacia.toLowerCase())
+                        )
+                        .map((p) => (
+                          <div
+                            key={p.id}
+                            onClick={() => handleAgregarProductoAlCarrito(p)}
+                            className="p-2 px-3 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition"
+                          >
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-neutral-900">{p.nombre}</span>
+                                <span className="text-[9px] bg-blue-100 text-blue-800 px-1 rounded font-mono">
+                                  {p.codigo}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-neutral-500">
+                                {p.presentacion} &bull; Stock: <strong>{p.stock_actual} unid.</strong>
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-blue-900">
+                                {formatCurrency(p.precio_venta > 0 ? p.precio_venta : p.precio_costo)}
+                              </span>
+                              <button
+                                type="button"
+                                className="text-[10px] bg-blue-600 text-white font-bold px-2 py-1 rounded-lg hover:bg-blue-700"
+                              >
+                                + Agregar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Formulario de Servicio Personalizado Desplegable */}
+                {esServicioPersonalizado && (
+                  <div className="p-3 bg-brand-50/60 rounded-2xl border border-brand-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-xs text-brand-900">Procedimiento / Servicio Especial no Listado</span>
                       <button
                         type="button"
-                        onClick={() => setDropdownServicioAbierto(false)}
-                        className="absolute right-2.5 top-2 text-neutral-400 hover:text-neutral-700 text-xs font-bold p-0.5"
+                        onClick={() => setEsServicioPersonalizado(false)}
+                        className="text-[10px] text-neutral-500 hover:text-neutral-900 font-bold"
                       >
-                        ✕
+                        ✕ Cancelar
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="sm:col-span-2">
+                        <input
+                          type="text"
+                          value={servicioPersonalizadoNombre}
+                          onChange={(e) => setServicioPersonalizadoNombre(e.target.value)}
+                          placeholder="Nombre del servicio o procedimiento..."
+                          className="w-full px-2.5 py-1.5 border border-brand-300 rounded-xl text-xs bg-white"
+                        />
+                      </div>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="number"
+                          min={1}
+                          value={servicioPersonalizadoPrecio || ""}
+                          onChange={(e) => setServicioPersonalizadoPrecio(Number(e.target.value))}
+                          placeholder="S/..."
+                          className="w-20 px-2 py-1.5 border border-brand-300 rounded-xl text-xs font-mono font-bold bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAgregarPersonalizadoAlCarrito(servicioPersonalizadoNombre, servicioPersonalizadoPrecio)}
+                          className="flex-1 py-1.5 bg-brand-700 text-white font-bold text-xs rounded-xl hover:bg-brand-800"
+                        >
+                          Añadir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* LISTA DINÁMICA DEL CARRITO DE CONSUMO */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold text-neutral-700 uppercase tracking-wider">
+                      Detalle del Carrito ({itemsCarrito.length})
+                    </span>
+                    {itemsCarrito.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setItemsCarrito([])}
+                        className="text-[10px] text-neutral-400 hover:text-rose-600 font-bold"
+                      >
+                        Vaciar carrito
                       </button>
                     )}
                   </div>
 
-                  {/* Dropdown flotante compacto con scroll amplio */}
-                  {dropdownServicioAbierto && (
-                    <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-neutral-300 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto divide-y divide-neutral-100 ring-1 ring-black/5">
-                      {CATALOGO_SERVICIOS
-                        .filter((srv) => {
-                          const matchCat = categoriaFiltro === "Todas" || srv.categoria === categoriaFiltro;
-                          const matchBusq =
-                            !busquedaServicio ||
-                            srv.nombre.toLowerCase().includes(busquedaServicio.toLowerCase()) ||
-                            (srv.descripcion && srv.descripcion.toLowerCase().includes(busquedaServicio.toLowerCase()));
-                          return matchCat && matchBusq;
-                        })
-                        .map((srv) => (
-                          <div
-                            key={srv.nombre}
-                            onClick={() => handleSelectServicio(srv.nombre, srv.precio)}
-                            className="p-2.5 px-3.5 hover:bg-brand-50/70 cursor-pointer flex items-center justify-between transition text-xs"
-                          >
-                            <div className="truncate pr-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-neutral-900">{srv.nombre}</span>
-                                <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-neutral-100 text-neutral-600">
-                                  {srv.categoria}
-                                </span>
-                              </div>
-                              {srv.descripcion && (
-                                <p className="text-[10px] text-neutral-400 truncate mt-0.5">{srv.descripcion}</p>
-                              )}
-                            </div>
-                            <span className="font-extrabold text-brand-700 font-mono shrink-0">
-                              {formatCurrency(srv.precio)}
-                            </span>
-                          </div>
-                        ))}
+                  {itemsCarrito.length === 0 ? (
+                    <div className="p-6 bg-neutral-50 border border-neutral-200 rounded-2xl text-center space-y-1">
+                      <ShoppingCart className="w-6 h-6 text-neutral-300 mx-auto" />
+                      <p className="text-xs text-neutral-400 font-bold">El carrito está vacío.</p>
+                      <p className="text-[11px] text-neutral-400">Seleccione arriba los servicios o productos a facturar.</p>
                     </div>
-                  )}
-                </div>
-
-                {/* Tarjeta de Servicio Seleccionado & Tarifa Flexible */}
-                <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-2.5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">Servicio Seleccionado</span>
-                      <span className="text-xs font-black text-neutral-900">{servicio}</span>
-                      <span className="text-[11px] text-neutral-500 block font-mono">
-                        Tarifa base catálogo: {formatCurrency(precioBaseCatalogo)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">
-                          Monto a Cobrar (S/) *
-                        </label>
-                        <input
-                          type="number"
-                          step="1"
-                          min={0}
-                          value={monto || ""}
-                          onChange={(e) => setMonto(Number(e.target.value))}
-                          className="w-28 px-2.5 py-1.5 rounded-xl border border-brand-300 text-xs font-mono font-black text-brand-800 bg-white focus:ring-2 focus:ring-brand-700"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Campo de justificación si hay descuento o variación comercial */}
-                  {monto !== precioBaseCatalogo && (
-                    <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 space-y-1">
-                      <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
-                        <span className="flex items-center gap-1">
-                          <Tag className="w-3 h-3 text-amber-700" />
-                          <span>Ajuste de Precio / Descuento Aplicado</span>
-                        </span>
-                        <span>Diferencia: {formatCurrency(monto - precioBaseCatalogo)}</span>
-                      </div>
-                      <input
-                        type="text"
-                        value={motivoAjusteTarifa}
-                        onChange={(e) => setMotivoAjusteTarifa(e.target.value)}
-                        placeholder="Justificación del descuento o tarifa preferencial (ej. Campaña, Pack, Convenio)..."
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-amber-300 text-xs bg-white text-neutral-800 placeholder-neutral-400"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Opción de Servicio Personalizado */}
-                <div className="pt-1">
-                  {!esServicioPersonalizado ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEsServicioPersonalizado(true);
-                        setServicio(servicioPersonalizadoNombre || "Servicio Médico Personalizado");
-                      }}
-                      className="text-xs font-bold text-brand-700 hover:text-brand-900 flex items-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>¿Procedimiento no listado? Ingresar servicio personalizado</span>
-                    </button>
                   ) : (
-                    <div className="p-3 bg-brand-50/60 rounded-2xl border border-brand-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-xs text-brand-900">Servicio Especial / No Listado</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEsServicioPersonalizado(false);
-                            handleSelectServicio("Control Prenatal Reenfocado", 70);
-                          }}
-                          className="text-[10px] text-neutral-500 hover:text-neutral-900 font-bold"
-                        >
-                          ✕ Cancelar y volver al catálogo
-                        </button>
+                    <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white">
+                      {itemsCarrito.map((it) => (
+                        <div key={it.id} className="p-3 space-y-2 hover:bg-neutral-50/40 transition">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md shrink-0 ${
+                                  it.tipo === "PRODUCTO"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : it.tipo === "PACK"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-purple-100 text-purple-800"
+                                }`}
+                              >
+                                {it.tipo}
+                              </span>
+                              <span className="text-xs font-bold text-neutral-900 truncate">{it.nombre}</span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarItemCarrito(it.id)}
+                              className="p-1 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0"
+                              title="Eliminar del carrito"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-neutral-50">
+                            {/* Stepper Cantidad */}
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-neutral-400 font-bold mr-1">Cant:</span>
+                              <button
+                                type="button"
+                                onClick={() => handleModificarCantidadItem(it.id, it.cantidad - 1)}
+                                className="w-5 h-5 rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-700 flex items-center justify-center font-black text-xs"
+                              >
+                                -
+                              </button>
+                              <span className="w-6 text-center font-mono font-bold text-xs">{it.cantidad}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleModificarCantidadItem(it.id, it.cantidad + 1)}
+                                className="w-5 h-5 rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-700 flex items-center justify-center font-black text-xs"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            {/* Precio Unitario Editable */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-neutral-400 font-bold">P. Unit: S/</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={it.precioUnitario}
+                                onChange={(e) => handleModificarPrecioItem(it.id, Number(e.target.value))}
+                                className="w-16 px-1.5 py-0.5 border border-neutral-300 rounded-md text-xs font-mono font-bold text-right"
+                              />
+                            </div>
+
+                            {/* Subtotal Línea */}
+                            <div className="text-right font-mono">
+                              <span className="text-[10px] text-neutral-400 mr-1">Subtotal:</span>
+                              <span className="text-xs font-black text-neutral-900">
+                                {formatCurrency(it.cantidad * it.precioUnitario)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Justificación de Ajuste si el precio difiere del catálogo */}
+                          {it.precioUnitario !== it.precioBaseCatalogo && (
+                            <div className="pt-1">
+                              <input
+                                type="text"
+                                value={it.motivoAjuste || ""}
+                                onChange={(e) => handleModificarPrecioItem(it.id, it.precioUnitario, e.target.value)}
+                                placeholder="Motivo de descuento o ajuste comercial (ej. Campaña, Convenio)..."
+                                className="w-full px-2 py-1 rounded-lg border border-amber-300 text-[10px] bg-amber-50/50"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Totales del Carrito */}
+                  {itemsCarrito.length > 0 && (
+                    <div className="p-3 bg-neutral-900 text-white rounded-2xl flex items-center justify-between shadow-xs">
+                      <div>
+                        <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-bold block">
+                          Total General del Carrito
+                        </span>
+                        <span className="text-xs text-neutral-300">
+                          {itemsCarrito.length} {itemsCarrito.length === 1 ? "ítem agregado" : "ítems agregados"}
+                        </span>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div className="sm:col-span-2">
-                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">
-                            Nombre del Servicio o Procedimiento *
-                          </label>
-                          <input
-                            type="text"
-                            value={servicioPersonalizadoNombre}
-                            onChange={(e) => {
-                              setServicioPersonalizadoNombre(e.target.value);
-                              setServicio(e.target.value || "Servicio Médico Personalizado");
-                            }}
-                            placeholder="Ej. Ecografía Especial Gemelar, Procedimiento..."
-                            className="w-full px-2.5 py-1.5 border border-brand-300 rounded-xl text-xs bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">
-                            Monto a Cobrar (S/) *
-                          </label>
-                          <input
-                            type="number"
-                            min={1}
-                            value={monto || ""}
-                            onChange={(e) => setMonto(Number(e.target.value))}
-                            placeholder="Precio S/..."
-                            className="w-full px-2.5 py-1.5 border border-brand-300 rounded-xl text-xs font-mono font-bold bg-white"
-                          />
-                        </div>
+                      <div className="text-right font-mono">
+                        <span className="text-lg font-black text-emerald-400">
+                          {formatCurrency(montoTotalCarrito)}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -1805,7 +2347,7 @@ export default function AdmisionCajaPage() {
             )}
           </div>
 
-          {/* ACORDEÓN 3: Cobro Inmediato & Facturación */}
+          {/* ACORDEÓN 3: Pagos Mixtos (Split Payment) & Emisión */}
           <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm relative z-20">
             <button
               type="button"
@@ -1814,14 +2356,14 @@ export default function AdmisionCajaPage() {
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">
-                  3
+                  <Coins className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                    Cobranza Inmediata & Emisión
+                    Cobranza & Pagos Mixtos (Split Payment)
                   </h3>
                   <p className="text-[11px] text-neutral-500">
-                    Medio: <strong>{medioPago}</strong> &bull; Total a pagar: {formatCurrency(monto)}
+                    Modo: <strong>{modoSplit ? "Pago Mixto / Fraccionado" : medioPagoUnico}</strong> &bull; Total: {formatCurrency(montoTotalCarrito)}
                   </p>
                 </div>
               </div>
@@ -1830,118 +2372,297 @@ export default function AdmisionCajaPage() {
 
             {openSection.pago && (
               <div className="p-5 space-y-4">
+                {/* Selector Rápido de Forma de Pago: 100% vs Split */}
                 <div>
                   <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-2">
-                    Medio de Pago
+                    Seleccionar Modalidad de Cobro
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                     <button
                       type="button"
-                      onClick={() => setMedioPago("YAPE")}
-                      className={`py-3 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
-                        medioPago === "YAPE"
-                          ? "border-purple-600 bg-purple-50 text-purple-900 ring-2 ring-purple-600/20 font-bold"
-                          : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
-                      }`}
-                    >
-                      <Smartphone className="w-4 h-4 text-purple-700" />
-                      <span className="text-xs">Yape</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setMedioPago("PLIN")}
-                      className={`py-3 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
-                        medioPago === "PLIN"
-                          ? "border-sky-600 bg-sky-50 text-sky-900 ring-2 ring-sky-600/20 font-bold"
-                          : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
-                      }`}
-                    >
-                      <Smartphone className="w-4 h-4 text-sky-600" />
-                      <span className="text-xs">Plin</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setMedioPago("EFECTIVO")}
-                      className={`py-3 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
-                        medioPago === "EFECTIVO"
+                      onClick={() => handleSeleccionarPagoRapido("EFECTIVO")}
+                      className={`py-2.5 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1 ${
+                        !modoSplit && medioPagoUnico === "EFECTIVO"
                           ? "border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-600/20 font-bold"
                           : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
                       }`}
                     >
                       <DollarSign className="w-4 h-4 text-emerald-600" />
-                      <span className="text-xs">Efectivo</span>
+                      <span className="text-xs">Efectivo 100%</span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => setMedioPago("TARJETA_POS")}
-                      className={`py-3 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1.5 ${
-                        medioPago === "TARJETA_POS"
+                      onClick={() => handleSeleccionarPagoRapido("YAPE")}
+                      className={`py-2.5 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1 ${
+                        !modoSplit && medioPagoUnico === "YAPE"
+                          ? "border-purple-600 bg-purple-50 text-purple-900 ring-2 ring-purple-600/20 font-bold"
+                          : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
+                      }`}
+                    >
+                      <Smartphone className="w-4 h-4 text-purple-700" />
+                      <span className="text-xs">Yape 100%</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSeleccionarPagoRapido("PLIN")}
+                      className={`py-2.5 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1 ${
+                        !modoSplit && medioPagoUnico === "PLIN"
+                          ? "border-sky-600 bg-sky-50 text-sky-900 ring-2 ring-sky-600/20 font-bold"
+                          : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
+                      }`}
+                    >
+                      <Smartphone className="w-4 h-4 text-sky-600" />
+                      <span className="text-xs">Plin 100%</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSeleccionarPagoRapido("TARJETA_POS")}
+                      className={`py-2.5 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1 ${
+                        !modoSplit && medioPagoUnico === "TARJETA_POS"
                           ? "border-amber-600 bg-amber-50 text-amber-900 ring-2 ring-amber-600/20 font-bold"
                           : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
                       }`}
                     >
                       <CreditCard className="w-4 h-4 text-amber-600" />
-                      <span className="text-xs">Tarjeta POS</span>
+                      <span className="text-xs">POS 100%</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleActivarModoSplit}
+                      className={`py-2.5 px-2 rounded-2xl border text-center transition flex flex-col items-center gap-1 ${
+                        modoSplit
+                          ? "border-brand-700 bg-brand-50 text-brand-900 ring-2 ring-brand-700/20 font-black"
+                          : "border-neutral-200 hover:bg-neutral-50 text-neutral-600"
+                      }`}
+                    >
+                      <ArrowRightLeft className="w-4 h-4 text-brand-700" />
+                      <span className="text-xs">Pago Mixto ⮂</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Si es Efectivo: Desglose de Vuelto */}
-                {medioPago === "EFECTIVO" && (
-                  <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200 grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-emerald-900 mb-1">
-                        Efectivo Recibido (S/)
-                      </label>
-                      <input
-                        type="number"
-                        value={efectivoRecibido}
-                        onChange={(e) => setEfectivoRecibido(Number(e.target.value))}
-                        className="w-full px-3 py-2 rounded-xl border border-emerald-300 text-xs font-mono font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-emerald-900 mb-1">
-                        Vuelto a Entregar
-                      </label>
-                      <div className="py-2 px-3 rounded-xl bg-white border border-emerald-200 text-xs font-mono font-black text-emerald-800">
-                        {formatCurrency(calcularVuelto())}
+                {/* MODALIDAD 1: PAGO ÚNICO */}
+                {!modoSplit && (
+                  <div className="space-y-3">
+                    {medioPagoUnico === "EFECTIVO" ? (
+                      <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-emerald-900 mb-1">
+                              Efectivo Recibido (S/) *
+                            </label>
+                            <input
+                              type="number"
+                              min={montoTotalCarrito}
+                              value={efectivoEntregadoUnico || ""}
+                              onChange={(e) => setEfectivoEntregadoUnico(Number(e.target.value))}
+                              className="w-full px-3 py-2 rounded-xl border border-emerald-300 text-sm font-mono font-bold bg-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-emerald-900 mb-1">
+                              Vuelto a Entregar al Paciente
+                            </label>
+                            <div className="py-2 px-3 rounded-xl bg-white border border-emerald-300 text-sm font-mono font-black text-emerald-800 flex items-center justify-between">
+                              <span>Vuelto:</span>
+                              <span className="text-base">{formatCurrency(vueltoEfectivo)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Botones de billetes rápidos */}
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="text-[10px] text-emerald-800 font-bold">Monto Exacto:</span>
+                          <button
+                            type="button"
+                            onClick={() => setEfectivoEntregadoUnico(montoTotalCarrito)}
+                            className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg font-bold"
+                          >
+                            Exacto (S/ {montoTotalCarrito})
+                          </button>
+                          {[50, 100, 200].filter(b => b > montoTotalCarrito).map((billete) => (
+                            <button
+                              key={billete}
+                              type="button"
+                              onClick={() => setEfectivoEntregadoUnico(billete)}
+                              className="px-2 py-0.5 bg-white border border-emerald-200 text-emerald-800 rounded-lg font-bold hover:bg-emerald-100"
+                            >
+                              S/ {billete}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+                    ) : (
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-1">
+                          N° de Operación / Código Autorización {medioPagoUnico}
+                        </label>
+                        <input
+                          type="text"
+                          value={referenciaUnica}
+                          onChange={(e) => setReferenciaUnica(e.target.value)}
+                          placeholder="Ej: OP-981244 / Ref POS..."
+                          className="w-full px-3.5 py-2 rounded-xl border border-neutral-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-700 bg-white"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* MODALIDAD 2: PAGOS MIXTOS / FRACCIONADOS (SPLIT PAYMENT) */}
+                {modoSplit && (
+                  <div className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-extrabold text-neutral-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <Coins className="w-4 h-4 text-brand-700" />
+                        <span>Desglose de Pagos Fraccionados</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={handleAgregarPagoFraccionado}
+                        className="px-3 py-1 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Agregar Medio</span>
+                      </button>
+                    </div>
+
+                    {/* Filas de Aportes */}
+                    <div className="space-y-2">
+                      {pagosFraccionados.map((p, index) => (
+                        <div key={p.id} className="p-3 bg-white border border-neutral-200 rounded-xl space-y-2 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                            <div className="sm:col-span-1 text-center font-mono font-bold text-neutral-400">
+                              #{index + 1}
+                            </div>
+
+                            {/* Medio de Pago */}
+                            <div className="sm:col-span-4">
+                              <select
+                                value={p.medio}
+                                onChange={(e) => handleActualizarPagoFraccionado(p.id, { medio: e.target.value as any })}
+                                className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-300 font-bold bg-white text-xs"
+                              >
+                                <option value="EFECTIVO">Efectivo</option>
+                                <option value="YAPE">Yape</option>
+                                <option value="PLIN">Plin</option>
+                                <option value="TARJETA_POS">Tarjeta POS</option>
+                                <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+                              </select>
+                            </div>
+
+                            {/* Monto a Cobrar */}
+                            <div className="sm:col-span-3">
+                              <div className="relative">
+                                <span className="absolute left-2 top-1.5 text-[10px] text-neutral-400 font-bold">S/</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={p.monto || ""}
+                                  onChange={(e) => handleActualizarPagoFraccionado(p.id, { monto: Number(e.target.value) })}
+                                  placeholder="Monto..."
+                                  className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded-lg font-mono font-black text-right text-xs"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Referencia o Nro Operación */}
+                            <div className="sm:col-span-3">
+                              <input
+                                type="text"
+                                value={p.referencia || ""}
+                                onChange={(e) => handleActualizarPagoFraccionado(p.id, { referencia: e.target.value })}
+                                placeholder={p.medio === "EFECTIVO" ? "Ventanilla..." : "N° Op / Ref..."}
+                                className="w-full px-2 py-1.5 border border-neutral-300 rounded-lg text-xs font-mono"
+                              />
+                            </div>
+
+                            {/* Botón Eliminar Fila */}
+                            <div className="sm:col-span-1 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleEliminarPagoFraccionado(p.id)}
+                                className="p-1 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                title="Eliminar este medio de pago"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Control de Vuelto Específico si es Efectivo */}
+                          {p.medio === "EFECTIVO" && (
+                            <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center justify-between text-[11px]">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-emerald-900">Efectivo Entregado (Billete): S/</span>
+                                <input
+                                  type="number"
+                                  min={p.monto}
+                                  value={p.montoEntregado ?? p.monto}
+                                  onChange={(e) => handleActualizarPagoFraccionado(p.id, { montoEntregado: Number(e.target.value) })}
+                                  className="w-20 px-2 py-1 border border-emerald-300 rounded bg-white font-mono font-bold text-right"
+                                />
+                              </div>
+                              <div className="font-mono font-black text-emerald-800">
+                                Vuelto parcial: {formatCurrency(Math.max(0, (p.montoEntregado ?? p.monto) - p.monto))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Balanza de Cuadre de Pagos Fraccionados */}
+                    <div className="p-3 bg-white border border-neutral-200 rounded-xl space-y-1.5 font-mono text-xs">
+                      <div className="flex justify-between text-neutral-600">
+                        <span>Total Carrito:</span>
+                        <span className="font-bold">{formatCurrency(montoTotalCarrito)}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-600">
+                        <span>Total Cubierto:</span>
+                        <span className="font-bold text-emerald-700">+{formatCurrency(totalCobradoPlanificado)}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-neutral-100 pt-1 font-bold">
+                        <span>Saldo Pendiente:</span>
+                        <span className={saldoPendiente > 0 ? "text-rose-600 font-black animate-pulse" : "text-emerald-700"}>
+                          {saldoPendiente > 0 ? `${formatCurrency(saldoPendiente)} (Falta cubrir)` : "CUADRADO EXACTO (S/ 0.00)"}
+                        </span>
+                      </div>
+                      {vueltoEfectivo > 0 && (
+                        <div className="flex justify-between border-t border-dashed border-emerald-300 pt-1 font-bold text-emerald-900 bg-emerald-50/60 p-2 rounded-lg">
+                          <span>💵 VUELTO A ENTREGAR AL PACIENTE:</span>
+                          <span className="text-sm font-black">{formatCurrency(vueltoEfectivo)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* Si es Digital: Código de Referencia */}
-                {medioPago !== "EFECTIVO" && (
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-1">
-                      N° de Operación / Código Autorización
-                    </label>
-                    <input
-                      type="text"
-                      value={referencia}
-                      onChange={(e) => setReferencia(e.target.value)}
-                      placeholder="Ej: OP-981244 / Ref POS"
-                      className="w-full px-3.5 py-2 rounded-xl border border-neutral-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-700"
-                    />
-                  </div>
-                )}
-
+                {/* BOTÓN FINAL DE COBRO */}
                 <div className="pt-2">
                   <button
                     type="button"
                     onClick={handleProcesarAtencionYCobro}
-                    disabled={isProcessing}
-                    className="w-full py-3.5 bg-brand-700 hover:bg-brand-800 text-white font-black text-xs rounded-2xl shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
+                    disabled={isProcessing || itemsCarrito.length === 0 || saldoPendiente > 0}
+                    className={`w-full py-3.5 text-white font-black text-xs rounded-2xl shadow-md transition flex items-center justify-center gap-2 ${
+                      isProcessing || itemsCarrito.length === 0 || saldoPendiente > 0
+                        ? "bg-neutral-300 cursor-not-allowed text-neutral-500"
+                        : "bg-brand-700 hover:bg-brand-800"
+                    }`}
                   >
                     <Printer className="w-4 h-4" />
                     <span>
                       {isProcessing
                         ? "Emitiendo Comprobante & Registrando..."
-                        : `Cobrar ${formatCurrency(monto)} & Enviar a Espera Médica`}
+                        : saldoPendiente > 0
+                        ? `Falta cubrir ${formatCurrency(saldoPendiente)} para cobrar`
+                        : `Cobrar ${formatCurrency(montoTotalCarrito)} & Enviar a Espera Médica`}
                     </span>
                   </button>
                 </div>
