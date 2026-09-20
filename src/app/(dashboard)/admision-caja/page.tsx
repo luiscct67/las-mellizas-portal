@@ -1874,39 +1874,83 @@ export default function AdmisionCajaPage() {
     setReagendandoLoading(true);
     try {
       const siteId = getSiteId(reagendarSede);
-      // 1. Insertar la cita en cita_reagendada
-      const { error } = await supabase.from("cita_reagendada").insert({
-        paciente_nombre: pacienteNom,
-        telefono: (reagendarTelefono || telefono).trim() || null,
-        fecha: reagendarFecha,
-        hora: reagendarHora,
-        motivo: reagendarMotivo,
-        site_id: siteId,
-        estado: "PROGRAMADA",
-      });
+      const currentUserName = cajeroNombre || sessionStorage.getItem("lm_nombre") || "Operador de Ventanilla";
 
-      if (error) {
-        setReagendadaExitoMsg("Error al guardar: " + error.message);
-        return;
+      // Determinar el encuentro a cancelar si proviene de un paciente en cola o ventanilla
+      let encuentroIdACancelar = reagendarEncuentroId;
+      if (!encuentroIdACancelar) {
+        // Buscar en transacciones del turno actual si hay un encuentro en espera para esta paciente
+        const matchEnTurno = transacciones.find(
+          (t) =>
+            t.estadoConsultorio === "EN_ESPERA" &&
+            (t.paciente.toLowerCase().includes(pacienteNom.toLowerCase()) ||
+              pacienteNom.toLowerCase().includes(t.paciente.toLowerCase()))
+        );
+        if (matchEnTurno?.encuentroId) {
+          encuentroIdACancelar = matchEnTurno.encuentroId;
+        }
       }
 
-      // 2. Si proviene de un encuentro activo en cola de espera, actualizarlo a CANCELADO para retirarlo de la vista del médico
-      if (reagendarEncuentroId) {
-        await supabase
-          .from("encuentro")
-          .update({
-            estado: "CANCELADO",
-            observaciones: `Cita reprogramada para el ${reagendarFecha} a las ${reagendarHora} (${reagendarMotivo})`,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", reagendarEncuentroId);
+      // 1. Intentar registrar y deslistar atómicamente con la RPC segura de PostgreSQL
+      let rpcExitosa = false;
+      try {
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc("reprogramar_cita_y_retirar_espera", {
+          p_encuentro_id: encuentroIdACancelar || null,
+          p_paciente_nombre: pacienteNom,
+          p_telefono: (reagendarTelefono || telefono).trim() || null,
+          p_fecha: reagendarFecha,
+          p_hora: reagendarHora,
+          p_motivo: reagendarMotivo,
+          p_site_id: siteId,
+          p_usuario_nombre: currentUserName,
+        });
+
+        if (!rpcErr && rpcRes?.success) {
+          rpcExitosa = true;
+          if (rpcRes.encuentro_id_cancelado) {
+            encuentroIdACancelar = rpcRes.encuentro_id_cancelado;
+          }
+        }
+      } catch (eRpc) {
+        console.warn("RPC reprogramar_cita falló o no desplegada:", eRpc);
       }
 
-      // 3. Actualizar la lista local de transacciones para deslistar al paciente de "En Espera"
+      // 2. Fallback de persistencia directa si RPC no corrió
+      if (!rpcExitosa) {
+        // Registrar en cita_reagendada
+        await supabase.from("cita_reagendada").insert({
+          paciente_nombre: pacienteNom,
+          telefono: (reagendarTelefono || telefono).trim() || null,
+          fecha: reagendarFecha,
+          hora: reagendarHora,
+          motivo: reagendarMotivo,
+          site_id: siteId,
+          estado: "PROGRAMADA",
+        });
+
+        // Si tenemos el encuentro o lo encontramos por nombre en base de datos, cancelarlo
+        if (encuentroIdACancelar) {
+          await supabase
+            .from("encuentro")
+            .update({
+              estado: "CANCELADO",
+              observaciones: `REPROGRAMADO para el ${reagendarFecha} a las ${reagendarHora} (${reagendarMotivo}) por ${currentUserName}`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", encuentroIdACancelar);
+        }
+      }
+
+      // 3. Actualizar la lista local de transacciones para deslistar al paciente de "En Espera" INMEDIATAMENTE
       setTransacciones((prev) =>
         prev.map((t) => {
-          const coincideId = reagendarEncuentroId && (t.encuentroId === reagendarEncuentroId || t.id === reagendarEncuentroId);
-          const coincideNom = pacienteNom && t.paciente.toLowerCase() === pacienteNom.toLowerCase() && t.estadoConsultorio === "EN_ESPERA";
+          const coincideId = encuentroIdACancelar && (t.encuentroId === encuentroIdACancelar || t.id === encuentroIdACancelar);
+          const coincideNom =
+            pacienteNom &&
+            (t.paciente.toLowerCase().includes(pacienteNom.toLowerCase()) ||
+              pacienteNom.toLowerCase().includes(t.paciente.toLowerCase())) &&
+            t.estadoConsultorio === "EN_ESPERA";
+
           if (coincideId || coincideNom) {
             return { ...t, estadoConsultorio: "CANCELADO" as any };
           }
@@ -1921,7 +1965,7 @@ export default function AdmisionCajaPage() {
           type: "broadcast",
           event: "paciente_reprogramado",
           payload: {
-            encuentroId: reagendarEncuentroId,
+            encuentroId: encuentroIdACancelar,
             paciente: pacienteNom,
             nuevaFecha: reagendarFecha,
             nuevaHora: reagendarHora,
@@ -1938,8 +1982,8 @@ export default function AdmisionCajaPage() {
       setReagendadaExitoMsg("✓ Cita reagendada exitosamente. El paciente ha sido retirado de la cola de espera de consultorio.");
       setReagendarEncuentroId(null);
       setTimeout(() => setReagendadaExitoMsg(null), 5000);
-    } catch {
-      setReagendadaExitoMsg("Error de conexión al guardar cita.");
+    } catch (err: any) {
+      setReagendadaExitoMsg("Error al guardar cita: " + (err?.message || "Error de conexión"));
     } finally {
       setReagendandoLoading(false);
     }
@@ -1957,6 +2001,44 @@ export default function AdmisionCajaPage() {
     const el = document.getElementById("seccion-reagendamiento");
     if (el) {
       el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleCancelarEncuentroDirecto = async (tx: TransaccionAtencion) => {
+    if (!confirm(`¿Confirma retirar a "${tx.paciente}" de la sala de espera?\n\nEl turno se marcará como cancelado y saldrá inmediatamente de la pantalla del médico.`)) {
+      return;
+    }
+
+    try {
+      const targetId = tx.encuentroId || (tx.id.startsWith("OP-") ? null : tx.id);
+      if (targetId) {
+        await supabase
+          .from("encuentro")
+          .update({
+            estado: "CANCELADO",
+            observaciones: `Retirado de sala de espera por ${cajeroNombre || "Ventanilla"} el ${new Date().toLocaleDateString()}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", targetId);
+      }
+
+      setTransacciones((prev) =>
+        prev.map((t) => (t.id === tx.id ? { ...t, estadoConsultorio: "CANCELADO" as any } : t))
+      );
+
+      try {
+        const canalCola = supabase.channel("cola-medica");
+        canalCola.send({
+          type: "broadcast",
+          event: "paciente_reprogramado",
+          payload: { encuentroId: targetId, paciente: tx.paciente },
+        });
+        localStorage.setItem("lm_paciente_reprogramado", Date.now().toString());
+      } catch {}
+
+      alert(`Paciente "${tx.paciente}" retirado de la cola de espera de consultorio.`);
+    } catch (err: any) {
+      alert("Error al retirar paciente: " + (err?.message || "Error de conexión"));
     }
   };
 
@@ -3783,8 +3865,11 @@ export default function AdmisionCajaPage() {
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-brand-700" />
                 <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                  Pacientes en Turno ({transacciones.length})
+                  Pacientes del Turno ({transacciones.length})
                 </h3>
+                <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-full">
+                  {transacciones.filter((t) => t.estadoConsultorio === "EN_ESPERA").length} en sala
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 {esAdminOSupervisor && (
@@ -3864,6 +3949,17 @@ export default function AdmisionCajaPage() {
                         <Calendar className="w-3 h-3 text-emerald-700" />
                         <span>Reagendar</span>
                       </button>
+                      {tx.estadoConsultorio === "EN_ESPERA" && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelarEncuentroDirecto(tx)}
+                          title="Retirar paciente de la cola de espera"
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-1.5 py-1 rounded-lg transition"
+                        >
+                          <X className="w-3 h-3 text-rose-600" />
+                          <span>Retirar</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
