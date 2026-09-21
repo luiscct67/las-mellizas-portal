@@ -217,6 +217,75 @@ const TARIFARIO_BASE: Record<string, number> = CATALOGO_SERVICIOS.reduce((acc, s
   return acc;
 }, {} as Record<string, number>);
 
+const PRODUCTOS_INVENTARIO_INICIALES: ProductoDispensable[] = [
+  {
+    id: "inv-ovu-01",
+    codigo: "INV-OVU-01",
+    nombre: "Óvulos de Metronidazol + Nistatina",
+    categoria: "Tratamiento Ginecológico",
+    presentacion: "Caja x 10 óvulos",
+    stock_actual: 25,
+    stock_minimo: 5,
+    precio_costo: 15.0,
+    precio_venta: 35.0,
+  },
+  {
+    id: "inv-amp-01",
+    codigo: "INV-AMP-01",
+    nombre: "Ampolla Anticonceptiva Mensual (Norigynon / Mesigyna)",
+    categoria: "Anticonceptivos & Hormonales",
+    presentacion: "Ampolla 1ml + jeringa descartable",
+    stock_actual: 30,
+    stock_minimo: 8,
+    precio_costo: 18.0,
+    precio_venta: 35.0,
+  },
+  {
+    id: "inv-amp-03",
+    codigo: "INV-AMP-03",
+    nombre: "Ampolla Anticonceptiva Trimestral (Medroxiprogesterona 150mg)",
+    categoria: "Anticonceptivos & Hormonales",
+    presentacion: "Frasco ampolla 1ml",
+    stock_actual: 20,
+    stock_minimo: 5,
+    precio_costo: 20.0,
+    precio_venta: 40.0,
+  },
+  {
+    id: "inv-jab-01",
+    codigo: "INV-JAB-01",
+    nombre: "Jabón Íntimo Ginecológico con Ácido Láctico",
+    categoria: "Cuidado Íntimo & Higiene",
+    presentacion: "Frasco dosificador 200ml",
+    stock_actual: 15,
+    stock_minimo: 4,
+    precio_costo: 12.0,
+    precio_venta: 25.0,
+  },
+  {
+    id: "inv-gel-01",
+    codigo: "INV-GEL-01",
+    nombre: "Gel Conductor para Ultrasonido / Ecografía",
+    categoria: "Insumos Asistenciales",
+    presentacion: "Galón x 3.8 Litros",
+    stock_actual: 8,
+    stock_minimo: 2,
+    precio_costo: 25.0,
+    precio_venta: 45.0,
+  },
+  {
+    id: "inv-esp-01",
+    codigo: "INV-ESP-01",
+    nombre: "Espéculos Vaginales Descartables Estériles (Talla M)",
+    categoria: "Insumos Asistenciales",
+    presentacion: "Caja x 25 unidades descartables",
+    stock_actual: 50,
+    stock_minimo: 10,
+    precio_costo: 1.5,
+    precio_venta: 5.0,
+  },
+];
+
 export default function AdmisionCajaPage() {
   const [sede, setSede] = useState<string>("Independencia");
   const [cajeroNombre, setCajeroNombre] = useState<string>("Operador de Ventanilla");
@@ -297,7 +366,7 @@ export default function AdmisionCajaPage() {
   const [ticketEmitido, setTicketEmitido] = useState<TransaccionAtencion | null>(null);
 
   // Dispensación de Insumos & Farmacia (Control de Inventario - Sub-carrito por lote)
-  const [productosInventario, setProductosInventario] = useState<ProductoDispensable[]>([]);
+  const [productosInventario, setProductosInventario] = useState<ProductoDispensable[]>(PRODUCTOS_INVENTARIO_INICIALES);
   const [itemsDispensacion, setItemsDispensacion] = useState<ItemDispensacionMultiple[]>([]);
   const [productoDispensar, setProductoDispensar] = useState<ProductoDispensable | null>(null);
   const [cantidadDispensar, setCantidadDispensar] = useState<number>(1);
@@ -547,10 +616,11 @@ export default function AdmisionCajaPage() {
         return;
       }
 
-      if (data) {
+      if (data && data.length > 0) {
         // Insumos globales (site_id is null) o vinculados a la sede actual
         const filtrados = data.filter((p: any) => !p.site_id || p.site_id === siteId);
-        const mapeados: ProductoDispensable[] = filtrados.map((p: any) => ({
+        const lista = filtrados.length > 0 ? filtrados : data;
+        const mapeados: ProductoDispensable[] = lista.map((p: any) => ({
           id: p.id,
           codigo: p.codigo,
           nombre: p.nombre,
@@ -561,7 +631,7 @@ export default function AdmisionCajaPage() {
           precio_costo: Number(p.costo_unitario) || 0,
           precio_venta: Number(p.precio_venta) || 0,
         }));
-        setProductosInventario(mapeados);
+        setProductosInventario(mapeados.length > 0 ? mapeados : PRODUCTOS_INVENTARIO_INICIALES);
       }
     } catch (err) {
       console.warn("Error consultando insumos clínicos para dispensación:", err);
@@ -858,36 +928,39 @@ export default function AdmisionCajaPage() {
   };
 
   const handleAgregarProductoAlCarrito = (prod: ProductoDispensable) => {
-    if (prod.stock_actual <= 0) {
-      alert(`El producto "${prod.nombre}" no cuenta con existencias disponibles en este momento.`);
-      return;
-    }
-    const precio = prod.precio_venta > 0 ? prod.precio_venta : prod.precio_costo;
+    const precio = Number(prod.precio_venta) > 0
+      ? Number(prod.precio_venta)
+      : (Number(prod.precio_costo) > 0 ? Number(prod.precio_costo) : 0);
+
+    const nombreCompleto = prod.presentacion
+      ? `${prod.nombre} (${prod.presentacion})`
+      : prod.nombre;
+
     setItemsCarrito((prev) => {
-      const existe = prev.find((item) => item.productoId === prod.id);
-      if (existe) {
-        if (existe.cantidad >= prod.stock_actual) {
-          alert(`No hay más existencias disponibles de "${prod.nombre}" (Stock en bodega: ${prod.stock_actual}).`);
-          return prev;
-        }
-        return prev.map((item) =>
-          item.id === existe.id ? { ...item, cantidad: item.cantidad + 1 } : item
+      const existeIndex = prev.findIndex(
+        (item) => item.productoId === prod.id || (item.tipo === "PRODUCTO" && item.codigo === prod.codigo)
+      );
+
+      if (existeIndex >= 0) {
+        return prev.map((item, idx) =>
+          idx === existeIndex ? { ...item, cantidad: item.cantidad + 1 } : item
         );
       }
+
       const nuevoItem: ItemCarrito = {
-        id: `prod-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        id: `prod-${prod.id || Date.now()}-${Date.now()}`,
         tipo: "PRODUCTO",
         codigo: prod.codigo,
-        nombre: `${prod.nombre} (${prod.presentacion})`,
-        categoria: prod.categoria,
+        nombre: nombreCompleto,
+        categoria: prod.categoria || "Farmacia",
         cantidad: 1,
         precioUnitario: precio,
         precioBaseCatalogo: precio,
         productoId: prod.id,
       };
+
       return [...prev, nuevoItem];
     });
-    setBusquedaFarmacia("");
   };
 
   const handleAgregarPersonalizadoAlCarrito = (nombre: string, precio: number | "") => {
@@ -932,13 +1005,6 @@ export default function AdmisionCajaPage() {
     setItemsCarrito((prev) =>
       prev.map((it) => {
         if (it.id === id) {
-          if (it.productoId) {
-            const prod = productosInventario.find((p) => p.id === it.productoId);
-            if (prod && nuevaCant > prod.stock_actual) {
-              alert(`Stock insuficiente: solo quedan ${prod.stock_actual} unidades.`);
-              return it;
-            }
-          }
           return { ...it, cantidad: nuevaCant };
         }
         return it;
@@ -2861,7 +2927,7 @@ export default function AdmisionCajaPage() {
                   </div>
                 )}
 
-                {/* Si selecciona FARMACIA: Buscador rápido de Insumos */}
+                {/* Si selecciona FARMACIA: Buscador rápido de Insumos con scroll controlado */}
                 {tipoCatalogoAgregar === "FARMACIA" && (
                   <div className="space-y-2">
                     <div className="relative">
@@ -2875,39 +2941,45 @@ export default function AdmisionCajaPage() {
                       <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
                     </div>
 
-                    <div className="max-h-48 overflow-y-auto divide-y divide-neutral-100 border border-neutral-200 rounded-2xl bg-white text-xs">
+                    <div className="max-h-72 overflow-y-auto border border-gray-200 rounded-lg p-2 divide-y divide-neutral-100 bg-white text-xs space-y-1">
                       {productosInventario
                         .filter((p) =>
                           !busquedaFarmacia ||
                           p.nombre.toLowerCase().includes(busquedaFarmacia.toLowerCase()) ||
-                          p.codigo.toLowerCase().includes(busquedaFarmacia.toLowerCase())
+                          p.codigo.toLowerCase().includes(busquedaFarmacia.toLowerCase()) ||
+                          (p.categoria && p.categoria.toLowerCase().includes(busquedaFarmacia.toLowerCase()))
                         )
                         .map((p) => (
                           <div
                             key={p.id}
                             onClick={() => handleAgregarProductoAlCarrito(p)}
-                            className="p-2 px-3 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition"
+                            className="p-2.5 px-3 hover:bg-blue-50/70 rounded-xl cursor-pointer flex items-center justify-between transition border border-transparent hover:border-blue-200"
                           >
-                            <div>
-                              <div className="flex items-center gap-1.5">
+                            <div className="min-w-0 pr-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="font-bold text-neutral-900">{p.nombre}</span>
-                                <span className="text-[9px] bg-blue-100 text-blue-800 px-1 rounded font-mono">
+                                <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-mono font-bold">
                                   {p.codigo}
                                 </span>
                               </div>
-                              <span className="text-[10px] text-neutral-500">
-                                {p.presentacion} &bull; Stock: <strong>{p.stock_actual} unid.</strong>
+                              <span className="text-[11px] text-neutral-500 block mt-0.5">
+                                {p.presentacion} &bull; Stock: <strong className={p.stock_actual <= 0 ? "text-amber-700" : "text-emerald-700"}>{p.stock_actual} unid.</strong>
                               </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-blue-900">
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span className="font-mono font-black text-blue-900 text-xs">
                                 {formatCurrency(p.precio_venta > 0 ? p.precio_venta : p.precio_costo)}
                               </span>
                               <button
                                 type="button"
-                                className="text-[10px] bg-blue-600 text-white font-bold px-2 py-1 rounded-lg hover:bg-blue-700"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAgregarProductoAlCarrito(p);
+                                }}
+                                className="text-[11px] bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1 shrink-0"
                               >
-                                + Agregar
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>+ Agregar</span>
                               </button>
                             </div>
                           </div>
@@ -2961,12 +3033,15 @@ export default function AdmisionCajaPage() {
                   </div>
                 )}
 
-                {/* LISTA DINÁMICA DEL CARRITO DE CONSUMO */}
-                <div className="space-y-2">
+                {/* ESTRUCTURA FIJA E INAMOVIBLE DEL CARRITO DE CONSUMO */}
+                <div className="pt-3 border-t border-neutral-200 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold text-neutral-700 uppercase tracking-wider">
-                      Detalle del Carrito ({itemsCarrito.length})
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4 text-purple-700" />
+                      <span className="text-xs font-black text-neutral-800 uppercase tracking-wider">
+                        Detalle del Carrito ({itemsCarrito.length})
+                      </span>
+                    </div>
                     {itemsCarrito.length > 0 && (
                       <button
                         type="button"
@@ -2977,21 +3052,24 @@ export default function AdmisionCajaPage() {
                           setEfectivoEntregadoUnico(0);
                           setReferenciaUnica("");
                         }}
-                        className="text-[10px] text-neutral-400 hover:text-rose-600 font-bold"
+                        className="text-[10px] text-neutral-400 hover:text-rose-600 font-bold flex items-center gap-1"
                       >
-                        Vaciar carrito
+                        <Trash2 className="w-3 h-3" />
+                        <span>Vaciar carrito</span>
                       </button>
                     )}
                   </div>
 
                   {itemsCarrito.length === 0 ? (
-                    <div className="p-6 bg-neutral-50 border border-neutral-200 rounded-2xl text-center space-y-1">
+                    <div className="p-6 bg-neutral-50/80 border border-dashed border-neutral-200 rounded-2xl text-center space-y-1">
                       <ShoppingCart className="w-6 h-6 text-neutral-300 mx-auto" />
-                      <p className="text-xs text-neutral-400 font-bold">El carrito está vacío.</p>
-                      <p className="text-[11px] text-neutral-400">Seleccione arriba los servicios o productos a facturar.</p>
+                      <p className="text-xs text-neutral-500 font-bold">El carrito está vacío.</p>
+                      <p className="text-[11px] text-neutral-400">
+                        Seleccione arriba los servicios o productos a facturar en esta atención.
+                      </p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white">
+                    <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white max-h-80 overflow-y-auto">
                       {itemsCarrito.map((it) => (
                         <div key={it.id} className="p-3 space-y-2 hover:bg-neutral-50/40 transition">
                           <div className="flex items-center justify-between gap-2">
@@ -3081,24 +3159,22 @@ export default function AdmisionCajaPage() {
                     </div>
                   )}
 
-                  {/* Totales del Carrito */}
-                  {itemsCarrito.length > 0 && (
-                    <div className="p-3 bg-neutral-900 text-white rounded-2xl flex items-center justify-between shadow-xs">
-                      <div>
-                        <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-bold block">
-                          Total General del Carrito
-                        </span>
-                        <span className="text-xs text-neutral-300">
-                          {itemsCarrito.length} {itemsCarrito.length === 1 ? "ítem agregado" : "ítems agregados"}
-                        </span>
-                      </div>
-                      <div className="text-right font-mono">
-                        <span className="text-lg font-black text-emerald-400">
-                          {formatCurrency(montoTotalCarrito)}
-                        </span>
-                      </div>
+                  {/* BLOQUE INAMOVIBLE DEL TOTAL GENERAL (SIEMPRE VISIBLE) */}
+                  <div className="p-3.5 bg-neutral-900 text-white rounded-2xl flex items-center justify-between shadow-xs">
+                    <div>
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-extrabold block">
+                        Total General del Carrito
+                      </span>
+                      <span className="text-xs text-neutral-300 font-medium">
+                        {itemsCarrito.length} {itemsCarrito.length === 1 ? "ítem registrado" : "ítems registrados"}
+                      </span>
                     </div>
-                  )}
+                    <div className="text-right font-mono">
+                      <span className={`text-xl font-black ${itemsCarrito.length > 0 ? "text-emerald-400" : "text-neutral-400"}`}>
+                        {formatCurrency(montoTotalCarrito)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
