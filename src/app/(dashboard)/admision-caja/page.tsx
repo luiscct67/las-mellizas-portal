@@ -273,18 +273,8 @@ export default function AdmisionCajaPage() {
   const [apellidos, setApellidos] = useState("");
   const [telefono, setTelefono] = useState("");
 
-  // Carrito de Consumo (Servicios, Procedimientos, Packs, Insumos)
-  const [itemsCarrito, setItemsCarrito] = useState<ItemCarrito[]>([
-    {
-      id: "srv-default-1",
-      tipo: "SERVICIO",
-      nombre: "Control Prenatal Reenfocado",
-      categoria: "Consultas",
-      cantidad: 1,
-      precioUnitario: 70,
-      precioBaseCatalogo: 70,
-    },
-  ]);
+  // Carrito de Consumo (Servicios, Procedimientos, Packs, Insumos) - Inicia limpio
+  const [itemsCarrito, setItemsCarrito] = useState<ItemCarrito[]>([]);
 
   // Buscador y Selectores de Catálogo
   const [tipoCatalogoAgregar, setTipoCatalogoAgregar] = useState<"SERVICIOS" | "FARMACIA">("SERVICIOS");
@@ -296,20 +286,12 @@ export default function AdmisionCajaPage() {
   const [servicioPersonalizadoNombre, setServicioPersonalizadoNombre] = useState("");
   const [servicioPersonalizadoPrecio, setServicioPersonalizadoPrecio] = useState<number>(70);
 
-  // Pagos Mixtos y Fraccionados (Split Payment)
+  // Pagos Mixtos y Fraccionados (Split Payment) - Inicia limpio
   const [modoSplit, setModoSplit] = useState<boolean>(false);
   const [medioPagoUnico, setMedioPagoUnico] = useState<"EFECTIVO" | "YAPE" | "PLIN" | "TARJETA_POS">("EFECTIVO");
   const [referenciaUnica, setReferenciaUnica] = useState("");
-  const [efectivoEntregadoUnico, setEfectivoEntregadoUnico] = useState<number>(100);
-  const [pagosFraccionados, setPagosFraccionados] = useState<PagoFraccionado[]>([
-    {
-      id: "pago-1",
-      medio: "EFECTIVO",
-      monto: 70,
-      montoEntregado: 70,
-      referencia: "Ventanilla",
-    },
-  ]);
+  const [efectivoEntregadoUnico, setEfectivoEntregadoUnico] = useState<number>(0);
+  const [pagosFraccionados, setPagosFraccionados] = useState<PagoFraccionado[]>([]);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [ticketEmitido, setTicketEmitido] = useState<TransaccionAtencion | null>(null);
@@ -479,19 +461,49 @@ export default function AdmisionCajaPage() {
         .maybeSingle();
 
       if (!turnoErr && turnoData) {
+        let montoRecuperado = Number(
+          turnoData.fondo_inicial ??
+          turnoData.monto_apertura ??
+          turnoData.montoApertura ??
+          0
+        );
+
+        if (montoRecuperado === 0 && typeof window !== "undefined") {
+          const respaldoFondo = Number(sessionStorage.getItem("lm_fondo_apertura") || localStorage.getItem("lm_fondo_apertura") || 0);
+          if (respaldoFondo > 0) {
+            montoRecuperado = respaldoFondo;
+          }
+        }
+
         const turno: TurnoCaja = {
           id: turnoData.id,
           estado: "ABIERTA",
           fechaApertura: turnoData.fecha_apertura,
-          montoApertura: Number(turnoData.monto_apertura) || 0,
+          montoApertura: montoRecuperado,
           cajeroNombre: turnoData.cajero_nombre || cajeroNombre,
           sede: sedeNombre,
         };
         setTurnoActivo(turno);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("lm_fondo_apertura", String(montoRecuperado));
+        }
         await cargarEgresosTurno(turnoData.id, siteId);
         await cargarTransaccionesDelDia(sedeNombre, turnoData.fecha_apertura);
       } else {
-        setTurnoActivo(null);
+        const respaldoFondo = typeof window !== "undefined" ? Number(sessionStorage.getItem("lm_fondo_apertura") || localStorage.getItem("lm_fondo_apertura") || 0) : 0;
+        if (respaldoFondo > 0) {
+          const turnoLocal: TurnoCaja = {
+            id: `TURNO-${Date.now().toString().slice(-4)}`,
+            estado: "ABIERTA",
+            fechaApertura: new Date().toISOString(),
+            montoApertura: respaldoFondo,
+            cajeroNombre,
+            sede: sedeNombre,
+          };
+          setTurnoActivo(turnoLocal);
+        } else {
+          setTurnoActivo(null);
+        }
         setEgresos([]);
         const hoyInicio = new Date();
         hoyInicio.setHours(0, 0, 0, 0);
@@ -499,7 +511,19 @@ export default function AdmisionCajaPage() {
       }
     } catch (err) {
       console.warn("Error consultando turno activo:", err);
-      setTurnoActivo(null);
+      const respaldoFondo = typeof window !== "undefined" ? Number(sessionStorage.getItem("lm_fondo_apertura") || localStorage.getItem("lm_fondo_apertura") || 0) : 0;
+      if (respaldoFondo > 0) {
+        setTurnoActivo({
+          id: `TURNO-${Date.now().toString().slice(-4)}`,
+          estado: "ABIERTA",
+          fechaApertura: new Date().toISOString(),
+          montoApertura: respaldoFondo,
+          cajeroNombre,
+          sede: sedeNombre,
+        });
+      } else {
+        setTurnoActivo(null);
+      }
       setEgresos([]);
     } finally {
       setCargandoTurno(false);
@@ -1748,34 +1772,17 @@ export default function AdmisionCajaPage() {
     // Refrescar stock de inventario por si hubo salidas de farmacia
     cargarProductosInventario(sede);
 
-    // Limpiar formulario para el siguiente paciente (dejando carrito en estado inicial)
+    // Limpiar formulario por completo para el siguiente paciente (pantalla 100% limpia sin servicios predeterminados)
     setDni("");
     setNombres("");
     setApellidos("");
     setTelefono("");
     setReferenciaUnica("");
-    setItemsCarrito([
-      {
-        id: `srv-${Date.now()}`,
-        tipo: "SERVICIO",
-        nombre: "Control Prenatal Reenfocado",
-        categoria: "Consultas",
-        cantidad: 1,
-        precioUnitario: 70,
-        precioBaseCatalogo: 70,
-      },
-    ]);
+    setItemsCarrito([]);
     setModoSplit(false);
     setMedioPagoUnico("EFECTIVO");
-    setPagosFraccionados([
-      {
-        id: `pago-${Date.now()}`,
-        medio: "EFECTIVO",
-        monto: 70,
-        montoEntregado: 70,
-        referencia: "Ventanilla",
-      },
-    ]);
+    setPagosFraccionados([]);
+    setEfectivoEntregadoUnico(0);
   };
 
   // Exportación segura de libro de recaudación (Ley N.° 29733 - Minimización de datos)
@@ -2178,34 +2185,76 @@ export default function AdmisionCajaPage() {
 
   const totalEgresos = egresos.reduce((acc, eg) => acc + eg.monto, 0);
 
-  const fondoApertura = turnoActivo ? Number(turnoActivo.montoApertura || 0) : 0;
-  const efectivoNetoEsperado = turnoActivo ? fondoApertura + totalEfectivoCobros - totalEgresos : 0;
+  // Fórmula contable estricta: Efectivo Esperado = Fondo Inicial + Cobros en Efectivo - Egresos
+  const fondoApertura = Number(
+    turnoActivo?.montoApertura ??
+    (typeof window !== "undefined" ? sessionStorage.getItem("lm_fondo_apertura") : null) ??
+    0
+  );
+  const efectivoNetoEsperado = fondoApertura + totalEfectivoCobros - totalEgresos;
   const totalFacturadoBruto = totalEfectivoCobros + totalDigitalCobros;
 
-  // Apertura de Turno Persistida en Base de Datos
+  // Apertura de Turno Persistida en Base de Datos (con persistencia de fondo_inicial)
   const handleAbrirTurno = async () => {
     const siteId = getSiteId(sede);
     const now = new Date();
     const fechaIso = now.toISOString();
+    const montoNum = Number(montoAperturaInput) || 0;
+
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("lm_fondo_apertura", String(montoNum));
+      localStorage.setItem("lm_fondo_apertura", String(montoNum));
+    }
 
     try {
-      const { data, error } = await supabase
-        .from("caja_turno")
-        .insert({
-          site_id: siteId,
-          cajero_nombre: cajeroNombre,
-          monto_apertura: Number(montoAperturaInput) || 0,
-          estado: "ABIERTA",
-          fecha_apertura: fechaIso,
-        })
-        .select()
-        .single();
+      const { data: userAuth } = await supabase.auth.getUser();
+      const cajeroId = userAuth?.user?.id || null;
+
+      let turnoIdGenerado = `TURNO-${Date.now().toString().slice(-4)}`;
+
+      // Intentar insertar con fondo_inicial y monto_apertura
+      try {
+        const { data, error } = await supabase
+          .from("caja_turno")
+          .insert({
+            site_id: siteId,
+            cajero_id: cajeroId,
+            cajero_nombre: cajeroNombre,
+            monto_apertura: montoNum,
+            fondo_inicial: montoNum,
+            estado: "ABIERTA",
+            fecha_apertura: fechaIso,
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          turnoIdGenerado = data.id;
+        }
+      } catch {
+        const { data } = await supabase
+          .from("caja_turno")
+          .insert({
+            site_id: siteId,
+            cajero_id: cajeroId,
+            cajero_nombre: cajeroNombre,
+            monto_apertura: montoNum,
+            estado: "ABIERTA",
+            fecha_apertura: fechaIso,
+          })
+          .select()
+          .single();
+
+        if (data) {
+          turnoIdGenerado = data.id;
+        }
+      }
 
       const nuevoTurno: TurnoCaja = {
-        id: data ? data.id : `TURNO-${Date.now().toString().slice(-4)}`,
+        id: turnoIdGenerado,
         estado: "ABIERTA",
         fechaApertura: fechaIso,
-        montoApertura: Number(montoAperturaInput) || 0,
+        montoApertura: montoNum,
         cajeroNombre,
         sede,
       };
@@ -2214,14 +2263,14 @@ export default function AdmisionCajaPage() {
       setEgresos([]);
       setTransacciones([]);
       setShowAperturaModal(false);
-      alert(`Turno de caja aperturado con éxito. Fondo inicial: ${formatCurrency(montoAperturaInput)}`);
+      alert(`Turno de caja aperturado con éxito. Fondo inicial: ${formatCurrency(montoNum)}`);
     } catch (err: any) {
       console.warn("Fallo al registrar turno en Supabase, usando respaldo local:", err);
       const nuevoTurno: TurnoCaja = {
         id: `TURNO-${Date.now().toString().slice(-4)}`,
         estado: "ABIERTA",
         fechaApertura: fechaIso,
-        montoApertura: Number(montoAperturaInput) || 0,
+        montoApertura: montoNum,
         cajeroNombre,
         sede,
       };
@@ -2283,6 +2332,11 @@ export default function AdmisionCajaPage() {
       } catch (err) {
         console.warn("Aviso al actualizar cierre en Supabase:", err);
       }
+    }
+
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("lm_fondo_apertura");
+      localStorage.removeItem("lm_fondo_apertura");
     }
 
     setTurnoActivo(null);
@@ -4255,22 +4309,25 @@ export default function AdmisionCajaPage() {
             {!actaCierre ? (
               <div className="space-y-3">
                 <div className="bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200 text-xs space-y-1.5">
-                  <div className="flex justify-between">
-                    <span>Fondo Inicial:</span>
-                    <span className="font-mono font-bold">{formatCurrency(fondoApertura)}</span>
+                  <div className="flex justify-between font-bold text-neutral-800">
+                    <span>(+) Fondo Inicial de Apertura:</span>
+                    <span className="font-mono">{formatCurrency(fondoApertura)}</span>
                   </div>
                   <div className="flex justify-between text-emerald-700">
-                    <span>(+) Cobros en Efectivo:</span>
+                    <span>(+) Cobros en Efectivo de la Jornada:</span>
                     <span className="font-mono font-bold">+{formatCurrency(totalEfectivoCobros)}</span>
                   </div>
                   <div className="flex justify-between text-rose-700">
-                    <span>(-) Egresos y Pagos:</span>
+                    <span>(-) Egresos en Efectivo:</span>
                     <span className="font-mono font-bold">-{formatCurrency(totalEgresos)}</span>
                   </div>
                   <div className="border-t border-neutral-200 pt-1.5 flex justify-between font-black text-neutral-900">
-                    <span>Efectivo Esperado a Rendir:</span>
+                    <span>(=) Efectivo Esperado a Rendir:</span>
                     <span className="font-mono text-sm text-brand-900">{formatCurrency(efectivoNetoEsperado)}</span>
                   </div>
+                  <p className="text-[10px] text-neutral-400 italic pt-0.5">
+                    Fórmula: Fondo Inicial ({formatCurrency(fondoApertura)}) + Ventas Efectivo ({formatCurrency(totalEfectivoCobros)}) - Egresos ({formatCurrency(totalEgresos)})
+                  </p>
                 </div>
 
                 <div>
@@ -4345,12 +4402,12 @@ export default function AdmisionCajaPage() {
 
                   <div className="space-y-1 text-[11px]">
                     <div className="flex justify-between"><span>Cajero(a):</span><span>{actaCierre.cajero}</span></div>
-                    <div className="flex justify-between"><span>Fondo Inicial:</span><span>{formatCurrency(actaCierre.fondoInicial)}</span></div>
-                    <div className="flex justify-between"><span>Cobros Efectivo:</span><span>+{formatCurrency(actaCierre.efectivoCobros)}</span></div>
-                    <div className="flex justify-between"><span>Cobros Digitales:</span><span>+{formatCurrency(actaCierre.digitalCobros)}</span></div>
-                    <div className="flex justify-between"><span>Egresos Totales:</span><span>-{formatCurrency(actaCierre.egresosTotales)}</span></div>
-                    <div className="border-t border-dashed border-neutral-300 pt-1 flex justify-between font-bold">
-                      <span>Efectivo Esperado:</span><span>{formatCurrency(actaCierre.efectivoEsperado)}</span>
+                    <div className="flex justify-between font-bold"><span>(+) Fondo Inicial:</span><span>{formatCurrency(actaCierre.fondoInicial)}</span></div>
+                    <div className="flex justify-between text-emerald-800"><span>(+) Cobros Efectivo:</span><span>+{formatCurrency(actaCierre.efectivoCobros)}</span></div>
+                    <div className="flex justify-between text-purple-800"><span>Cobros Digitales (POS/Yape):</span><span>+{formatCurrency(actaCierre.digitalCobros)}</span></div>
+                    <div className="flex justify-between text-rose-800"><span>(-) Egresos Efectivo:</span><span>-{formatCurrency(actaCierre.egresosTotales)}</span></div>
+                    <div className="border-t border-dashed border-neutral-300 pt-1 flex justify-between font-bold text-neutral-900">
+                      <span>(=) Efectivo Esperado:</span><span>{formatCurrency(actaCierre.efectivoEsperado)}</span>
                     </div>
                     <div className="flex justify-between font-bold">
                       <span>Efectivo Contado:</span><span>{formatCurrency(actaCierre.efectivoContado)}</span>
