@@ -116,6 +116,7 @@ interface CitaAgendadaDia {
   motivo: string;
   estado: "PROGRAMADA" | "ATENDIDA" | "CANCELADA";
   site_id?: string;
+  created_at?: string;
 }
 
 interface EgresoCaja {
@@ -556,30 +557,72 @@ export default function AdmisionCajaPage() {
       const day = String(d.getDate()).padStart(2, "0");
       const hoyLocal = `${year}-${month}-${day}`;
 
-      // 1. Citas programadas estrictamente para HOY
+      // 1. Citas programadas estrictamente para HOY (deduplicadas por paciente)
       const { data: dataHoy, error: errorHoy } = await supabase
         .from("cita_reagendada")
-        .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id")
+        .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, created_at")
         .eq("site_id", siteId)
         .eq("fecha", hoyLocal)
-        .order("hora", { ascending: true });
+        .order("created_at", { ascending: false });
 
       if (!errorHoy && dataHoy) {
-        setCitasDelDia(dataHoy as CitaAgendadaDia[]);
+        const mapaHoy = new Map<string, CitaAgendadaDia>();
+        for (const cita of dataHoy as CitaAgendadaDia[]) {
+          const key = (cita.paciente_nombre || "").trim().toLowerCase();
+          if (!mapaHoy.has(key)) {
+            mapaHoy.set(key, cita);
+          }
+        }
+        const citasHoyUnicas = Array.from(mapaHoy.values()).sort((a, b) =>
+          (a.hora || "").localeCompare(b.hora || "")
+        );
+        setCitasDelDia(citasHoyUnicas);
       }
 
-      // 2. Próximas citas reprogramadas (fechas futuras en esta sede)
+      // 2. Próximas citas reprogramadas (fechas futuras en esta sede, garantizando 1 sola tarjeta por paciente)
       const { data: dataFuturas, error: errorFuturas } = await supabase
         .from("cita_reagendada")
-        .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id")
+        .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, created_at")
         .eq("site_id", siteId)
+        .neq("estado", "CANCELADA")
         .gt("fecha", hoyLocal)
-        .order("fecha", { ascending: true })
-        .order("hora", { ascending: true })
-        .limit(20);
+        .order("created_at", { ascending: false });
 
       if (!errorFuturas && dataFuturas) {
-        setProximasCitas(dataFuturas as CitaAgendadaDia[]);
+        const mapaFuturas = new Map<string, CitaAgendadaDia>();
+        const idsDuplicadosABorrar: string[] = [];
+
+        for (const cita of dataFuturas as CitaAgendadaDia[]) {
+          const key = (cita.paciente_nombre || "").trim().toLowerCase();
+          if (!mapaFuturas.has(key)) {
+            mapaFuturas.set(key, cita);
+          } else {
+            // Registrar ID duplicado obsoleto para autopurga
+            idsDuplicadosABorrar.push(cita.id);
+          }
+        }
+
+        // Si existen duplicados acumulados en Supabase, purgarlos silenciosamente en segundo plano
+        if (idsDuplicadosABorrar.length > 0) {
+          (async () => {
+            try {
+              await supabase
+                .from("cita_reagendada")
+                .delete()
+                .in("id", idsDuplicadosABorrar);
+              console.log(`Autolimpieza completada: ${idsDuplicadosABorrar.length} citas duplicadas obsoletas purgadas.`);
+            } catch (err) {
+              console.warn("Aviso en autolimpieza de duplicados:", err);
+            }
+          })();
+        }
+
+        const citasFuturasUnicas = Array.from(mapaFuturas.values()).sort((a, b) => {
+          const cmpFecha = a.fecha.localeCompare(b.fecha);
+          if (cmpFecha !== 0) return cmpFecha;
+          return (a.hora || "").localeCompare(b.hora || "");
+        });
+        setProximasCitas(citasFuturasUnicas);
       }
     } catch (err) {
       console.warn("Error al cargar citas programadas y reagendadas:", err);
@@ -1927,18 +1970,52 @@ export default function AdmisionCajaPage() {
         console.warn("RPC reprogramar_cita falló o no desplegada:", eRpc);
       }
 
-      // 2. Fallback de persistencia directa si RPC no corrió
+      // 2. Fallback de persistencia directa con unicidad estricta (UPSERT) si RPC no corrió
       if (!rpcExitosa) {
-        // Registrar en cita_reagendada
-        await supabase.from("cita_reagendada").insert({
-          paciente_nombre: pacienteNom,
-          telefono: (reagendarTelefono || telefono).trim() || null,
-          fecha: reagendarFecha,
-          hora: reagendarHora,
-          motivo: reagendarMotivo,
-          site_id: siteId,
-          estado: "PROGRAMADA",
-        });
+        const nomLimpio = pacienteNom.trim();
+
+        // Buscar si ya existe una cita pendiente para este paciente (para actualizar en vez de duplicar)
+        const { data: citasExistentes } = await supabase
+          .from("cita_reagendada")
+          .select("id, paciente_nombre, fecha, hora, estado")
+          .ilike("paciente_nombre", nomLimpio)
+          .eq("estado", "PROGRAMADA")
+          .order("created_at", { ascending: false });
+
+        if (citasExistentes && citasExistentes.length > 0) {
+          // ACTUALIZAR el registro existente con la nueva fecha, hora, motivo y sede
+          const citaPrincipalId = citasExistentes[0].id;
+          await supabase
+            .from("cita_reagendada")
+            .update({
+              fecha: reagendarFecha,
+              hora: reagendarHora,
+              motivo: reagendarMotivo,
+              site_id: siteId,
+              telefono: (reagendarTelefono || telefono).trim() || null,
+            })
+            .eq("id", citaPrincipalId);
+
+          // Purgar duplicados obsoletos si existieran
+          if (citasExistentes.length > 1) {
+            const idsDuplicados = citasExistentes.slice(1).map((c: any) => c.id);
+            await supabase
+              .from("cita_reagendada")
+              .delete()
+              .in("id", idsDuplicados);
+          }
+        } else {
+          // Si no existe, insertar nueva cita
+          await supabase.from("cita_reagendada").insert({
+            paciente_nombre: nomLimpio,
+            telefono: (reagendarTelefono || telefono).trim() || null,
+            fecha: reagendarFecha,
+            hora: reagendarHora,
+            motivo: reagendarMotivo,
+            site_id: siteId,
+            estado: "PROGRAMADA",
+          });
+        }
 
         // Si tenemos el encuentro o lo encontramos por nombre en base de datos, cancelarlo
         if (encuentroIdACancelar) {
@@ -2017,6 +2094,23 @@ export default function AdmisionCajaPage() {
     setReagendarMotivo(`Control de Seguimiento - ${atencion.servicio}`);
     setReagendarSede(atencion.sede || sede);
     setReagendarEncuentroId(atencion.encuentroId || (atencion.id.startsWith("OP-") ? null : atencion.id));
+    setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
+    const el = document.getElementById("seccion-reagendamiento");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const prepararModificacionCita = (cita: CitaAgendadaDia) => {
+    setReagendarPaciente(cita.paciente_nombre);
+    if (cita.telefono) {
+      setReagendarTelefono(cita.telefono);
+    }
+    setReagendarFecha(cita.fecha);
+    setReagendarHora(cita.hora ? cita.hora.slice(0, 5) : "09:00");
+    setReagendarMotivo(cita.motivo);
+    setReagendarSede(sede);
+    setReagendarEncuentroId(null);
     setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
     const el = document.getElementById("seccion-reagendamiento");
     if (el) {
@@ -2426,15 +2520,26 @@ export default function AdmisionCajaPage() {
                       )}
                     </div>
 
-                    <div className="pt-1 border-t border-neutral-100">
+                    <div className="pt-1 border-t border-neutral-100 flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleAdmitirCita(cita)}
-                        className="w-full py-1.5 px-2.5 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-[11px] rounded-xl border border-brand-200 transition flex items-center justify-center gap-1"
+                        className="flex-1 py-1.5 px-2 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-[11px] rounded-xl border border-brand-200 transition flex items-center justify-center gap-1"
                       >
                         <UserPlus className="w-3.5 h-3.5 text-brand-700" />
-                        <span>{estaEnEspera ? "Ver / Modificar Admisión" : "+ Admitir / Cobrar"}</span>
+                        <span>{estaEnEspera ? "Ver Admisión" : "+ Admitir"}</span>
                       </button>
+                      {tabBandejaCitas === "PROXIMAS" && (
+                        <button
+                          type="button"
+                          onClick={() => prepararModificacionCita(cita)}
+                          title="Cambiar fecha u hora de esta cita reagendada"
+                          className="py-1.5 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] rounded-xl border border-purple-200 transition flex items-center justify-center gap-1"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-purple-700" />
+                          <span>Modificar</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

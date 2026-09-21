@@ -1,37 +1,25 @@
 -- ==============================================================================
--- SCRIPT 14: ACTUALIZACIÓN DE CITAS REAGENDADAS, ENUM ENCUENTRO Y RLS
+-- SCRIPT 15: UNICIDAD Y ACTUALIZACIÓN DE CITAS REAGENDADAS
 -- Entorno: Consultorio Obstétrico Ecográfico Las Mellizas
 -- ==============================================================================
 
--- 1. Intentar agregar 'REPROGRAMADO' al tipo enum estado_encuentro si no existe
-DO $$ 
-BEGIN
-    BEGIN
-        ALTER TYPE public.estado_encuentro ADD VALUE IF NOT EXISTS 'REPROGRAMADO';
-    EXCEPTION
-        WHEN duplicate_object THEN NULL;
-        WHEN others THEN NULL;
-    END;
-END $$;
+-- 1. Agregar columnas opcionales a cita_reagendada para mejor auditoría y trazabilidad
+ALTER TABLE public.cita_reagendada 
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now(),
+    ADD COLUMN IF NOT EXISTS encuentro_id UUID REFERENCES public.encuentro(id) ON DELETE SET NULL;
 
--- 2. Asegurar que tabla cita_reagendada tenga permisos completos para usuarios autenticados
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.cita_reagendada TO authenticated, service_role, anon;
+-- 2. Limpieza de duplicados históricos acumulados en cita_reagendada:
+-- Conservar únicamente el registro más reciente por paciente cuando el estado sea 'PROGRAMADA'
+DELETE FROM public.cita_reagendada c1
+WHERE c1.estado = 'PROGRAMADA'
+  AND c1.id NOT IN (
+      SELECT DISTINCT ON (LOWER(TRIM(c2.paciente_nombre))) c2.id
+      FROM public.cita_reagendada c2
+      WHERE c2.estado = 'PROGRAMADA'
+      ORDER BY LOWER(TRIM(c2.paciente_nombre)), c2.created_at DESC, c2.id DESC
+  );
 
--- 3. Habilitar Realtime explícito en cita_reagendada
-DO $$
-BEGIN
-    BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.cita_reagendada;
-    EXCEPTION
-        WHEN duplicate_object THEN NULL;
-        WHEN others THEN NULL;
-    END;
-END $$;
-
--- 4. Asegurar índice para consulta rápida de citas del día por sede y fecha
-CREATE INDEX IF NOT EXISTS idx_cita_reagendada_site_fecha ON public.cita_reagendada(site_id, fecha, hora);
-
--- 5. FUNCIÓN ATÓMICA DE REPROGRAMACIÓN Y DESLISTE DE SALA DE ESPERA (SECURITY DEFINER)
+-- 3. Actualizar la función atómica reprogramar_cita_y_retirar_espera con lógica de UPSERT (Unicidad estricta)
 CREATE OR REPLACE FUNCTION public.reprogramar_cita_y_retirar_espera(
     p_encuentro_id UUID DEFAULT NULL,
     p_paciente_nombre TEXT DEFAULT NULL,
@@ -50,6 +38,8 @@ DECLARE
     v_target_encuentro_id UUID := p_encuentro_id;
     v_cita_id UUID;
     v_site_id UUID := p_site_id;
+    v_existing_cita_id UUID;
+    v_accion TEXT := 'CREADA';
 BEGIN
     IF p_fecha IS NULL THEN
         RAISE EXCEPTION 'La fecha de la cita es obligatoria.';
@@ -89,11 +79,14 @@ BEGIN
         WHERE id = v_target_encuentro_id;
     END IF;
 
-    -- 3. UNICIDAD: Verificar si ya existe una cita pendiente (estado = 'PROGRAMADA') para este paciente
+    -- 3. UNICIDAD: Verificar si ya existe una cita pendiente (estado = 'PROGRAMADA') para este paciente o encuentro
     SELECT id INTO v_existing_cita_id
     FROM public.cita_reagendada
     WHERE estado = 'PROGRAMADA'
-      AND LOWER(TRIM(paciente_nombre)) = LOWER(TRIM(p_paciente_nombre))
+      AND (
+          (v_target_encuentro_id IS NOT NULL AND encuentro_id = v_target_encuentro_id)
+          OR LOWER(TRIM(paciente_nombre)) = LOWER(TRIM(p_paciente_nombre))
+      )
     ORDER BY created_at DESC
     LIMIT 1;
 
@@ -104,10 +97,13 @@ BEGIN
             fecha = p_fecha,
             hora = p_hora,
             motivo = TRIM(p_motivo),
-            site_id = v_site_id
+            site_id = v_site_id,
+            encuentro_id = COALESCE(v_target_encuentro_id, encuentro_id),
+            updated_at = now()
         WHERE id = v_existing_cita_id;
 
         v_cita_id := v_existing_cita_id;
+        v_accion := 'ACTUALIZADA';
 
         -- Purgar cualquier duplicado residual previo para este paciente
         DELETE FROM public.cita_reagendada
@@ -115,7 +111,7 @@ BEGIN
           AND LOWER(TRIM(paciente_nombre)) = LOWER(TRIM(p_paciente_nombre))
           AND id <> v_existing_cita_id;
     ELSE
-        -- Insertar la cita en cita_reagendada con unicidad
+        -- Insertar nuevo registro con unicidad garantizada
         INSERT INTO public.cita_reagendada (
             paciente_nombre,
             telefono,
@@ -123,7 +119,10 @@ BEGIN
             hora,
             motivo,
             site_id,
-            estado
+            estado,
+            encuentro_id,
+            created_at,
+            updated_at
         )
         VALUES (
             TRIM(p_paciente_nombre),
@@ -132,15 +131,20 @@ BEGIN
             p_hora,
             TRIM(p_motivo),
             v_site_id,
-            'PROGRAMADA'
+            'PROGRAMADA',
+            v_target_encuentro_id,
+            now(),
+            now()
         )
         RETURNING id INTO v_cita_id;
+        v_accion := 'CREADA';
     END IF;
 
     RETURN jsonb_build_object(
         'success', true,
         'cita_id', v_cita_id,
-        'encuentro_id_cancelado', v_target_encuentro_id
+        'encuentro_id_cancelado', v_target_encuentro_id,
+        'accion', v_accion
     );
 END;
 $$;
