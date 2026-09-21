@@ -345,13 +345,13 @@ export default function AdmisionCajaPage() {
   // Carrito de Consumo (Servicios, Procedimientos, Packs, Insumos) - Inicia limpio
   const [itemsCarrito, setItemsCarrito] = useState<ItemCarrito[]>([]);
 
-  // Buscador y Selectores de Catálogo
-  const [tipoCatalogoAgregar, setTipoCatalogoAgregar] = useState<"SERVICIOS" | "FARMACIA">("SERVICIOS");
+  // Buscador y Selectores de Catálogo Mutuamente Excluyentes
+  const [tabCatalogo, setTabCatalogo] = useState<"SERVICIOS" | "FARMACIA" | "PERSONALIZADO">("SERVICIOS");
   const [dropdownServicioAbierto, setDropdownServicioAbierto] = useState<boolean>(false);
+  const [dropdownFarmaciaAbierto, setDropdownFarmaciaAbierto] = useState<boolean>(false);
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>("Todas");
   const [busquedaServicio, setBusquedaServicio] = useState<string>("");
   const [busquedaFarmacia, setBusquedaFarmacia] = useState<string>("");
-  const [esServicioPersonalizado, setEsServicioPersonalizado] = useState(false);
   const [servicioPersonalizadoNombre, setServicioPersonalizadoNombre] = useState("");
   const [servicioPersonalizadoPrecio, setServicioPersonalizadoPrecio] = useState<number | "">("");
 
@@ -961,6 +961,8 @@ export default function AdmisionCajaPage() {
 
       return [...prev, nuevoItem];
     });
+    setDropdownFarmaciaAbierto(false);
+    setBusquedaFarmacia("");
   };
 
   const handleAgregarPersonalizadoAlCarrito = (nombre: string, precio: number | "") => {
@@ -979,7 +981,7 @@ export default function AdmisionCajaPage() {
       precioBaseCatalogo: p,
     };
     setItemsCarrito((prev) => [...prev, nuevoItem]);
-    setEsServicioPersonalizado(false);
+    setTabCatalogo("SERVICIOS");
     setServicioPersonalizadoNombre("");
     setServicioPersonalizadoPrecio("");
   };
@@ -1859,7 +1861,9 @@ export default function AdmisionCajaPage() {
     setMedioPagoUnico("EFECTIVO");
     setPagosFraccionados([]);
     setEfectivoEntregadoUnico(0);
-    setEsServicioPersonalizado(false);
+    setTabCatalogo("SERVICIOS");
+    setDropdownServicioAbierto(false);
+    setDropdownFarmaciaAbierto(false);
     setServicioPersonalizadoNombre("");
     setServicioPersonalizadoPrecio("");
   };
@@ -2800,14 +2804,17 @@ export default function AdmisionCajaPage() {
 
             {openSection.tarifario && (
               <div className="p-4 space-y-4">
-                {/* Selector de Catálogo para Agregar: SERVICIOS / PACKS vs INSUMOS DE FARMACIA */}
+                {/* Selector de Catálogo para Agregar: TABS MUTUAMENTE EXCLUYENTES */}
                 <div className="flex items-center justify-between gap-2 border-b border-neutral-100 pb-2.5">
                   <div className="flex gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setTipoCatalogoAgregar("SERVICIOS")}
+                      onClick={() => {
+                        setTabCatalogo("SERVICIOS");
+                        setDropdownFarmaciaAbierto(false);
+                      }}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                        tipoCatalogoAgregar === "SERVICIOS"
+                        tabCatalogo === "SERVICIOS"
                           ? "bg-purple-700 text-white shadow-xs"
                           : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                       }`}
@@ -2816,9 +2823,12 @@ export default function AdmisionCajaPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setTipoCatalogoAgregar("FARMACIA")}
+                      onClick={() => {
+                        setTabCatalogo("FARMACIA");
+                        setDropdownServicioAbierto(false);
+                      }}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                        tipoCatalogoAgregar === "FARMACIA"
+                        tabCatalogo === "FARMACIA"
                           ? "bg-blue-700 text-white shadow-xs"
                           : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                       }`}
@@ -2830,16 +2840,24 @@ export default function AdmisionCajaPage() {
 
                   <button
                     type="button"
-                    onClick={() => setEsServicioPersonalizado(!esServicioPersonalizado)}
-                    className="text-[11px] font-bold text-brand-700 hover:text-brand-900 flex items-center gap-1"
+                    onClick={() => {
+                      setTabCatalogo(tabCatalogo === "PERSONALIZADO" ? "SERVICIOS" : "PERSONALIZADO");
+                      setDropdownServicioAbierto(false);
+                      setDropdownFarmaciaAbierto(false);
+                    }}
+                    className={`text-[11px] font-bold flex items-center gap-1 px-3 py-1.5 rounded-xl transition ${
+                      tabCatalogo === "PERSONALIZADO"
+                        ? "bg-brand-700 text-white shadow-xs"
+                        : "text-brand-700 hover:text-brand-900 bg-neutral-100 hover:bg-neutral-200"
+                    }`}
                   >
                     <Plus className="w-3 h-3" />
                     <span>Otro / Personalizado</span>
                   </button>
                 </div>
 
-                {/* Si selecciona SERVICIOS: Buscador con Filtro de Categorías */}
-                {tipoCatalogoAgregar === "SERVICIOS" && (
+                {/* TAB 1: Si selecciona SERVICIOS */}
+                {tabCatalogo === "SERVICIOS" && (
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-1 bg-neutral-100 p-1 rounded-xl text-[11px] font-bold">
                       {(["Todas", "Packs Promocionales", "Ecografías", "Consultas", "Procedimientos", "Laboratorio"] as const).map((cat) => (
@@ -2927,75 +2945,92 @@ export default function AdmisionCajaPage() {
                   </div>
                 )}
 
-                {/* Si selecciona FARMACIA: Buscador rápido de Insumos con scroll controlado */}
-                {tipoCatalogoAgregar === "FARMACIA" && (
+                {/* TAB 2: Si selecciona FARMACIA / INSUMOS (Colapsable y controlado) */}
+                {tabCatalogo === "FARMACIA" && (
                   <div className="space-y-2">
                     <div className="relative">
-                      <input
-                        type="text"
-                        value={busquedaFarmacia}
-                        onChange={(e) => setBusquedaFarmacia(e.target.value)}
-                        placeholder="Buscar insumo, ampolla, óvulo o fármaco del inventario..."
-                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-neutral-300 text-xs font-bold bg-white focus:ring-2 focus:ring-blue-700"
-                      />
-                      <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
-                    </div>
-
-                    <div className="max-h-72 overflow-y-auto border border-gray-200 rounded-lg p-2 divide-y divide-neutral-100 bg-white text-xs space-y-1">
-                      {productosInventario
-                        .filter((p) =>
-                          !busquedaFarmacia ||
-                          p.nombre.toLowerCase().includes(busquedaFarmacia.toLowerCase()) ||
-                          p.codigo.toLowerCase().includes(busquedaFarmacia.toLowerCase()) ||
-                          (p.categoria && p.categoria.toLowerCase().includes(busquedaFarmacia.toLowerCase()))
-                        )
-                        .map((p) => (
-                          <div
-                            key={p.id}
-                            onClick={() => handleAgregarProductoAlCarrito(p)}
-                            className="p-2.5 px-3 hover:bg-blue-50/70 rounded-xl cursor-pointer flex items-center justify-between transition border border-transparent hover:border-blue-200"
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={busquedaFarmacia}
+                          onFocus={() => setDropdownFarmaciaAbierto(true)}
+                          onChange={(e) => {
+                            setBusquedaFarmacia(e.target.value);
+                            setDropdownFarmaciaAbierto(true);
+                          }}
+                          placeholder="Buscar insumo, ampolla, óvulo o fármaco del inventario..."
+                          className="w-full pl-9 pr-10 py-2 rounded-xl border border-neutral-300 text-xs font-bold bg-white focus:ring-2 focus:ring-blue-700"
+                        />
+                        <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
+                        {dropdownFarmaciaAbierto && (
+                          <button
+                            type="button"
+                            onClick={() => setDropdownFarmaciaAbierto(false)}
+                            className="absolute right-2.5 top-2 text-neutral-400 hover:text-neutral-700 text-xs font-bold p-0.5"
                           >
-                            <div className="min-w-0 pr-2">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-neutral-900">{p.nombre}</span>
-                                <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-mono font-bold">
-                                  {p.codigo}
-                                </span>
-                              </div>
-                              <span className="text-[11px] text-neutral-500 block mt-0.5">
-                                {p.presentacion} &bull; Stock: <strong className={p.stock_actual <= 0 ? "text-amber-700" : "text-emerald-700"}>{p.stock_actual} unid.</strong>
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0">
-                              <span className="font-mono font-black text-blue-900 text-xs">
-                                {formatCurrency(p.precio_venta > 0 ? p.precio_venta : p.precio_costo)}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAgregarProductoAlCarrito(p);
-                                }}
-                                className="text-[11px] bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1 shrink-0"
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {dropdownFarmaciaAbierto && (
+                        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-neutral-300 rounded-2xl shadow-2xl z-50 max-h-72 overflow-y-auto divide-y divide-neutral-100 ring-1 ring-black/5 p-1">
+                          {productosInventario
+                            .filter((p) =>
+                              !busquedaFarmacia ||
+                              p.nombre.toLowerCase().includes(busquedaFarmacia.toLowerCase()) ||
+                              p.codigo.toLowerCase().includes(busquedaFarmacia.toLowerCase()) ||
+                              (p.categoria && p.categoria.toLowerCase().includes(busquedaFarmacia.toLowerCase()))
+                            )
+                            .map((p) => (
+                              <div
+                                key={p.id}
+                                onClick={() => handleAgregarProductoAlCarrito(p)}
+                                className="p-2.5 px-3 hover:bg-blue-50/70 rounded-xl cursor-pointer flex items-center justify-between transition border border-transparent hover:border-blue-200"
                               >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>+ Agregar</span>
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                                <div className="min-w-0 pr-2">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-neutral-900">{p.nombre}</span>
+                                    <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-mono font-bold">
+                                      {p.codigo}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-neutral-500 block mt-0.5">
+                                    {p.presentacion} &bull; Stock: <strong className={p.stock_actual <= 0 ? "text-amber-700" : "text-emerald-700"}>{p.stock_actual} unid.</strong>
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <span className="font-mono font-black text-blue-900 text-xs">
+                                    {formatCurrency(p.precio_venta > 0 ? p.precio_venta : p.precio_costo)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAgregarProductoAlCarrito(p);
+                                    }}
+                                    className="text-[11px] bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1 shrink-0"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>+ Agregar</span>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* Formulario de Servicio Personalizado Desplegable */}
-                {esServicioPersonalizado && (
+                {/* TAB 3: Si selecciona OTRO / PERSONALIZADO */}
+                {tabCatalogo === "PERSONALIZADO" && (
                   <div className="p-3 bg-brand-50/60 rounded-2xl border border-brand-200 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-extrabold text-xs text-brand-900">Procedimiento / Servicio Especial no Listado</span>
                       <button
                         type="button"
-                        onClick={() => setEsServicioPersonalizado(false)}
+                        onClick={() => setTabCatalogo("SERVICIOS")}
                         className="text-[10px] text-neutral-500 hover:text-neutral-900 font-bold"
                       >
                         ✕ Cancelar
