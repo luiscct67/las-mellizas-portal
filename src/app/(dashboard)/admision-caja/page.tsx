@@ -284,7 +284,7 @@ export default function AdmisionCajaPage() {
   const [busquedaFarmacia, setBusquedaFarmacia] = useState<string>("");
   const [esServicioPersonalizado, setEsServicioPersonalizado] = useState(false);
   const [servicioPersonalizadoNombre, setServicioPersonalizadoNombre] = useState("");
-  const [servicioPersonalizadoPrecio, setServicioPersonalizadoPrecio] = useState<number>(70);
+  const [servicioPersonalizadoPrecio, setServicioPersonalizadoPrecio] = useState<number | "">("");
 
   // Pagos Mixtos y Fraccionados (Split Payment) - Inicia limpio
   const [modoSplit, setModoSplit] = useState<boolean>(false);
@@ -890,12 +890,12 @@ export default function AdmisionCajaPage() {
     setBusquedaFarmacia("");
   };
 
-  const handleAgregarPersonalizadoAlCarrito = (nombre: string, precio: number) => {
+  const handleAgregarPersonalizadoAlCarrito = (nombre: string, precio: number | "") => {
     if (!nombre.trim()) {
       alert("Ingrese el nombre del procedimiento o servicio especial.");
       return;
     }
-    const p = Number(precio) || 50;
+    const p = typeof precio === "number" && precio > 0 ? precio : 50;
     const nuevoItem: ItemCarrito = {
       id: `custom-${Date.now()}`,
       tipo: "SERVICIO",
@@ -908,10 +908,20 @@ export default function AdmisionCajaPage() {
     setItemsCarrito((prev) => [...prev, nuevoItem]);
     setEsServicioPersonalizado(false);
     setServicioPersonalizadoNombre("");
+    setServicioPersonalizadoPrecio("");
   };
 
   const handleEliminarItemCarrito = (id: string) => {
-    setItemsCarrito((prev) => prev.filter((it) => it.id !== id));
+    setItemsCarrito((prev) => {
+      const updated = prev.filter((it) => it.id !== id);
+      if (updated.length === 0) {
+        setPagosFraccionados([]);
+        setModoSplit(false);
+        setEfectivoEntregadoUnico(0);
+        setReferenciaUnica("");
+      }
+      return updated;
+    });
   };
 
   const handleModificarCantidadItem = (id: string, nuevaCant: number) => {
@@ -1783,6 +1793,9 @@ export default function AdmisionCajaPage() {
     setMedioPagoUnico("EFECTIVO");
     setPagosFraccionados([]);
     setEfectivoEntregadoUnico(0);
+    setEsServicioPersonalizado(false);
+    setServicioPersonalizadoNombre("");
+    setServicioPersonalizadoPrecio("");
   };
 
   // Exportación segura de libro de recaudación (Ley N.° 29733 - Minimización de datos)
@@ -2745,7 +2758,7 @@ export default function AdmisionCajaPage() {
                       }`}
                     >
                       <Package className="w-3.5 h-3.5" />
-                      <span>+ Insumo / Farmacia</span>
+                      <span>+ Insumo / Producto</span>
                     </button>
                   </div>
 
@@ -2930,9 +2943,10 @@ export default function AdmisionCajaPage() {
                         <input
                           type="number"
                           min={1}
-                          value={servicioPersonalizadoPrecio || ""}
-                          onChange={(e) => setServicioPersonalizadoPrecio(Number(e.target.value))}
-                          placeholder="S/..."
+                          value={servicioPersonalizadoPrecio === "" || servicioPersonalizadoPrecio === 0 ? "" : servicioPersonalizadoPrecio}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => setServicioPersonalizadoPrecio(e.target.value === "" ? "" : Number(e.target.value))}
+                          placeholder="S/ 0.00"
                           className="w-20 px-2 py-1.5 border border-brand-300 rounded-xl text-xs font-mono font-bold bg-white"
                         />
                         <button
@@ -2956,7 +2970,13 @@ export default function AdmisionCajaPage() {
                     {itemsCarrito.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => setItemsCarrito([])}
+                        onClick={() => {
+                          setItemsCarrito([]);
+                          setPagosFraccionados([]);
+                          setModoSplit(false);
+                          setEfectivoEntregadoUnico(0);
+                          setReferenciaUnica("");
+                        }}
                         className="text-[10px] text-neutral-400 hover:text-rose-600 font-bold"
                       >
                         Vaciar carrito
@@ -3027,8 +3047,10 @@ export default function AdmisionCajaPage() {
                               <input
                                 type="number"
                                 min={0}
-                                value={it.precioUnitario}
-                                onChange={(e) => handleModificarPrecioItem(it.id, Number(e.target.value))}
+                                value={it.precioUnitario === 0 ? "" : it.precioUnitario}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => handleModificarPrecioItem(it.id, e.target.value === "" ? 0 : Number(e.target.value))}
+                                placeholder="0"
                                 className="w-16 px-1.5 py-0.5 border border-neutral-300 rounded-md text-xs font-mono font-bold text-right"
                               />
                             </div>
@@ -3193,8 +3215,10 @@ export default function AdmisionCajaPage() {
                             <input
                               type="number"
                               min={montoTotalCarrito}
-                              value={efectivoEntregadoUnico || ""}
-                              onChange={(e) => setEfectivoEntregadoUnico(Number(e.target.value))}
+                              value={efectivoEntregadoUnico === 0 ? "" : efectivoEntregadoUnico}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) => setEfectivoEntregadoUnico(e.target.value === "" ? 0 : Number(e.target.value))}
+                              placeholder={montoTotalCarrito > 0 ? String(montoTotalCarrito) : "0.00"}
                               className="w-full px-3 py-2 rounded-xl border border-emerald-300 text-sm font-mono font-bold bg-white"
                             />
                           </div>
@@ -3299,9 +3323,10 @@ export default function AdmisionCajaPage() {
                                 <input
                                   type="number"
                                   min={1}
-                                  value={p.monto || ""}
-                                  onChange={(e) => handleActualizarPagoFraccionado(p.id, { monto: Number(e.target.value) })}
-                                  placeholder="Monto..."
+                                  value={p.monto === 0 ? "" : p.monto}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => handleActualizarPagoFraccionado(p.id, { monto: e.target.value === "" ? 0 : Number(e.target.value) })}
+                                  placeholder="0.00"
                                   className="w-full pl-6 pr-2 py-1.5 border border-neutral-300 rounded-lg font-mono font-black text-right text-xs"
                                 />
                               </div>
@@ -3339,8 +3364,10 @@ export default function AdmisionCajaPage() {
                                 <input
                                   type="number"
                                   min={p.monto}
-                                  value={p.montoEntregado ?? p.monto}
-                                  onChange={(e) => handleActualizarPagoFraccionado(p.id, { montoEntregado: Number(e.target.value) })}
+                                  value={p.montoEntregado === 0 ? "" : (p.montoEntregado ?? p.monto)}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => handleActualizarPagoFraccionado(p.id, { montoEntregado: e.target.value === "" ? 0 : Number(e.target.value) })}
+                                  placeholder="0.00"
                                   className="w-20 px-2 py-1 border border-emerald-300 rounded bg-white font-mono font-bold text-right"
                                 />
                               </div>
@@ -3486,6 +3513,7 @@ export default function AdmisionCajaPage() {
                         min={1}
                         max={productoDispensar?.stock_actual || 999}
                         value={cantidadDispensar}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => setCantidadDispensar(Math.max(1, Number(e.target.value)))}
                         className="w-20 px-2.5 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-black text-center bg-white"
                         title="Cantidad de unidades"
@@ -3718,8 +3746,9 @@ export default function AdmisionCajaPage() {
                         type="number"
                         required
                         min={1}
-                        value={egresoMonto || ""}
-                        onChange={(e) => setEgresoMonto(Number(e.target.value))}
+                        value={egresoMonto === 0 ? "" : egresoMonto}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setEgresoMonto(e.target.value === "" ? 0 : Number(e.target.value))}
                         placeholder="Monto en efectivo..."
                         className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white"
                       />
@@ -4259,8 +4288,10 @@ export default function AdmisionCajaPage() {
               <input
                 type="number"
                 min={0}
-                value={montoAperturaInput}
-                onChange={(e) => setMontoAperturaInput(Number(e.target.value))}
+                value={montoAperturaInput === 0 ? "" : montoAperturaInput}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setMontoAperturaInput(e.target.value === "" ? 0 : Number(e.target.value))}
+                placeholder="0.00"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-sm font-mono font-bold"
               />
               <p className="text-[10px] text-neutral-400 mt-1">
@@ -4336,8 +4367,10 @@ export default function AdmisionCajaPage() {
                   </label>
                   <input
                     type="number"
-                    value={efectivoContado}
-                    onChange={(e) => setEfectivoContado(Number(e.target.value))}
+                    value={efectivoContado === 0 ? "" : efectivoContado}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setEfectivoContado(e.target.value === "" ? 0 : Number(e.target.value))}
+                    placeholder="0.00"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-sm font-mono font-bold"
                   />
                   <div className="mt-1 flex items-center justify-between text-xs">
