@@ -357,6 +357,7 @@ export default function AdmisionCajaPage() {
   const [nombres, setNombres] = useState("");
   const [apellidos, setApellidos] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [estadoBusquedaDni, setEstadoBusquedaDni] = useState<"ENCONTRADO" | "NUEVO" | null>(null);
 
   // Carrito de Consumo (Servicios, Procedimientos, Packs, Insumos) - Inicia limpio
   const [itemsCarrito, setItemsCarrito] = useState<ItemCarrito[]>([]);
@@ -1095,29 +1096,52 @@ export default function AdmisionCajaPage() {
 
   // Búsqueda en tiempo real de paciente en Supabase por DNI
   const handleBuscarDNI = async (numDni: string) => {
-    setDni(numDni);
-    if (numDni.length === 8) {
+    const d = numDni.replace(/\D/g, "").slice(0, 8);
+    setDni(d);
+
+    if (d.length === 8) {
       setBuscandoDni(true);
       try {
         const { data: pacExistente } = await supabase
           .from("paciente")
           .select("nombres, apellidos, telefono")
-          .eq("dni", numDni)
+          .eq("dni", d)
           .maybeSingle();
 
         if (pacExistente) {
-          setNombres(pacExistente.nombres);
-          setApellidos(pacExistente.apellidos);
-          setTelefono(pacExistente.telefono);
-          setBuscandoDni(false);
-          return;
+          setNombres(pacExistente.nombres || "");
+          setApellidos(pacExistente.apellidos || "");
+          setTelefono(pacExistente.telefono || "");
+          setEstadoBusquedaDni("ENCONTRADO");
+        } else {
+          // Si el DNI no existe en el padrón, limpiar inmediatamente los datos del paciente anterior
+          setNombres("");
+          setApellidos("");
+          setTelefono("");
+          setEstadoBusquedaDni("NUEVO");
         }
       } catch (err) {
         console.warn("Error buscando paciente en base de datos:", err);
+        setEstadoBusquedaDni(null);
       } finally {
         setBuscandoDni(false);
       }
+    } else {
+      setEstadoBusquedaDni(null);
+      if (d.length === 0) {
+        setNombres("");
+        setApellidos("");
+        setTelefono("");
+      }
     }
+  };
+
+  const handleLimpiarAdmision = () => {
+    setDni("");
+    setNombres("");
+    setApellidos("");
+    setTelefono("");
+    setEstadoBusquedaDni(null);
   };
 
   // Cálculos derivados del Carrito de Consumo
@@ -3050,9 +3074,20 @@ export default function AdmisionCajaPage() {
               <div className="p-5 space-y-4">
                 {/* Búsqueda por DNI */}
                 <div>
-                  <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-1">
-                    DNI / Carnet Extranjería (8 Dígitos) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider">
+                      DNI / Carnet Extranjería (8 Dígitos) *
+                    </label>
+                    {(dni || nombres) && (
+                      <button
+                        type="button"
+                        onClick={handleLimpiarAdmision}
+                        className="text-[10px] text-neutral-500 hover:text-rose-600 font-bold transition flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" /> Limpiar datos
+                      </button>
+                    )}
+                  </div>
                   <div className="relative">
                     <input
                       type="text"
@@ -3064,6 +3099,27 @@ export default function AdmisionCajaPage() {
                     />
                     <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3" />
                   </div>
+
+                  {buscandoDni && (
+                    <div className="text-[11px] text-neutral-500 flex items-center gap-1.5 pt-1.5">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand-700" />
+                      <span>Consultando padrón clínico...</span>
+                    </div>
+                  )}
+
+                  {estadoBusquedaDni === "ENCONTRADO" && (
+                    <div className="mt-1.5 p-2 rounded-xl bg-blue-50 border border-blue-200 text-[11px] text-blue-900 flex items-center gap-1.5 font-bold">
+                      <CheckCircle2 className="w-4 h-4 text-blue-700 shrink-0" />
+                      <span>Paciente encontrado en padrón clínico. Datos cargados automáticamente.</span>
+                    </div>
+                  )}
+
+                  {estadoBusquedaDni === "NUEVO" && (
+                    <div className="mt-1.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 flex items-center gap-1.5 font-bold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>DNI nuevo (sin registro previo). Ingrese los nombres y apellidos para aperturar su Historia Clínica.</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
