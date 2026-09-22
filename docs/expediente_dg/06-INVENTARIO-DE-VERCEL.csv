@@ -1,0 +1,5 @@
+Variable,Ambito,Proposito,Sensible,Estado
+NEXT_PUBLIC_SUPABASE_URL,Production/Preview,Endpoint HTTPS de Supabase,NO,Confirmado y Funcional
+NEXT_PUBLIC_SUPABASE_ANON_KEY,Production/Preview,Clave publica anonima de PostgREST,NO,Confirmado y Funcional
+SUPABASE_SERVICE_ROLE_KEY,Production (Secret),Clave administrativa para bypass RLS en API backend,SI,Configurado en Vercel Encrypted
+NEXT_PUBLIC_APP_URL,Production,URL canonica del portal,NO,Confirmado

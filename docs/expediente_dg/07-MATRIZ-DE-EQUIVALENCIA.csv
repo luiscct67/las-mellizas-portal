@@ -1,0 +1,9 @@
+Modulo,Funcionalidad Legacy,Implementacion Trinomio 2026,Estado,Observaciones
+Admision,Registro simple paciente,Registro con DNI Reniec + Historial + Alertas,CONFIRMADO,Validacion estricta y unicidad
+Caja,Cobro unitario en papel,Carrito multiservicio + insumos farmacia + split payment,CONFIRMADO,Emite ticket termico 80mm/58mm
+Caja,Arqueo manual al cierre,Apertura y Cierre con arqueo ciego + registro egresos,CONFIRMADO,Tablas caja_turno y caja_egreso
+Kardex,Control manual Excel,Descuento automatico en kardex por dispensacion,CONFIRMADO,Trazabilidad de lote y stock minimo
+Agenda,Libro de citas fisico,Bandeja del dia + Reagendamiento con unicidad,CONFIRMADO,Sincronizado con cola medica
+HCE,Ficha fisica de papel,Historia clinica obstetrica/ginecologica digital,CONFIRMADO,Alertas gestacionales y antecedentes
+Receta,Recetario manual,Generacion PDF con QR y firma digital de obstetra,CONFIRMADO,Almacenado en bucket seguro
+Cola Medica,Llamado a viva voz,Cola en tiempo real sincronizada por WebSockets,CONFIRMADO,Canal Realtime cola-medica

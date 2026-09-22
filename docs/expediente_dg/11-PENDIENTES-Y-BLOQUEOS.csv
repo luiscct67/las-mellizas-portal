@@ -1,0 +1,5 @@
+ID,Descripcion,Categoria,Severidad,Estado,Responsable
+PB-01,Traspaso de cuentas cloud a administracion@lasmellizasperu.com (25/09 18:00 PET),Gobernanza,ALTA,PROGRAMADO,Direccion Tecnica / Administracion
+PB-02,Simulacro de restauracion de backup en ambiente frio (Paso 8),Seguridad,MEDIA,RESUELTO,Auditoria Tecnica
+PB-03,Politica de costos Supabase Pro (Evaluacion 90 dias en Free Tier con backups diarios),Infraestructura,MEDIA,RESUELTO,Direccion General / Finanzas
+PB-04,Capacitacion operativa y piloto en Sede Independencia y Vivanco (Semana 28/09),Operaciones,BAJA,PROGRAMADO,Jefatura de Operaciones / Vía B

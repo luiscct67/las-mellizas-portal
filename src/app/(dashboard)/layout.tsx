@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   DollarSign,
   UserCheck,
+  Clock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
@@ -33,6 +34,24 @@ export default function DashboardLayout({
   const [colegiatura, setColegiatura] = useState<string>("");
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
+  const [horaActual, setHoraActual] = useState<string>("");
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setHoraActual(
+        now.toLocaleTimeString("es-PE", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        })
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     async function syncUserSession() {
@@ -74,7 +93,8 @@ export default function DashboardLayout({
       }
 
       const detectedNombre = profile?.nombre_completo || sessionStorage.getItem("lm_nombre") || email;
-      const detectedSede = (profile as any)?.sede?.nombre || sessionStorage.getItem("lm_sede") || "Independencia";
+      const rawSede = (profile as any)?.sede?.nombre || sessionStorage.getItem("lm_sede") || "Independencia";
+      const detectedSede = rawSede.replace(/^Sede\s+/i, "").trim();
       const detectedCol = profile?.colegiatura || sessionStorage.getItem("lm_colegiatura") || "";
 
       setRol(detectedRole);
@@ -292,18 +312,43 @@ export default function DashboardLayout({
       {/* COLUMNA 2: WORKSPACE DERECHO DINÁMICO & FLUIDO                      */}
       {/* ==================================================================== */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Topbar Ultra-Compacto (44px) */}
-        <header className="h-11 bg-white border-b border-neutral-200 px-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2 text-xs text-neutral-500 font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="font-sans font-medium text-neutral-700">Conexión Cifrada TLS 1.3</span>
-            <span>&bull;</span>
-            <span>Sede: {sede}</span>
+        {/* Topbar Ultra-Compacto & Ergonómico (44px) */}
+        <header className="h-11 bg-white border-b border-neutral-200 px-4 flex items-center justify-between shrink-0 shadow-xs">
+          <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-1.5 text-neutral-600 font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="font-sans font-semibold text-neutral-800">TLS 1.3 Cifrado</span>
+            </div>
+            <span className="text-neutral-300">&bull;</span>
+            <div className="flex items-center gap-1.5 text-neutral-700 font-medium">
+              <MapPin className="w-3.5 h-3.5 text-brand-700" />
+              <span>Sede {sede}</span>
+            </div>
+            {horaActual && (
+              <>
+                <span className="text-neutral-300">&bull;</span>
+                <div className="flex items-center gap-1.5 font-mono text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/80 text-[11px]">
+                  <Clock className="w-3 h-3 text-neutral-500" />
+                  <span>{horaActual} PET</span>
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 text-[11px] text-neutral-400">
-            <Lock className="w-3 h-3 text-neutral-400" />
-            <span>Ley N.º 26842 (Secreto Médico) &bull; Ley N.º 29733 (ANPD)</span>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-neutral-500">
+              <Lock className="w-3 h-3 text-neutral-400" />
+              <span>NTS N.º 139 &bull; Ley 26842 (Secreto Médico)</span>
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono border ${
+              rol === "ADMIN" 
+                ? "bg-purple-50 text-purple-700 border-purple-200" 
+                : rol === "PROFESIONAL" 
+                ? "bg-blue-50 text-blue-700 border-blue-200" 
+                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+            }`}>
+              {rol}
+            </span>
           </div>
         </header>
 

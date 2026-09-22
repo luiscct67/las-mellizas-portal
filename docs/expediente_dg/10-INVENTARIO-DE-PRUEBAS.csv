@@ -1,0 +1,6 @@
+Suite,Tipo,Casos Probados,Resultado,Fecha
+TypeScript Check,Estatico,26 paginas y 48 componentes,PASO (0 errores),2026-09-20
+Next.js Build,Integracion,App Router compile and static export,PASO (Exit 0),2026-09-20
+Admision y Caja,E2E Manual,Flujo completo cobro mixto + ticket,CONFIRMADO,2026-09-20
+Cola Medica Realtime,Integracion,Llamado y sincronizacion de turno,CONFIRMADO,2026-09-20
+Atencion HCE,Funcional,Guardado anamnesis y receta PDF,CONFIRMADO,2026-09-20

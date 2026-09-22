@@ -1425,7 +1425,7 @@ export default function SupervisionPage() {
       {/* Modal Editar Colaborador (Exclusivo Administrador General) */}
       {usuarioEditando && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-neutral-200">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-black text-brand-900">Editar Datos del Colaborador</h3>
               <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">
@@ -1601,7 +1601,7 @@ export default function SupervisionPage() {
       {/* Modal Confirmación de Eliminación Definitiva */}
       {usuarioAEliminar && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-rose-200">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-rose-200">
             <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mx-auto mb-4 border border-rose-200">
               <Trash2 className="w-6 h-6" />
             </div>
@@ -1656,7 +1656,7 @@ export default function SupervisionPage() {
       {/* Modal Nuevo Colaborador */}
       {showNewUserModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-neutral-200">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200">
             <h3 className="text-lg font-black text-brand-900 mb-1">Dar de Alta a Nuevo Colaborador</h3>
             <p className="text-xs text-neutral-500 mb-4">
               La Dirección Técnica emitirá un usuario y una contraseña de 1 solo uso que el colaborador cambiará en su primer acceso.
@@ -1786,7 +1786,7 @@ export default function SupervisionPage() {
       {/* Modal Credencial Temporal Emitida */}
       {credencialGenerada && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-neutral-200 space-y-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200 space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
               <KeyRound className="w-6 h-6" />
             </div>
@@ -1833,7 +1833,7 @@ export default function SupervisionPage() {
       {/* Modal Cambio de Contraseña del Administrador General */}
       {showAdminPasswordModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-neutral-200 space-y-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200 space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center font-bold">
@@ -1941,7 +1941,7 @@ export default function SupervisionPage() {
       {/* Modal Crear / Editar Insumo o Fármaco */}
       {showProductoModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-neutral-200 space-y-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200 space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center font-bold">
@@ -2108,7 +2108,7 @@ export default function SupervisionPage() {
       {/* Modal Ajuste / Movimiento Rápido de Stock */}
       {showMovimientoModal && productoParaMovimiento && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-neutral-200 space-y-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200 space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-bold">

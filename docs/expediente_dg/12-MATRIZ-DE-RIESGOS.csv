@@ -1,0 +1,5 @@
+Riesgo,Probabilidad,Impacto,Nivel,Mitigacion
+Fallo de conexion a Internet en clinica,Media,Alta,ALTO,Fallback offline local y redundancia 4G/5G en router
+Error humano en arqueo de caja,Media,Media,MEDIO,Arqueo ciego obligatorio y validacion cruzada en sistema
+Bloqueo por vencimiento plan gratuito Supabase,Baja,Alta,MEDIO,Migracion a plan Pro antes del pase a produccion
+Fuga de credenciales API,Baja,Critica,ALTO,Variables cifradas en Vercel y RLS estricto en BD

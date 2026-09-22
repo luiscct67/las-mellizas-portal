@@ -1,0 +1,6 @@
+Rol,Admision / Caja,HCE Consultorio,Supervision / Reportes,Configuracion / Auditoria
+admin,Acceso Total,Acceso Total,Acceso Total,Acceso Total
+medico,Solo Lectura Cola,Acceso Total HCE y Recetas,Solo Lectura Citas,Sin Acceso
+obstetra,Solo Lectura Cola,Acceso Total HCE y Recetas,Solo Lectura Citas,Sin Acceso
+cajero,Acceso Total Caja y Turno,Sin Acceso,Lectura Reporte Caja Propia,Sin Acceso
+recepcionista,Admision y Citas,Sin Acceso,Lectura Citas del Dia,Sin Acceso

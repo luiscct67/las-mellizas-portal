@@ -1,0 +1,18 @@
+Objeto,Tipo,Nombre,Esquema,Estado,RLS Activo
+Tabla,Relacional,paciente,public,Confirmado,SI
+Tabla,Relacional,encuentro,public,Confirmado,SI
+Tabla,Relacional,servicio,public,Confirmado,SI
+Tabla,Relacional,comprobante,public,Confirmado,SI
+Tabla,Relacional,comprobante_detalle,public,Confirmado,SI
+Tabla,Relacional,producto,public,Confirmado,SI
+Tabla,Relacional,kardex,public,Confirmado,SI
+Tabla,Relacional,caja_turno,public,Confirmado,SI
+Tabla,Relacional,caja_egreso,public,Confirmado,SI
+Tabla,Relacional,cita_reagendada,public,Confirmado,SI
+Tabla,Relacional,atencion_medica,public,Confirmado,SI
+Tabla,Relacional,receta_medica,public,Confirmado,SI
+Tabla,Relacional,receta_detalle,public,Confirmado,SI
+Tabla,Relacional,archivo_clinico,public,Confirmado,SI
+Bucket,Storage,recetas,storage,Confirmado,SI
+Bucket,Storage,ecografias,storage,Confirmado,SI
+Bucket,Storage,firmas,storage,Confirmado,SI

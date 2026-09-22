@@ -363,6 +363,7 @@ export default function AdmisionCajaPage() {
   const [pagosFraccionados, setPagosFraccionados] = useState<PagoFraccionado[]>([]);
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isCerrandoTurno, setIsCerrandoTurno] = useState(false);
   const [ticketEmitido, setTicketEmitido] = useState<TransaccionAtencion | null>(null);
 
   // Dispensación de Insumos & Farmacia (Control de Inventario - Sub-carrito por lote)
@@ -651,12 +652,13 @@ export default function AdmisionCajaPage() {
       const day = String(d.getDate()).padStart(2, "0");
       const hoyLocal = `${year}-${month}-${day}`;
 
-      // 1. Citas programadas estrictamente para HOY (deduplicadas por paciente)
+      // 1. Citas programadas para HOY o PENDIENTES en esta sede (deduplicadas por paciente)
       const { data: dataHoy, error: errorHoy } = await supabase
         .from("cita_reagendada")
         .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, created_at")
         .eq("site_id", siteId)
-        .eq("fecha", hoyLocal)
+        .lte("fecha", hoyLocal)
+        .neq("estado", "CANCELADA")
         .order("created_at", { ascending: false });
 
       if (!errorHoy && dataHoy) {
@@ -2182,7 +2184,7 @@ export default function AdmisionCajaPage() {
       setReagendarTelefono(atencion.telefono);
     }
     setReagendarMotivo(`Control de Seguimiento - ${atencion.servicio}`);
-    setReagendarSede(atencion.sede || sede);
+    setReagendarSede(normalizarSede(atencion.sede || sede));
     setReagendarEncuentroId(atencion.encuentroId || (atencion.id.startsWith("OP-") ? null : atencion.id));
     setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
     const el = document.getElementById("seccion-reagendamiento");
@@ -2199,7 +2201,7 @@ export default function AdmisionCajaPage() {
     setReagendarFecha(cita.fecha);
     setReagendarHora(cita.hora ? cita.hora.slice(0, 5) : "09:00");
     setReagendarMotivo(cita.motivo);
-    setReagendarSede(sede);
+    setReagendarSede(normalizarSede(sede));
     setReagendarEncuentroId(null);
     setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
     const el = document.getElementById("seccion-reagendamiento");
@@ -2364,10 +2366,57 @@ export default function AdmisionCajaPage() {
     }
   };
 
-  // Cierre y Arqueo Formal Persistido en Supabase
+  // Cierre y Arqueo Formal Persistido en Supabase (Bloqueo Atómico de Concurrencia)
   const handleEjecutarArqueo = async () => {
+    if (isCerrandoTurno) return;
+    setIsCerrandoTurno(true);
+
     const diferencia = efectivoContado - efectivoNetoEsperado;
     const now = new Date();
+
+    // Actualizar cierre en Supabase con condición atómica estado = ABIERTA (Prevención de condición de carrera)
+    if (turnoActivo?.id && !turnoActivo.id.startsWith("TURNO-")) {
+      try {
+        const { data: turnoActualizado, error: errorCierre } = await supabase
+          .from("caja_turno")
+          .update({
+            estado: "CERRADA",
+            fecha_cierre: now.toISOString(),
+            monto_cierre_efectivo_declarado: efectivoContado,
+            total_ingresos_efectivo: totalEfectivoCobros,
+            total_ingresos_digital: totalDigitalCobros,
+            total_egresos: totalEgresos,
+            efectivo_neto_esperado: efectivoNetoEsperado,
+            diferencia: diferencia,
+            observaciones: observacionesCierre,
+          })
+          .eq("id", turnoActivo.id)
+          .eq("estado", "ABIERTA")
+          .select();
+
+        if (errorCierre) {
+          console.error("Error al persistir cierre de turno en Supabase:", errorCierre);
+          alert(`Error de base de datos al cerrar el turno: ${errorCierre.message}`);
+          setIsCerrandoTurno(false);
+          return;
+        }
+
+        if (!turnoActualizado || turnoActualizado.length === 0) {
+          alert(
+            "AVISO DE SEGURIDAD Y CONCURRENCIA:\n\nEl turno ya se encuentra en estado CERRADA o fue cerrado por otra sesión simultánea.\nNo se aplicaron modificaciones redundantes ni se sobrescribieron los montos."
+          );
+          setIsCerrandoTurno(false);
+          setShowCierreModal(false);
+          setTurnoActivo(null);
+          return;
+        }
+      } catch (err: any) {
+        console.error("Excepción al ejecutar cierre atómico en Supabase:", err);
+        alert(`Error inesperado al cerrar turno: ${err?.message || String(err)}`);
+        setIsCerrandoTurno(false);
+        return;
+      }
+    }
 
     const acta = {
       id: `ACTA-${Date.now().toString().slice(-6)}`,
@@ -2395,28 +2444,6 @@ export default function AdmisionCajaPage() {
 
     setActaCierre(acta);
 
-    // Actualizar cierre en Supabase si turnoActivo tiene UUID
-    if (turnoActivo?.id && !turnoActivo.id.startsWith("TURNO-")) {
-      try {
-        await supabase
-          .from("caja_turno")
-          .update({
-            estado: "CERRADA",
-            fecha_cierre: now.toISOString(),
-            monto_cierre_efectivo_declarado: efectivoContado,
-            total_ingresos_efectivo: totalEfectivoCobros,
-            total_ingresos_digital: totalDigitalCobros,
-            total_egresos: totalEgresos,
-            efectivo_neto_esperado: efectivoNetoEsperado,
-            diferencia: diferencia,
-            observaciones: observacionesCierre,
-          })
-          .eq("id", turnoActivo.id);
-      } catch (err) {
-        console.warn("Aviso al actualizar cierre en Supabase:", err);
-      }
-    }
-
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("lm_fondo_apertura");
       localStorage.removeItem("lm_fondo_apertura");
@@ -2424,6 +2451,7 @@ export default function AdmisionCajaPage() {
 
     setTurnoActivo(null);
     setEgresos([]);
+    setIsCerrandoTurno(false);
     alert("Arqueo y Cierre de Caja completado formalmente. El próximo turno iniciará limpio con su propio fondo.");
   };
 
@@ -4293,17 +4321,28 @@ export default function AdmisionCajaPage() {
 
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <span
-                      className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${
+                      className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg border shadow-2xs ${
                         tx.estadoConsultorio === "EN_ESPERA"
-                          ? "bg-amber-100 text-amber-800"
+                          ? "bg-amber-50 text-amber-900 border-amber-200/90"
                           : tx.estadoConsultorio === "EN_ATENCION"
-                          ? "bg-blue-100 text-blue-800"
+                          ? "bg-blue-50 text-blue-900 border-blue-200/90"
                           : tx.estadoConsultorio === "CANCELADO" || (tx.estadoConsultorio as string) === "REPROGRAMADO"
-                          ? "bg-purple-100 text-purple-800"
-                          : "bg-emerald-100 text-emerald-800"
+                          ? "bg-purple-50 text-purple-900 border-purple-200/90"
+                          : "bg-emerald-50 text-emerald-900 border-emerald-200/90"
                       }`}
                     >
-                      {tx.estadoConsultorio === "CANCELADO" ? "REPROGRAMADO" : tx.estadoConsultorio.replace("_", " ")}
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          tx.estadoConsultorio === "EN_ESPERA"
+                            ? "bg-amber-500 animate-pulse"
+                            : tx.estadoConsultorio === "EN_ATENCION"
+                            ? "bg-blue-500 animate-pulse"
+                            : tx.estadoConsultorio === "CANCELADO" || (tx.estadoConsultorio as string) === "REPROGRAMADO"
+                            ? "bg-purple-500"
+                            : "bg-emerald-500"
+                        }`}
+                      />
+                      <span>{tx.estadoConsultorio === "CANCELADO" ? "REPROGRAMADO" : tx.estadoConsultorio.replace("_", " ")}</span>
                     </span>
                     <div className="flex items-center gap-1.5">
                       <button
@@ -4380,7 +4419,7 @@ export default function AdmisionCajaPage() {
       {/* Modal Apertura de Turno */}
       {showAperturaModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-neutral-200 space-y-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200 space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
               <Unlock className="w-6 h-6" />
             </div>
@@ -4433,7 +4472,7 @@ export default function AdmisionCajaPage() {
       {/* Modal Cierre y Arqueo de Caja */}
       {showCierreModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-neutral-200 space-y-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200 space-y-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
               <div className="flex items-center gap-2">
                 <Lock className="w-5 h-5 text-brand-700" />
@@ -4528,9 +4567,10 @@ export default function AdmisionCajaPage() {
                   <button
                     type="button"
                     onClick={handleEjecutarArqueo}
-                    className="w-1/2 py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl shadow"
+                    disabled={isCerrandoTurno}
+                    className="w-1/2 py-2.5 bg-brand-700 hover:bg-brand-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1.5"
                   >
-                    Generar Acta de Cierre
+                    {isCerrandoTurno ? "Procesando Cierre..." : "Generar Acta de Cierre"}
                   </button>
                 </div>
               </div>

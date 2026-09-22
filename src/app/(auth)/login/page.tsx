@@ -216,6 +216,7 @@ export default function LoginPage() {
             <input
               type="text"
               required
+              autoFocus
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -261,7 +262,19 @@ export default function LoginPage() {
           </div>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-400">
+        <div className="mt-5 p-2.5 rounded-2xl bg-neutral-50 border border-neutral-200/80 flex items-center justify-around text-[11px] font-medium text-neutral-600">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Sede Independencia</span>
+          </div>
+          <span className="text-neutral-300">&bull;</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Sede Vivanco</span>
+          </div>
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-400">
           <span>Padrón Oficial Las Mellizas</span>
           <span>NTS N.º 139-MINSA</span>
         </div>

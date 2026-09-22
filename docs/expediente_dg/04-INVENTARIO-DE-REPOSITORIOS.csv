@@ -1,0 +1,3 @@
+Repositorio,Rama,Commit,Estado,Tecnologia,Proposito
+las-mellizas-portal,main,acc7d56,Preproduccion Validado,Next.js 15.1.7 / TypeScript 5,Frontend y BFF para Admision/Caja/HCE/Supervision
+supabase-backend,main,prod-v1.4,Migrado a Scripts SQL,PostgreSQL 15 / Supabase,Esquema de BD y Procedimientos Almacenados

@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Share2,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
@@ -274,6 +275,62 @@ export default function HcePage() {
     setReagendadaExito(false);
     setSaveStatus("idle");
     setLastSavedTime("");
+  };
+
+  // Cálculo Obstétrico Automático por Regla de Naegele y Semanas Gestacionales
+  const handleFurChange = (val: string) => {
+    setFur(val);
+    if (!val) return;
+    try {
+      const parts = val.split("-").map(Number);
+      if (parts.length === 3 && parts[0] > 1900 && parts[1] >= 1 && parts[1] <= 12 && parts[2] >= 1) {
+        const furDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        if (!isNaN(furDate.getTime())) {
+          // Regla de Naegele: FUR + 7 días + 1 año - 3 meses (280 días)
+          const fppDate = new Date(furDate);
+          fppDate.setDate(fppDate.getDate() + 280);
+          const fppIso = fppDate.toISOString().split("T")[0];
+          setFpp(fppIso);
+
+          // Semanas de Gestación al día de hoy
+          const today = new Date();
+          const diffMs = today.getTime() - furDate.getTime();
+          if (diffMs > 0) {
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const weeks = Math.floor(diffDays / 7);
+            const days = diffDays % 7;
+            if (weeks >= 0 && weeks <= 43) {
+              setEg(`${weeks}.${days} sem`);
+            }
+          }
+        }
+      }
+    } catch {}
+  };
+
+  // Semáforo Obstétrico de Alerta Temprana (MEOWS)
+  const isHipertension = (() => {
+    if (!pa) return false;
+    const parts = pa.split(/[\/\-]/).map((p) => parseInt(p.trim(), 10));
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return parts[0] >= 140 || parts[1] >= 90;
+    }
+    return false;
+  })();
+
+  const isHipoxia = (() => {
+    if (!satO2) return false;
+    const val = parseFloat(satO2);
+    return !isNaN(val) && val > 0 && val < 95;
+  })();
+
+  // Macros Clínicas Rápidas de 1 Clic
+  const insertarMacroExamen = (texto: string) => {
+    setExamenFisico((prev) => (prev ? `${prev}\n${texto}` : texto));
+  };
+
+  const insertarMacroPlan = (texto: string) => {
+    setPlanTratamiento((prev) => (prev ? `${prev}\n${texto}` : texto));
   };
 
   // ============================================================================
@@ -887,13 +944,32 @@ export default function HcePage() {
       return;
     }
     try {
-      await supabase.from("cita_reagendada").insert({
-        paciente_nombre: selectedPatient.paciente,
-        fecha: reagendarFecha,
-        hora: reagendarHora,
-        motivo: reagendarMotivo,
-        site_id: reagendarSede === "Vivanco" ? "b0000000-0000-0000-0000-000000000002" : "b0000000-0000-0000-0000-000000000001",
+      const siteId = normalizarSede(reagendarSede) === "Vivanco"
+        ? "b0000000-0000-0000-0000-000000000002"
+        : "b0000000-0000-0000-0000-000000000001";
+
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("reprogramar_cita_y_retirar_espera", {
+        p_encuentro_id: selectedPatient.id || null,
+        p_paciente_nombre: selectedPatient.paciente,
+        p_telefono: selectedPatient.telefono || null,
+        p_fecha: reagendarFecha,
+        p_hora: reagendarHora,
+        p_motivo: reagendarMotivo,
+        p_site_id: siteId,
+        p_usuario_nombre: profesionalNombre,
       });
+
+      if (rpcErr || !rpcRes?.success) {
+        await supabase.from("cita_reagendada").insert({
+          paciente_nombre: selectedPatient.paciente,
+          telefono: selectedPatient.telefono || null,
+          fecha: reagendarFecha,
+          hora: reagendarHora,
+          motivo: reagendarMotivo,
+          site_id: siteId,
+          estado: "PROGRAMADA",
+        });
+      }
     } catch {}
     setReagendadaExito(true);
     setTimeout(() => setReagendadaExito(false), 4000);
@@ -1465,8 +1541,16 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={pa}
                   onChange={(e) => setPa(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono font-semibold"
+                  placeholder="120/80"
+                  className={`w-full px-2 py-1 border rounded font-mono font-semibold ${
+                    isHipertension ? "border-rose-400 bg-rose-50 text-rose-900" : "border-neutral-200"
+                  }`}
                 />
+                {isHipertension && (
+                  <span className="text-[9px] font-bold text-rose-700 bg-rose-100/80 px-1 py-0.5 rounded block mt-0.5 leading-tight">
+                    ⚠️ Alerta MEOWS: PA Elevada (Descartar Preeclampsia)
+                  </span>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] text-neutral-500 mb-0.5">F.C. (lpm)</label>
@@ -1495,8 +1579,15 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={satO2}
                   onChange={(e) => setSatO2(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono"
+                  className={`w-full px-2 py-1 border rounded font-mono ${
+                    isHipoxia ? "border-amber-400 bg-amber-50 text-amber-900 font-bold" : "border-neutral-200"
+                  }`}
                 />
+                {isHipoxia && (
+                  <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1 py-0.5 rounded block mt-0.5 leading-tight">
+                    ⚠️ SatO2 &lt; 95%
+                  </span>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] text-neutral-500 mb-0.5">Peso (kg)</label>
@@ -1523,9 +1614,14 @@ export default function HcePage() {
 
           {/* Módulo Obstétrico Especializado */}
           <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2">
-            <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider block border-b border-neutral-100 pb-1">
-              2. Parámetros Materno-Fetales
-            </span>
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
+              <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
+                2. Parámetros Materno-Fetales
+              </span>
+              <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                Regla Naegele Activa
+              </span>
+            </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -1536,6 +1632,7 @@ export default function HcePage() {
                     disabled={isSealed}
                     value={formulaG}
                     onChange={(e) => setFormulaG(e.target.value)}
+                    placeholder="G"
                     className="w-1/2 px-1.5 py-1 border border-neutral-200 rounded font-mono text-center font-bold"
                   />
                   <input
@@ -1543,6 +1640,7 @@ export default function HcePage() {
                     disabled={isSealed}
                     value={formulaP}
                     onChange={(e) => setFormulaP(e.target.value)}
+                    placeholder="P"
                     className="w-1/2 px-1.5 py-1 border border-neutral-200 rounded font-mono text-center font-bold"
                   />
                 </div>
@@ -1554,16 +1652,17 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={eg}
                   onChange={(e) => setEg(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono"
+                  placeholder="Auto por FUR"
+                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono font-bold text-brand-900 bg-brand-50/20"
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-neutral-500 mb-0.5">F.U.R.</label>
+                <label className="block text-[10px] text-neutral-500 mb-0.5">F.U.R. (Inicio)</label>
                 <input
                   type="date"
                   disabled={isSealed}
                   value={fur}
-                  onChange={(e) => setFur(e.target.value)}
+                  onChange={(e) => handleFurChange(e.target.value)}
                   className="w-full px-1.5 py-1 border border-neutral-200 rounded font-mono text-[10px]"
                 />
               </div>
@@ -1574,7 +1673,7 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={fpp}
                   onChange={(e) => setFpp(e.target.value)}
-                  className="w-full px-1.5 py-1 border border-neutral-200 rounded font-mono text-[10px]"
+                  className="w-full px-1.5 py-1 border border-neutral-200 rounded font-mono text-[10px] font-semibold text-emerald-800 bg-emerald-50/20"
                 />
               </div>
               <div>
@@ -1622,9 +1721,15 @@ export default function HcePage() {
                   Este registro clínico fue sellado digitalmente{fechaSellado ? ` el ${fechaSellado}` : ""}. Los campos de anamnesis, examen físico, CIE-10 y plan terapéutico han quedado bloqueados contra edición. Toda anotación complementaria o de evolución médica debe realizarse en el <strong>Bloque de Adendas Evolutivas</strong> (panel derecho).
                 </p>
                 {sealedHash && (
-                  <p className="text-[10px] font-mono text-emerald-800 mt-1.5 break-all bg-emerald-100/70 p-1.5 rounded border border-emerald-200">
-                    Sello Digital SHA-256: {sealedHash}
-                  </p>
+                  <div className="mt-2.5 p-2 rounded-xl bg-white border border-emerald-300 shadow-2xs flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-emerald-900 block">Sello Criptográfico Digital SHA-256</span>
+                      <p className="text-[10px] font-mono font-bold text-emerald-800 truncate select-all">{sealedHash}</p>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -1660,9 +1765,30 @@ export default function HcePage() {
 
           {/* Examen Físico Segmentario & Ginecológico */}
           <div>
-            <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-              5. Examen Físico Preferencial / Especuloscopía
-            </label>
+            <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+              <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
+                5. Examen Físico Preferencial / Especuloscopía
+              </label>
+              {!isSealed && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
+                  <button
+                    type="button"
+                    onClick={() => insertarMacroExamen("Ecografía Obstétrica: Feto único activo, situación longitudinal, presentación cefálica. LCF presentes rítmicos. Placenta corporal posterior Grado I. Líquido amniótico en volumen normal.")}
+                    className="text-[9px] bg-brand-50 hover:bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded border border-brand-200 font-medium transition"
+                  >
+                    + Eco Obstétrica Normal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertarMacroExamen("Examen Ginecológico: Abdomen blando, depresible, no doloroso. Genitales externos conservados. Especuloscopía: Cérvix eutrófico, sin sangrado ni leucorrea.")}
+                    className="text-[9px] bg-brand-50 hover:bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded border border-brand-200 font-medium transition"
+                  >
+                    + Gineco Normal
+                  </button>
+                </div>
+              )}
+            </div>
             <textarea
               rows={2}
               disabled={isSealed}
@@ -1768,9 +1894,30 @@ export default function HcePage() {
 
           {/* Plan de Trabajo & Receta Médica DCI */}
           <div>
-            <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-              7. Plan de Trabajo & Prescripción (DCI)
-            </label>
+            <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+              <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
+                7. Plan de Trabajo & Prescripción (DCI)
+              </label>
+              {!isSealed && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
+                  <button
+                    type="button"
+                    onClick={() => insertarMacroPlan("1. Sulfato ferroso + Ácido fólico 1 tab/día VO.\n2. Ecografía morfológica de control.\n3. Signos de alarma explicados: cefalea intensa, escotomas, pérdidas vaginales.\n4. Próximo control prenatal en 4 semanas.")}
+                    className="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 font-medium transition"
+                  >
+                    + Control Prenatal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertarMacroPlan("1. Reposo relativo por 48 horas.\n2. Medidas higiénico-dietéticas.\n3. Reevaluación ecográfica en caso de dolor o sangrado.")}
+                    className="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 font-medium transition"
+                  >
+                    + Plan Ambulatorio
+                  </button>
+                </div>
+              )}
+            </div>
             <textarea
               rows={3}
               disabled={isSealed}
@@ -1987,9 +2134,14 @@ export default function HcePage() {
 
           {/* Certificado de Integridad / Sello */}
           {isSealed && sealedHash && (
-            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[10px] font-mono text-emerald-800 space-y-0.5">
-              <span className="font-bold block font-sans">Historia Sellada e Inmutable</span>
-              <p className="break-all text-emerald-700">SHA-256: {sealedHash}</p>
+            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl shadow-2xs space-y-1">
+              <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-xs">
+                <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>Historia Clínica Sellada e Inalterable</span>
+              </div>
+              <p className="text-[10px] font-mono text-emerald-800 break-all select-all bg-white p-1.5 rounded-lg border border-emerald-200">
+                SHA-256: {sealedHash}
+              </p>
             </div>
           )}
         </div>
@@ -2015,7 +2167,7 @@ export default function HcePage() {
       {/* Modal Agregar Adenda */}
       {showAdendaModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-5 max-w-md w-full shadow-xl border border-neutral-200 space-y-3">
+          <div className="bg-white rounded-2xl p-5 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-xl border border-neutral-200 space-y-3">
             <h3 className="font-bold text-sm text-neutral-900">Incorporar Adenda Inmutable (NTS N.º 139)</h3>
             <p className="text-xs text-neutral-500">
               Las notas cerradas no admiten modificación directa. Toda aclaración, ampliación o corrección se anexa con fecha, autor y hash digital inalterable.
@@ -2061,7 +2213,7 @@ export default function HcePage() {
       {/* Modal Reabrir Caso Clínico (Reversión Auditada) */}
       {showReabrirModal && encuentroAReabrir && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-5 max-w-md w-full shadow-xl border border-neutral-200 space-y-3">
+          <div className="bg-white rounded-2xl p-5 max-w-md w-full max-h-[92vh] overflow-y-auto shadow-xl border border-neutral-200 space-y-3">
             <div className="flex items-center gap-2 text-neutral-900 border-b border-neutral-100 pb-2">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
               <h3 className="font-bold text-sm">Reabrir Caso Clínico (Reversión Auditada)</h3>
