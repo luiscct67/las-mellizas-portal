@@ -229,13 +229,15 @@ export default function SplitLoginView() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
-              Gestión Clínica y Financiera de Alta Disponibilidad
-            </h2>
-            <p className="text-xs sm:text-sm text-neutral-300/90 leading-relaxed font-normal">
-              Acceso unificado para el flujo continuo de admisión, notas médicas obstétricas confidenciales y balance de caja en tiempo real.
-            </p>
+          <div className="pt-3">
+            <div className="flex items-baseline gap-2.5 flex-wrap">
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-none">
+                Gestión Clínica
+              </h2>
+              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-white/10 text-brand-200 border border-white/15">
+                v2.6
+              </span>
+            </div>
           </div>
         </div>
 
@@ -251,7 +253,7 @@ export default function SplitLoginView() {
 
           <div className="space-y-2.5">
             {/* Sede Independencia */}
-            <div className="p-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 backdrop-blur-sm transition flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 backdrop-blur-sm transition flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-brand-900/50 border border-brand-700/50 flex items-center justify-center text-brand-200">
                   <Building2 className="w-4 h-4" />
@@ -268,7 +270,7 @@ export default function SplitLoginView() {
             </div>
 
             {/* Sede Vivanco */}
-            <div className="p-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 backdrop-blur-sm transition flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 backdrop-blur-sm transition flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-purple-900/50 border border-purple-700/50 flex items-center justify-center text-purple-200">
                   <Building2 className="w-4 h-4" />
@@ -281,23 +283,6 @@ export default function SplitLoginView() {
               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-bold text-emerald-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span>En línea</span>
-              </div>
-            </div>
-
-            {/* Servidor Cloud Seguro */}
-            <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-sm flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-blue-900/40 border border-blue-700/40 flex items-center justify-center text-blue-200">
-                  <Server className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-white leading-tight">Nube Clínica Cifrada</h4>
-                  <p className="text-[10px] text-neutral-400">Supabase Enterprise &bull; Cifrado TLS 1.3 / Reposo AES-256</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/30 text-[10px] font-bold text-blue-300">
-                <Lock className="w-3 h-3 text-blue-300" />
-                <span>Zero Trust</span>
               </div>
             </div>
           </div>
