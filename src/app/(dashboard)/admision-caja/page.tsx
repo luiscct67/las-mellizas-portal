@@ -344,6 +344,13 @@ export default function AdmisionCajaPage() {
   const [dniPaseDirecto, setDniPaseDirecto] = useState("");
   const [dniPaseError, setDniPaseError] = useState<string | null>(null);
   const [dniPaseLoading, setDniPaseLoading] = useState(false);
+  const [dniPaseCoincidencia, setDniPaseCoincidencia] = useState<{
+    encontrado: boolean;
+    nombres?: string;
+    apellidos?: string;
+    dni?: string;
+  } | null>(null);
+  const [buscandoDniPase, setBuscandoDniPase] = useState(false);
 
   // Formulario Admisión & Carrito Multiservicios
   const [dni, setDni] = useState("");
@@ -915,6 +922,40 @@ export default function AdmisionCajaPage() {
       setCitaValidandoDni(cita);
       setDniPaseDirecto("");
       setDniPaseError(null);
+      setDniPaseCoincidencia(null);
+    }
+  };
+
+  // Verificación reactiva de DNI en modal de Pase Directo
+  const handleDniPaseChange = async (val: string) => {
+    const d = val.replace(/\D/g, "").slice(0, 8);
+    setDniPaseDirecto(d);
+    setDniPaseError(null);
+    if (d.length === 8) {
+      setBuscandoDniPase(true);
+      try {
+        const { data } = await supabase
+          .from("paciente")
+          .select("dni, nombres, apellidos")
+          .eq("dni", d)
+          .maybeSingle();
+        if (data) {
+          setDniPaseCoincidencia({
+            encontrado: true,
+            nombres: data.nombres,
+            apellidos: data.apellidos,
+            dni: data.dni,
+          });
+        } else {
+          setDniPaseCoincidencia({ encontrado: false });
+        }
+      } catch {
+        setDniPaseCoincidencia(null);
+      } finally {
+        setBuscandoDniPase(false);
+      }
+    } else {
+      setDniPaseCoincidencia(null);
     }
   };
 
@@ -5031,12 +5072,57 @@ export default function AdmisionCajaPage() {
                   autoFocus
                   maxLength={8}
                   value={dniPaseDirecto}
-                  onChange={(e) => setDniPaseDirecto(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  onChange={(e) => handleDniPaseChange(e.target.value)}
                   placeholder="Ej: 45892147"
                   className="w-full px-4 py-2.5 rounded-xl border border-neutral-300 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-brand-700"
                 />
-                <p className="text-[10px] text-neutral-500 mt-1 leading-normal">
-                  Obligatorio según la NTS N.º 139-MINSA para habilitar la Historia Clínica Electrónica y emisión de recetas y órdenes médicas.
+
+                {buscandoDniPase && (
+                  <div className="text-[11px] text-neutral-500 flex items-center gap-1.5 pt-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand-700" />
+                    <span>Consultando padrón clínico...</span>
+                  </div>
+                )}
+
+                {dniPaseCoincidencia && dniPaseCoincidencia.encontrado && (
+                  <div className="mt-2 p-3 rounded-2xl bg-blue-50 border border-blue-200 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-blue-900">
+                      <CheckCircle2 className="w-4 h-4 text-blue-700 shrink-0" />
+                      <span>Historia Clínica Existente en Padrón</span>
+                    </div>
+                    <p className="text-[11px] text-blue-800">
+                      Titular: <strong>{dniPaseCoincidencia.nombres} {dniPaseCoincidencia.apellidos}</strong> (DNI: {dniPaseCoincidencia.dni}).
+                    </p>
+                    {(() => {
+                      const nomCita = (citaValidandoDni?.paciente_nombre || "").toLowerCase();
+                      const nomPadron = `${dniPaseCoincidencia.nombres || ""} ${dniPaseCoincidencia.apellidos || ""}`.toLowerCase();
+                      const difiere = !nomCita.split(" ").some((part) => part.length > 2 && nomPadron.includes(part));
+                      if (difiere) {
+                        return (
+                          <div className="pt-1.5 mt-1 border-t border-blue-200 text-[10px] text-amber-900 font-bold flex items-start gap-1 leading-normal">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                            <span>
+                              ADVERTENCIA DE SEGURIDAD: El nombre agendado ("{citaValidandoDni?.paciente_nombre}") difiere del titular registrado. Verifique el DNI físico antes de confirmar para evitar cruce de historias.
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
+
+                {dniPaseCoincidencia && !dniPaseCoincidencia.encontrado && (
+                  <div className="mt-2 p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>
+                      DNI Nuevo: No tiene Historia previa. Se aperturará una nueva Historia Clínica para <strong>{citaValidandoDni?.paciente_nombre}</strong>.
+                    </span>
+                  </div>
+                )}
+
+                <p className="text-[10px] text-neutral-500 mt-1.5 leading-normal">
+                  Obligatorio según la NTS N° 139-MINSA/2018/DGAIN para habilitar la Historia Clínica Electrónica y emisión de recetas y órdenes médicas.
                 </p>
               </div>
 
