@@ -208,11 +208,11 @@ export default function SplitLoginView() {
         {/* 1. Encabezado de Marca & Membrete Oficial */}
         <div className="relative z-10 space-y-6">
           <div className="flex items-center gap-4">
-            <div className="p-2 sm:p-2.5 rounded-2xl bg-white shadow-xl shadow-black/30 border border-white/40 shrink-0 flex items-center justify-center">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 p-1 sm:p-1.5 rounded-2xl bg-white shadow-2xl shadow-black/40 border border-white/50 shrink-0 flex items-center justify-center overflow-hidden">
               <img
-                src="/logo-oficial.jpg"
+                src="/logo-oficial.jpg?v=2"
                 alt="Las Mellizas Perú"
-                className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-xl"
+                className="w-full h-full object-contain rounded-xl"
               />
             </div>
             <div>

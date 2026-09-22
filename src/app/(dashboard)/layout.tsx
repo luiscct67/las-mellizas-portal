@@ -213,11 +213,11 @@ export default function DashboardLayout({
           {/* Cabecera del Sidebar */}
           <div className="h-14 flex items-center justify-between px-3.5 border-b border-neutral-800">
             <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-7 h-7 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-8 h-8 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
                 <img
-                  src="/logo-oficial.jpg"
+                  src="/logo-oficial.jpg?v=2"
                   alt="Logo Las Mellizas"
-                  className="w-full h-full object-contain rounded-md"
+                  className="w-full h-full object-contain rounded-lg"
                 />
               </div>
               {!isCollapsed && (
