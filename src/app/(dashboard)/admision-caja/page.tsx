@@ -2630,9 +2630,13 @@ export default function AdmisionCajaPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {tabBandejaCitas === "PROXIMAS" && (
+                        {tabBandejaCitas === "PROXIMAS" ? (
                           <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200">
                             📅 {cita.fecha}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            📅 Hoy ({cita.fecha})
                           </span>
                         )}
                         <span className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-neutral-100 text-neutral-900 border border-neutral-200">
@@ -2668,7 +2672,7 @@ export default function AdmisionCajaPage() {
                       {cita.telefono && (
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-neutral-400" />
+                            <Phone className="w-3.5 h-3.5 text-neutral-400" />
                             {cita.telefono}
                           </span>
                           <a
@@ -2678,7 +2682,7 @@ export default function AdmisionCajaPage() {
                             title="Contactar por WhatsApp"
                             className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-0.5"
                           >
-                            <MessageSquare className="w-3 h-3 text-emerald-600" />
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                             <span>WhatsApp</span>
                           </a>
                         </div>
@@ -2694,17 +2698,15 @@ export default function AdmisionCajaPage() {
                         <UserPlus className="w-3.5 h-3.5 text-brand-700" />
                         <span>{estaEnEspera ? "Ver Admisión" : "+ Admitir"}</span>
                       </button>
-                      {tabBandejaCitas === "PROXIMAS" && (
-                        <button
-                          type="button"
-                          onClick={() => prepararModificacionCita(cita)}
-                          title="Cambiar fecha u hora de esta cita reagendada"
-                          className="py-1.5 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] rounded-xl border border-purple-200 transition flex items-center justify-center gap-1"
-                        >
-                          <Calendar className="w-3.5 h-3.5 text-purple-700" />
-                          <span>Modificar</span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => prepararModificacionCita(cita)}
+                        title={tabBandejaCitas === "PROXIMAS" ? "Cambiar fecha u hora de esta cita reagendada" : "Reprogramar o postergar cita de hoy"}
+                        className="py-1.5 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] rounded-xl border border-purple-200 transition flex items-center justify-center gap-1"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-purple-700" />
+                        <span>Modificar</span>
+                      </button>
                     </div>
                   </div>
                 );
