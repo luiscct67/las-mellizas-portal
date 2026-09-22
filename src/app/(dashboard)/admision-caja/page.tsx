@@ -337,6 +337,12 @@ export default function AdmisionCajaPage() {
   const [tabBandejaCitas, setTabBandejaCitas] = useState<"HOY" | "PROXIMAS">("HOY");
   const [cargandoCitasDelDia, setCargandoCitasDelDia] = useState(false);
 
+  // Modal de Identificación Sanitaria para Pase a Sala (NTS N.º 139-MINSA)
+  const [citaValidandoDni, setCitaValidandoDni] = useState<CitaAgendadaDia | null>(null);
+  const [dniPaseDirecto, setDniPaseDirecto] = useState("");
+  const [dniPaseError, setDniPaseError] = useState<string | null>(null);
+  const [dniPaseLoading, setDniPaseLoading] = useState(false);
+
   // Formulario Admisión & Carrito Multiservicios
   const [dni, setDni] = useState("");
   const [nombres, setNombres] = useState("");
@@ -728,32 +734,8 @@ export default function AdmisionCajaPage() {
     }
   };
 
-  // Pase Directo a Sala Médica (Controles de Seguimiento o Atenciones ya Canceladas - S/ 0.00)
-  const handleIngresarDirectoASala = async (cita: CitaAgendadaDia) => {
-    const yaEnEspera = transacciones.some(
-      (t) =>
-        t.estadoConsultorio === "EN_ESPERA" &&
-        (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
-          cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
-    );
-
-    if (yaEnEspera) {
-      alert(`El paciente "${cita.paciente_nombre}" ya se encuentra actualmente en la Sala de Espera médica.`);
-      return;
-    }
-
-    if (
-      !confirm(
-        `¿Confirmar ingreso directo a Sala de Espera médica para:\n"${cita.paciente_nombre}"?\n\n` +
-          `• Motivo: ${cita.motivo}\n` +
-          `• Sede: Sede ${normalizarSede(sede)}\n` +
-          `• Modalidad: Control de Seguimiento / Previo (S/ 0.00)\n\n` +
-          `El paciente aparecerá inmediatamente en la pantalla del médico/obstetra.`
-      )
-    ) {
-      return;
-    }
-
+  // 1. Ejecutar Pase Directo con DNI verificado NTS 139-MINSA
+  const ejecutarPaseDirecto = async (cita: CitaAgendadaDia, dniValidado: string) => {
     try {
       const siteId = getSiteId(sede);
       const rawNombre = (cita.paciente_nombre || "").trim();
@@ -761,32 +743,29 @@ export default function AdmisionCajaPage() {
       const nom = parts.length >= 2 ? parts.slice(0, -1).join(" ") : rawNombre;
       const ape = parts.length >= 2 ? parts.slice(-1).join(" ") : "Paciente";
 
-      // 1. Buscar o registrar paciente en la base de datos
-      let pacId: string | null = cita.paciente_id || null;
-      if (!pacId) {
-        const { data: pacEncontrado } = await supabase
-          .from("paciente")
-          .select("id")
-          .ilike("nombres", `%${nom}%`)
-          .limit(1)
-          .maybeSingle();
+      // 1. Buscar o registrar paciente con su DNI verificado
+      let pacId: string | null = null;
+      const { data: pacExistente } = await supabase
+        .from("paciente")
+        .select("id, dni, nombres, apellidos")
+        .eq("dni", dniValidado)
+        .maybeSingle();
 
-        if (pacEncontrado) {
-          pacId = pacEncontrado.id;
-        } else {
-          const dniTemp = Math.floor(10000000 + Math.random() * 90000000).toString();
-          const { data: nuevoPac } = await supabase
-            .from("paciente")
-            .insert({
-              dni: dniTemp,
-              nombres: nom,
-              apellidos: ape,
-              telefono: cita.telefono || "000000000",
-            })
-            .select("id")
-            .single();
-          if (nuevoPac) pacId = nuevoPac.id;
-        }
+      if (pacExistente) {
+        pacId = pacExistente.id;
+      } else {
+        const { data: nuevoPac, error: pErr } = await supabase
+          .from("paciente")
+          .insert({
+            dni: dniValidado,
+            nombres: nom,
+            apellidos: ape,
+            telefono: cita.telefono || "000000000",
+          })
+          .select("id")
+          .single();
+        if (pErr) throw pErr;
+        pacId = nuevoPac?.id || null;
       }
 
       // 2. Insertar encuentro asistencial directo con S/ 0.00 en EN_ESPERA
@@ -795,7 +774,7 @@ export default function AdmisionCajaPage() {
         .insert({
           paciente_id: pacId,
           site_id: siteId,
-          servicio_solicitado: cita.motivo,
+          servicio_solicitado: `Control / Reagendado: ${cita.motivo}`,
           estado: "EN_ESPERA",
           fecha_hora: new Date().toISOString(),
         })
@@ -804,11 +783,12 @@ export default function AdmisionCajaPage() {
 
       if (encErr) throw encErr;
 
-      // 3. Si la cita estaba en cita_reagendada, marcarla asociada al encuentro
+      // 3. Vincular con cita_reagendada si aplica
       if (cita.id && !cita.id.startsWith("TEMP-")) {
         await supabase
           .from("cita_reagendada")
           .update({
+            paciente_id: pacId,
             encuentro_id: nuevoEncuentro?.id || null,
             updated_at: new Date().toISOString(),
           })
@@ -825,6 +805,7 @@ export default function AdmisionCajaPage() {
             paciente: cita.paciente_nombre,
             servicio: cita.motivo,
             sede: normalizarSede(sede),
+            dni: dniValidado,
           },
         });
       } catch {}
@@ -832,17 +813,76 @@ export default function AdmisionCajaPage() {
       // 5. Refrescar datos en vivo
       await cargarTransaccionesDelDia(sede, turnoActivo?.fechaApertura);
       await cargarCitasDelDia(sede);
+      setCitaValidandoDni(null);
 
       alert(
-        `✅ Pase a Sala registrado exitosamente:\n\n` +
+        `✅ Pase a Sala Médica Confirmado (NTS N.º 139):\n\n` +
           `• Paciente: ${cita.paciente_nombre}\n` +
+          `• DNI Vinculado: ${dniValidado}\n` +
           `• Modalidad: Control / Ya Pagado (S/ 0.00)\n` +
           `• Sede: Sede ${normalizarSede(sede)}\n\n` +
-          `Ya está disponible en la pantalla del consultorio médico para su atención.`
+          `La Historia Clínica Electrónica ha sido habilitada en la pantalla del médico.`
       );
     } catch (err: any) {
       console.error("Error al ingresar directo a sala:", err);
       alert(`Error al registrar pase a sala: ${err?.message || String(err)}`);
+    }
+  };
+
+  // Pase Directo a Sala Médica (Controles de Seguimiento o Atenciones ya Canceladas - S/ 0.00)
+  const handleIngresarDirectoASala = async (cita: CitaAgendadaDia) => {
+    const yaEnEspera = transacciones.some(
+      (t) =>
+        t.estadoConsultorio === "EN_ESPERA" &&
+        (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+          cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
+    );
+
+    if (yaEnEspera) {
+      alert(`El paciente "${cita.paciente_nombre}" ya se encuentra actualmente en la Sala de Espera médica.`);
+      return;
+    }
+
+    // Buscar si ya tiene DNI válido registrado
+    let dniExistente: string | null = null;
+    const rawNombre = (cita.paciente_nombre || "").trim();
+    const parts = rawNombre.split(" ").filter(Boolean);
+    const nom = parts.length >= 2 ? parts.slice(0, -1).join(" ") : rawNombre;
+
+    try {
+      if (cita.paciente_id) {
+        const { data: p } = await supabase.from("paciente").select("dni").eq("id", cita.paciente_id).maybeSingle();
+        if (p?.dni && p.dni.length === 8 && /^\d+$/.test(p.dni)) {
+          dniExistente = p.dni;
+        }
+      }
+      if (!dniExistente) {
+        const { data: p } = await supabase.from("paciente").select("dni").ilike("nombres", `%${nom}%`).limit(1).maybeSingle();
+        if (p?.dni && p.dni.length === 8 && /^\d+$/.test(p.dni)) {
+          dniExistente = p.dni;
+        }
+      }
+    } catch {}
+
+    if (dniExistente) {
+      if (
+        !confirm(
+          `¿Confirmar ingreso directo a Sala de Espera médica para:\n"${cita.paciente_nombre}"?\n\n` +
+            `• DNI Verificado: ${dniExistente}\n` +
+            `• Motivo: ${cita.motivo}\n` +
+            `• Sede: Sede ${normalizarSede(sede)}\n` +
+            `• Modalidad: Control de Seguimiento / Previo (S/ 0.00)\n\n` +
+            `El paciente aparecerá inmediatamente en la pantalla del médico/obstetra.`
+        )
+      ) {
+        return;
+      }
+      await ejecutarPaseDirecto(cita, dniExistente);
+    } else {
+      // NTS N.º 139-MINSA: Solicitar DNI formal para vincular Historia Clínica Electrónica
+      setCitaValidandoDni(cita);
+      setDniPaseDirecto("");
+      setDniPaseError(null);
     }
   };
 
@@ -2505,6 +2545,14 @@ export default function AdmisionCajaPage() {
     const diferencia = efectivoContado - efectivoNetoEsperado;
     const now = new Date();
 
+    // Auditoría NTS-139: Si existen pacientes en espera al momento del arqueo, registrarlos formalmente
+    const pacientesEnEsperaTurno = transacciones.filter((t) => t.estadoConsultorio === "EN_ESPERA");
+    let obsAuditadas = (observacionesCierre || "").trim();
+    if (pacientesEnEsperaTurno.length > 0) {
+      const notaEspera = `[AUDITORÍA NTS-139: Cierre con ${pacientesEnEsperaTurno.length} paciente(s) en espera: ${pacientesEnEsperaTurno.map((p) => p.paciente).join(", ")}]`;
+      obsAuditadas = obsAuditadas ? `${obsAuditadas} | ${notaEspera}` : notaEspera;
+    }
+
     // Actualizar cierre en Supabase con condición atómica estado = ABIERTA (Prevención de condición de carrera)
     if (turnoActivo?.id && !turnoActivo.id.startsWith("TURNO-")) {
       try {
@@ -2519,7 +2567,7 @@ export default function AdmisionCajaPage() {
             total_egresos: totalEgresos,
             efectivo_neto_esperado: efectivoNetoEsperado,
             diferencia: diferencia,
-            observaciones: observacionesCierre,
+            observaciones: obsAuditadas,
           })
           .eq("id", turnoActivo.id)
           .eq("estado", "ABIERTA")
@@ -2570,7 +2618,7 @@ export default function AdmisionCajaPage() {
       efectivoContado: efectivoContado,
       diferencia,
       totalBruto: totalFacturadoBruto,
-      observaciones: observacionesCierre,
+      observaciones: obsAuditadas,
     };
 
     setActaCierre(acta);
@@ -4669,6 +4717,53 @@ export default function AdmisionCajaPage() {
 
             {!actaCierre ? (
               <div className="space-y-3">
+                {/* Alerta Operativa: Pacientes Pendientes en Sala Médica (Lado B) */}
+                {(() => {
+                  const pendientesEnSala = transacciones.filter((t) => t.estadoConsultorio === "EN_ESPERA");
+                  if (pendientesEnSala.length === 0) return null;
+                  return (
+                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-950 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-black text-amber-900 block">
+                            ADVERTENCIA OPERATIVA: {pendientesEnSala.length} paciente(s) aún en Sala de Espera médica
+                          </span>
+                          <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                            Existen atenciones con ingreso registrado que aún no han sido concluidas en consultorio:
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 pl-6">
+                        {pendientesEnSala.map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between text-[11px] bg-white p-2 rounded-xl border border-amber-200 shadow-xs"
+                          >
+                            <div className="truncate pr-2">
+                              <span className="font-bold text-neutral-900 block leading-tight truncate">{p.paciente}</span>
+                              <span className="text-[10px] text-neutral-500 font-mono truncate block">{p.servicio}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelarEncuentroDirecto(p)}
+                              title="Retirar paciente de sala si se retiró sin atención"
+                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] rounded-lg border border-rose-200 transition shrink-0"
+                            >
+                              Retirar Deserción
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="text-[10px] text-amber-700 italic pl-6">
+                        Nota: Al proceder con el cierre, la lista de pacientes pendientes quedará registrada en el Acta de Auditoría.
+                      </p>
+                    </div>
+                  );
+                })()}
+
                 <div className="bg-neutral-50 p-3.5 rounded-2xl border border-neutral-200 text-xs space-y-1.5">
                   <div className="flex justify-between font-bold text-neutral-800">
                     <span>(+) Fondo Inicial de Apertura:</span>
@@ -4813,6 +4908,122 @@ export default function AdmisionCajaPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Identificación Sanitaria Obligatoria (NTS N.º 139-MINSA) */}
+      {citaValidandoDni && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-neutral-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center">
+                  <Stethoscope className="w-4 h-4 text-brand-700" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-neutral-900 leading-tight">
+                    Pase Directo a Sala Médica
+                  </h3>
+                  <span className="text-[10px] font-bold text-brand-700 uppercase tracking-wider">
+                    NTS N.º 139-MINSA &bull; Historia Clínica
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCitaValidandoDni(null)}
+                className="text-neutral-400 hover:text-neutral-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-neutral-500 font-medium">Paciente:</span>
+                <span className="font-bold text-neutral-900">{citaValidandoDni.paciente_nombre}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500 font-medium">Motivo / Servicio:</span>
+                <span className="font-bold text-neutral-800 truncate max-w-[200px]" title={citaValidandoDni.motivo}>
+                  {citaValidandoDni.motivo}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500 font-medium">Sede:</span>
+                <span className="font-bold text-purple-900">Sede {normalizarSede(sede)}</span>
+              </div>
+              <div className="flex justify-between text-emerald-700 font-bold pt-1 border-t border-neutral-200">
+                <span>Costo de Atención:</span>
+                <span>S/ 0.00 (Control / Previo)</span>
+              </div>
+            </div>
+
+            {dniPaseError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{dniPaseError}</span>
+              </div>
+            )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const d = dniPaseDirecto.trim();
+                if (d.length !== 8 || !/^\d{8}$/.test(d)) {
+                  setDniPaseError("Ingrese un DNI válido de exactamente 8 dígitos numéricos (NTS N.º 139-MINSA).");
+                  return;
+                }
+                setDniPaseLoading(true);
+                setDniPaseError(null);
+                try {
+                  await ejecutarPaseDirecto(citaValidandoDni, d);
+                } catch (err: any) {
+                  setDniPaseError(err?.message || "Error al registrar el pase a sala médica.");
+                } finally {
+                  setDniPaseLoading(false);
+                }
+              }}
+              className="space-y-3.5"
+            >
+              <div>
+                <label className="block text-xs font-bold text-neutral-800 mb-1">
+                  DNI o Carnet de Extranjería (8 dígitos) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  maxLength={8}
+                  value={dniPaseDirecto}
+                  onChange={(e) => setDniPaseDirecto(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  placeholder="Ej: 45892147"
+                  className="w-full px-4 py-2.5 rounded-xl border border-neutral-300 text-sm font-mono font-bold focus:outline-none focus:ring-2 focus:ring-brand-700"
+                />
+                <p className="text-[10px] text-neutral-500 mt-1 leading-normal">
+                  Obligatorio según la NTS N.º 139-MINSA para habilitar la Historia Clínica Electrónica y emisión de recetas y órdenes médicas.
+                </p>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCitaValidandoDni(null)}
+                  className="w-1/3 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold text-xs rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={dniPaseLoading || dniPaseDirecto.trim().length !== 8}
+                  className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{dniPaseLoading ? "Registrando..." : "Confirmar Pase a Sala"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
