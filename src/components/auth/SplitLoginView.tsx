@@ -383,17 +383,20 @@ export default function SplitLoginView() {
             </div>
           )}
 
-          {/* Formulario Ciego de Autenticación */}
-          <form onSubmit={handleLogin} className="space-y-4">
+          {/* Formulario Ciego de Autenticación (Sin Autoguardado ni Relleno de Contraseñas) */}
+          <form onSubmit={handleLogin} autoComplete="off" className="space-y-4">
             <div>
               <label className="block text-[11px] font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
                 Correo Institucional
               </label>
               <input
-                type="email"
+                type="text"
+                name="lm_user_id"
                 required
                 autoFocus
-                autoComplete="username"
+                autoComplete="off"
+                spellCheck={false}
+                data-lpignore="true"
                 value={email}
                 onChange={(e) => {
                   const sanitized = e.target.value
@@ -427,8 +430,11 @@ export default function SplitLoginView() {
               </div>
               <input
                 type={showPassword ? "text" : "password"}
+                name="lm_security_token"
                 required
-                autoComplete="current-password"
+                autoComplete="new-password"
+                spellCheck={false}
+                data-lpignore="true"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••••••"
