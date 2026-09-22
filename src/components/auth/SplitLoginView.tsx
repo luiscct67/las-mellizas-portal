@@ -26,10 +26,16 @@ export default function SplitLoginView() {
   // Estados de formulario
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [sedePreferida, setSedePreferida] = useState<"Independencia" | "Vivanco">("Independencia");
+  const [sedeManual, setSedeManual] = useState<"Independencia" | "Vivanco" | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Sede calculada: si el usuario hace clic manual la respeta; si no, autodetecta según la cuenta ingresada
+  const emailNormLive = normalizarEmail(email);
+  const cuentaLive = emailNormLive ? obtenerCuentaAutorizada(emailNormLive) : null;
+  const sedeActivaCalculada: "Independencia" | "Vivanco" =
+    sedeManual || (cuentaLive?.sede === "Vivanco" ? "Vivanco" : "Independencia");
 
   // Modal cambio obligatorio de contraseña en Supabase Auth
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -102,14 +108,14 @@ export default function SplitLoginView() {
       // 3. Consulta de perfil y rol
       const cuentaData = obtenerCuentaAutorizada(emailNorm);
       let userRole: string = cuentaData?.rol || "RECEPCION_CAJA";
-      let sedeNombre: string = sedePreferida || cuentaData?.sede || "Independencia";
+      let sedeNombre: string = sedeManual || cuentaData?.sede || "Independencia";
       let nombreCompleto: string = cuentaData?.nombre || "Personal Autorizado";
       let colegiatura: string = cuentaData?.colegiatura || "";
 
       if (emailNorm === "admin@lasmellizasperu.com") {
         userRole = "ADMIN";
         nombreCompleto = "Dirección Médica & Gestión";
-        sedeNombre = sedePreferida;
+        sedeNombre = sedeActivaCalculada;
       } else {
         try {
           const { data: profile } = await supabase
@@ -130,9 +136,11 @@ export default function SplitLoginView() {
             }
             userRole = profile.rol;
             nombreCompleto = profile.nombre_completo || nombreCompleto;
-            // Si el perfil tiene sede fija y no es admin, respeta su sede o la preferida elegida
-            if (profile.sede?.nombre) {
-              sedeNombre = sedePreferida || profile.sede.nombre;
+            // Si el usuario eligió sede manual, se respeta; sino la del perfil
+            if (sedeManual) {
+              sedeNombre = sedeManual;
+            } else if (profile.sede?.nombre) {
+              sedeNombre = profile.sede.nombre;
             }
             if (profile.colegiatura) colegiatura = profile.colegiatura;
           }
@@ -342,26 +350,26 @@ export default function SplitLoginView() {
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setSedePreferida("Independencia")}
+                onClick={() => setSedeManual("Independencia")}
                 className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-                  sedePreferida === "Independencia"
+                  sedeActivaCalculada === "Independencia"
                     ? "bg-brand-900 text-white border-brand-900 shadow-xs"
                     : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
                 }`}
               >
-                {sedePreferida === "Independencia" && <Check className="w-3.5 h-3.5 text-brand-200" />}
+                {sedeActivaCalculada === "Independencia" && <Check className="w-3.5 h-3.5 text-brand-200" />}
                 <span>Sede Independencia</span>
               </button>
               <button
                 type="button"
-                onClick={() => setSedePreferida("Vivanco")}
+                onClick={() => setSedeManual("Vivanco")}
                 className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-                  sedePreferida === "Vivanco"
+                  sedeActivaCalculada === "Vivanco"
                     ? "bg-brand-900 text-white border-brand-900 shadow-xs"
                     : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
                 }`}
               >
-                {sedePreferida === "Vivanco" && <Check className="w-3.5 h-3.5 text-brand-200" />}
+                {sedeActivaCalculada === "Vivanco" && <Check className="w-3.5 h-3.5 text-brand-200" />}
                 <span>Sede Vivanco</span>
               </button>
             </div>

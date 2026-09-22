@@ -849,6 +849,18 @@ export default function AdmisionCajaPage() {
     };
   }, []);
 
+  // Cambio dinámico e instantáneo de Sede Operativa
+  const cambiarSedeOperativa = (nuevaSede: string) => {
+    const sNorm = normalizarSede(nuevaSede);
+    if (normalizarSede(sede) === sNorm) return;
+    setSede(sNorm);
+    sessionStorage.setItem("lm_sede", sNorm);
+    cargarTurnoActivo(sNorm);
+    cargarProductosInventario(sNorm);
+    cargarCitasDelDia(sNorm);
+    window.dispatchEvent(new Event("storage"));
+  };
+
   // Búsqueda en tiempo real de paciente en Supabase por DNI
   const handleBuscarDNI = async (numDni: string) => {
     setDni(numDni);
@@ -2468,11 +2480,34 @@ export default function AdmisionCajaPage() {
             <DollarSign className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-xl font-black text-brand-900">Admisión & Caja Unificada</h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                <MapPin className="w-3 h-3" /> Sede {normalizarSede(sede)}
-              </span>
+              <div className="inline-flex items-center bg-neutral-100 p-0.5 rounded-xl border border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => cambiarSedeOperativa("Independencia")}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition flex items-center gap-1 ${
+                    normalizarSede(sede) === "Independencia"
+                      ? "bg-white text-emerald-800 shadow-xs border border-emerald-200"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  <MapPin className="w-3 h-3 text-emerald-600" />
+                  <span>Sede Independencia</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cambiarSedeOperativa("Vivanco")}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition flex items-center gap-1 ${
+                    normalizarSede(sede) === "Vivanco"
+                      ? "bg-white text-purple-900 shadow-xs border border-purple-200"
+                      : "text-neutral-500 hover:text-neutral-900"
+                  }`}
+                >
+                  <MapPin className="w-3 h-3 text-purple-700" />
+                  <span>Sede Vivanco</span>
+                </button>
+              </div>
             </div>
             <p className="text-xs text-neutral-500">
               Operador: <strong>{cajeroNombre}</strong> &bull; Flujo asistencial continuo sin fricción
