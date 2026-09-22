@@ -126,7 +126,7 @@ export const PADRON_OFICIAL_AUTORIZADO: CuentaOficial[] = [
   },
   // 11. Sede Vivanco - Admisión & Caja
   {
-    email: "admisión.viv2@lasmellizasperu.com",
+    email: "admision.viv2@lasmellizasperu.com",
     emailNormalized: "admision.viv2@lasmellizasperu.com",
     nombre: "Admisión & Caja Vivanco 2",
     rol: "RECEPCION_CAJA",
@@ -135,7 +135,7 @@ export const PADRON_OFICIAL_AUTORIZADO: CuentaOficial[] = [
   },
   // 12. Sede Independencia - Admisión & Caja
   {
-    email: "admisión.ind2@lasmellizasperu.com",
+    email: "admision.ind2@lasmellizasperu.com",
     emailNormalized: "admision.ind2@lasmellizasperu.com",
     nombre: "Admisión & Caja Independencia 2",
     rol: "RECEPCION_CAJA",
@@ -144,7 +144,7 @@ export const PADRON_OFICIAL_AUTORIZADO: CuentaOficial[] = [
   },
   // 13. Sede Vivanco - Admisión & Caja
   {
-    email: "admisión.viv1@lasmellizasperu.com",
+    email: "admision.viv1@lasmellizasperu.com",
     emailNormalized: "admision.viv1@lasmellizasperu.com",
     nombre: "Admisión & Caja Vivanco 1",
     rol: "RECEPCION_CAJA",

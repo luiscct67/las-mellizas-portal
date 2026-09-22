@@ -67,7 +67,7 @@ export default function SplitLoginView() {
     if (!isEmailAutorizado(emailNorm)) {
       setLoading(false);
       setErrorMsg(
-        "Acceso denegado: El correo ingresado no pertenece al padrón oficial autorizado de Las Mellizas Perú."
+        "Correo no reconocido en el padrón institucional. Verifique que esté escrito en minúsculas y sin tildes (ejemplo: admision.viv1@lasmellizasperu.com o admision.ind1@lasmellizasperu.com)."
       );
       return;
     }
@@ -95,8 +95,8 @@ export default function SplitLoginView() {
       if (error || !data?.user) {
         setErrorMsg(
           error?.message === "Invalid login credentials"
-            ? "Contraseña o correo incorrectos. Verifique sus credenciales institucionales."
-            : error?.message || "Error al autenticar en el servidor de seguridad."
+            ? "Contraseña o correo incorrectos. Por favor revise sus credenciales (recuerde escribir sin tildes ni espacios)."
+            : error?.message || "Error al conectar con el servidor de autenticación."
         );
         setLoading(false);
         return;
@@ -395,10 +395,20 @@ export default function SplitLoginView() {
                 autoFocus
                 autoComplete="username"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  const sanitized = e.target.value
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .toLowerCase()
+                    .replace(/\s+/g, "");
+                  setEmail(sanitized);
+                }}
                 placeholder="usuario@lasmellizasperu.com"
                 className="w-full px-4 py-3 rounded-2xl border border-neutral-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-700 transition bg-neutral-50/50 text-neutral-900"
               />
+              <p className="text-[10px] text-neutral-400 mt-1">
+                Escribir en minúsculas y sin tildes (ej: <span className="font-semibold text-neutral-600">admision.viv1@lasmellizasperu.com</span>)
+              </p>
             </div>
 
             <div>
