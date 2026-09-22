@@ -208,22 +208,22 @@ export default function SplitLoginView() {
         {/* 1. Encabezado de Marca & Membrete Oficial */}
         <div className="relative z-10 space-y-6">
           <div className="flex items-center gap-4">
-            <div className="p-2.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shadow-inner">
+            <div className="p-2 sm:p-2.5 rounded-2xl bg-white shadow-xl shadow-black/30 border border-white/40 shrink-0 flex items-center justify-center">
               <img
-                src="/logo.png"
+                src="/logo-oficial.jpg"
                 alt="Las Mellizas Perú"
-                className="w-14 h-14 object-contain drop-shadow"
+                className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-xl"
               />
             </div>
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-400/20 text-brand-200 border border-brand-300/30 text-[10px] font-black uppercase tracking-wider mb-1">
-                <ShieldCheck className="w-3 h-3 text-brand-300" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-400/20 text-brand-200 border border-brand-300/30 text-[10px] font-black uppercase tracking-wider mb-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-brand-300" />
                 <span>Portal Clínico Enterprise</span>
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                 Las Mellizas Perú S.A.C.
               </h1>
-              <p className="text-xs text-brand-200/80 font-medium">
+              <p className="text-xs text-brand-200/90 font-medium">
                 Consultorio Obstétrico Ecográfico &bull; RUC 20611827335
               </p>
             </div>
