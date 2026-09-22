@@ -93,7 +93,7 @@ interface TransaccionAtencion {
   telefono?: string;
   servicio: string;
   monto: number;
-  medioPago: "YAPE" | "PLIN" | "EFECTIVO" | "TARJETA_POS" | "TRANSFERENCIA" | "MIXTO";
+  medioPago: "YAPE" | "PLIN" | "EFECTIVO" | "TARJETA_POS" | "TRANSFERENCIA" | "MIXTO" | "CONTROL";
   referencia?: string;
   estadoConsultorio: "EN_ESPERA" | "EN_ATENCION" | "ATENDIDO" | "CANCELADO" | "REPROGRAMADO";
   sede: string;
@@ -110,6 +110,7 @@ interface ItemDispensacionMultiple {
 
 interface CitaAgendadaDia {
   id: string;
+  paciente_id?: string | null;
   paciente_nombre: string;
   telefono?: string | null;
   fecha: string;
@@ -117,6 +118,7 @@ interface CitaAgendadaDia {
   motivo: string;
   estado: "PROGRAMADA" | "ATENDIDA" | "CANCELADA";
   site_id?: string;
+  encuentro_id?: string | null;
   created_at?: string;
 }
 
@@ -495,10 +497,15 @@ export default function AdmisionCajaPage() {
       if (data) {
         const mapeadas: TransaccionAtencion[] = data.map((item: any) => {
           const pac = item.paciente || {};
-          const ord = item.orden_pago?.[0] || {};
-          const pag = ord.pago?.[0] || {};
+          const ord = item.orden_pago?.[0];
+          const pag = ord?.pago?.[0];
           const fecha = new Date(item.fecha_hora);
           const horaStr = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+          const tieneOrden = !!ord;
+          const montoReal = tieneOrden && ord.monto !== undefined && ord.monto !== null ? Number(ord.monto) : 0;
+          const medioPagoReal = tieneOrden && pag?.medio_pago ? (pag.medio_pago as any) : "CONTROL";
+          const refReal = tieneOrden && pag?.referencia ? pag.referencia : (montoReal === 0 ? "PASE_SALA_S0" : "VENTANILLA");
 
           return {
             id: `OP-${item.id.slice(0, 6).toUpperCase()}`,
@@ -508,9 +515,9 @@ export default function AdmisionCajaPage() {
             paciente: `${pac.nombres || ""} ${pac.apellidos || ""}`.trim() || "Paciente Registrado",
             telefono: pac.telefono || "",
             servicio: item.servicio_solicitado,
-            monto: Number(ord.monto) || 70,
-            medioPago: (pag.medio_pago as any) || "EFECTIVO",
-            referencia: pag.referencia || "VENTANILLA",
+            monto: montoReal,
+            medioPago: medioPagoReal,
+            referencia: refReal,
             estadoConsultorio: item.estado,
             sede: normalizarSede(item.sede?.nombre),
           };
@@ -662,7 +669,7 @@ export default function AdmisionCajaPage() {
       // 1. Citas programadas para HOY o PENDIENTES en esta sede (deduplicadas por paciente)
       const { data: dataHoy, error: errorHoy } = await supabase
         .from("cita_reagendada")
-        .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, created_at")
+        .select("id, paciente_id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, encuentro_id, created_at")
         .eq("site_id", siteId)
         .lte("fecha", hoyLocal)
         .neq("estado", "CANCELADA")
@@ -685,7 +692,7 @@ export default function AdmisionCajaPage() {
       // 2. Próximas citas reprogramadas (fechas futuras en esta sede, garantizando 1 sola tarjeta por paciente)
       const { data: dataFuturas, error: errorFuturas } = await supabase
         .from("cita_reagendada")
-        .select("id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, created_at")
+        .select("id, paciente_id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, encuentro_id, created_at")
         .eq("site_id", siteId)
         .neq("estado", "CANCELADA")
         .gt("fecha", hoyLocal)
@@ -753,6 +760,24 @@ export default function AdmisionCajaPage() {
 
       if (pacExistente) {
         pacId = pacExistente.id;
+        // Si el registro de paciente tenía un nombre sintético de prueba, actualizar con el nombre de la cita
+        if (
+          pacExistente.nombres?.toLowerCase().includes("ejm") ||
+          pacExistente.nombres?.toLowerCase().includes("test") ||
+          pacExistente.apellidos?.toLowerCase().includes("ejm") ||
+          pacExistente.nombres?.toLowerCase().includes("prueba")
+        ) {
+          try {
+            await supabase
+              .from("paciente")
+              .update({
+                nombres: nom,
+                apellidos: ape,
+                telefono: cita.telefono || pacExistente.telefono || "000000000",
+              })
+              .eq("id", pacExistente.id);
+          } catch {}
+        }
       } else {
         const { data: nuevoPac, error: pErr } = await supabase
           .from("paciente")
@@ -785,11 +810,18 @@ export default function AdmisionCajaPage() {
 
       // 3. Vincular con cita_reagendada si aplica
       if (cita.id && !cita.id.startsWith("TEMP-")) {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        const hoyLocal = `${year}-${month}-${day}`;
+
         await supabase
           .from("cita_reagendada")
           .update({
             paciente_id: pacId,
             encuentro_id: nuevoEncuentro?.id || null,
+            fecha: hoyLocal, // Si era cita futura, se actualiza a hoy porque el paciente se presentó hoy
             updated_at: new Date().toISOString(),
           })
           .eq("id", cita.id);
@@ -2811,7 +2843,8 @@ export default function AdmisionCajaPage() {
                 const estaEnEspera = transacciones.some(
                   (t) =>
                     t.estadoConsultorio === "EN_ESPERA" &&
-                    (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+                    ((cita.encuentro_id && t.encuentroId === cita.encuentro_id) ||
+                      t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
                       cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
                 );
                 const estaAtendida =
@@ -2819,7 +2852,8 @@ export default function AdmisionCajaPage() {
                   transacciones.some(
                     (t) =>
                       t.estadoConsultorio === "ATENDIDO" &&
-                      (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+                      ((cita.encuentro_id && t.encuentroId === cita.encuentro_id) ||
+                        t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
                         cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
                   );
 
