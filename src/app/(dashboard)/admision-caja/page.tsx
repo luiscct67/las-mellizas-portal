@@ -39,6 +39,7 @@ import {
   ArrowRightLeft,
   Phone,
   UserPlus,
+  Stethoscope,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
@@ -727,7 +728,125 @@ export default function AdmisionCajaPage() {
     }
   };
 
-  // Acción directa: Admitir y Cobrar Paciente con Cita Programada Hoy
+  // Pase Directo a Sala Médica (Controles de Seguimiento o Atenciones ya Canceladas - S/ 0.00)
+  const handleIngresarDirectoASala = async (cita: CitaAgendadaDia) => {
+    const yaEnEspera = transacciones.some(
+      (t) =>
+        t.estadoConsultorio === "EN_ESPERA" &&
+        (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+          cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
+    );
+
+    if (yaEnEspera) {
+      alert(`El paciente "${cita.paciente_nombre}" ya se encuentra actualmente en la Sala de Espera médica.`);
+      return;
+    }
+
+    if (
+      !confirm(
+        `¿Confirmar ingreso directo a Sala de Espera médica para:\n"${cita.paciente_nombre}"?\n\n` +
+          `• Motivo: ${cita.motivo}\n` +
+          `• Sede: Sede ${normalizarSede(sede)}\n` +
+          `• Modalidad: Control de Seguimiento / Previo (S/ 0.00)\n\n` +
+          `El paciente aparecerá inmediatamente en la pantalla del médico/obstetra.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const siteId = getSiteId(sede);
+      const rawNombre = (cita.paciente_nombre || "").trim();
+      const parts = rawNombre.split(" ").filter(Boolean);
+      const nom = parts.length >= 2 ? parts.slice(0, -1).join(" ") : rawNombre;
+      const ape = parts.length >= 2 ? parts.slice(-1).join(" ") : "Paciente";
+
+      // 1. Buscar o registrar paciente en la base de datos
+      let pacId: string | null = cita.paciente_id || null;
+      if (!pacId) {
+        const { data: pacEncontrado } = await supabase
+          .from("paciente")
+          .select("id")
+          .ilike("nombres", `%${nom}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (pacEncontrado) {
+          pacId = pacEncontrado.id;
+        } else {
+          const dniTemp = Math.floor(10000000 + Math.random() * 90000000).toString();
+          const { data: nuevoPac } = await supabase
+            .from("paciente")
+            .insert({
+              dni: dniTemp,
+              nombres: nom,
+              apellidos: ape,
+              telefono: cita.telefono || "000000000",
+            })
+            .select("id")
+            .single();
+          if (nuevoPac) pacId = nuevoPac.id;
+        }
+      }
+
+      // 2. Insertar encuentro asistencial directo con S/ 0.00 en EN_ESPERA
+      const { data: nuevoEncuentro, error: encErr } = await supabase
+        .from("encuentro")
+        .insert({
+          paciente_id: pacId,
+          site_id: siteId,
+          servicio_solicitado: cita.motivo,
+          estado: "EN_ESPERA",
+          fecha_hora: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (encErr) throw encErr;
+
+      // 3. Si la cita estaba en cita_reagendada, marcarla asociada al encuentro
+      if (cita.id && !cita.id.startsWith("TEMP-")) {
+        await supabase
+          .from("cita_reagendada")
+          .update({
+            encuentro_id: nuevoEncuentro?.id || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", cita.id);
+      }
+
+      // 4. Emitir broadcast en tiempo real para el módulo médico HCE
+      try {
+        const canalCola = supabase.channel("cola-medica");
+        await canalCola.send({
+          type: "broadcast",
+          event: "nuevo-paciente",
+          payload: {
+            paciente: cita.paciente_nombre,
+            servicio: cita.motivo,
+            sede: normalizarSede(sede),
+          },
+        });
+      } catch {}
+
+      // 5. Refrescar datos en vivo
+      await cargarTransaccionesDelDia(sede, turnoActivo?.fechaApertura);
+      await cargarCitasDelDia(sede);
+
+      alert(
+        `✅ Pase a Sala registrado exitosamente:\n\n` +
+          `• Paciente: ${cita.paciente_nombre}\n` +
+          `• Modalidad: Control / Ya Pagado (S/ 0.00)\n` +
+          `• Sede: Sede ${normalizarSede(sede)}\n\n` +
+          `Ya está disponible en la pantalla del consultorio médico para su atención.`
+      );
+    } catch (err: any) {
+      console.error("Error al ingresar directo a sala:", err);
+      alert(`Error al registrar pase a sala: ${err?.message || String(err)}`);
+    }
+  };
+
+  // Acción de Ventanilla: Cargar en Carrito para Cobrar Paciente con Cita Programada
   const handleAdmitirCita = (cita: CitaAgendadaDia) => {
     const rawNombre = (cita.paciente_nombre || "").trim();
     const parts = rawNombre.split(" ").filter(Boolean);
@@ -2724,20 +2843,44 @@ export default function AdmisionCajaPage() {
                       )}
                     </div>
 
-                    <div className="pt-1 border-t border-neutral-100 flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleAdmitirCita(cita)}
-                        className="flex-1 py-1.5 px-2 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-[11px] rounded-xl border border-brand-200 transition flex items-center justify-center gap-1"
-                      >
-                        <UserPlus className="w-3.5 h-3.5 text-brand-700" />
-                        <span>{estaEnEspera ? "Ver Admisión" : "+ Admitir"}</span>
-                      </button>
+                    <div className="pt-1.5 border-t border-neutral-100 flex items-center gap-1.5 flex-wrap">
+                      {estaEnEspera ? (
+                        <div className="flex-1 py-1.5 px-2 bg-amber-50 text-amber-800 font-extrabold text-[11px] rounded-xl border border-amber-200 text-center flex items-center justify-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
+                          <span>En Espera de Atención</span>
+                        </div>
+                      ) : estaAtendida ? (
+                        <div className="flex-1 py-1.5 px-2 bg-emerald-50 text-emerald-800 font-extrabold text-[11px] rounded-xl border border-emerald-200 text-center flex items-center justify-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Atención Concluida</span>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleIngresarDirectoASala(cita)}
+                            title="Ingresar directamente a la pantalla del médico sin cobro (Control de seguimiento o atención ya pagada previamente)"
+                            className="flex-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition flex items-center justify-center gap-1"
+                          >
+                            <Stethoscope className="w-3.5 h-3.5 text-white" />
+                            <span>Pase a Sala (S/ 0)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAdmitirCita(cita)}
+                            title="Cargar en caja para cobrar (si es una reserva telefónica que recién pagará en ventanilla)"
+                            className="py-1.5 px-2 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-[11px] rounded-xl border border-brand-200 transition flex items-center justify-center gap-1"
+                          >
+                            <DollarSign className="w-3.5 h-3.5 text-brand-700" />
+                            <span>Cobrar</span>
+                          </button>
+                        </>
+                      )}
                       <button
                         type="button"
                         onClick={() => prepararModificacionCita(cita)}
                         title={tabBandejaCitas === "PROXIMAS" ? "Cambiar fecha u hora de esta cita reagendada" : "Reprogramar o postergar cita de hoy"}
-                        className="py-1.5 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] rounded-xl border border-purple-200 transition flex items-center justify-center gap-1"
+                        className="py-1.5 px-2 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] rounded-xl border border-purple-200 transition flex items-center justify-center gap-1"
                       >
                         <Calendar className="w-3.5 h-3.5 text-purple-700" />
                         <span>Modificar</span>
