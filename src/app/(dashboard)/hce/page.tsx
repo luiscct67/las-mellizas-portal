@@ -419,6 +419,32 @@ export default function HcePage() {
             if (Array.isArray(imgList)) setImagenes(imgList);
           } catch {}
         }
+      } else if (p.pacienteId) {
+        // Cargar antecedentes y fórmula obstétrica histórica de la paciente
+        try {
+          const { data: ultNota } = await supabase
+            .from("nota_clinica")
+            .select("antecedentes, examen_fisico")
+            .eq("paciente_id", p.pacienteId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (ultNota && activeEncuentroIdRef.current === p.id) {
+            if (ultNota.antecedentes) setAntecedentes(ultNota.antecedentes);
+            if (ultNota.examen_fisico) {
+              try {
+                const ef = JSON.parse(ultNota.examen_fisico);
+                if (ef.formulaG) setFormulaG(ef.formulaG);
+                if (ef.formulaP) setFormulaP(ef.formulaP);
+                if (ef.fur) setFur(ef.fur);
+                if (ef.fpp) setFpp(ef.fpp);
+              } catch {}
+            }
+          }
+        } catch (errPrev) {
+          console.warn("Aviso al consultar antecedentes previos:", errPrev);
+        }
       }
     } catch (err) {
       console.warn("Error cargando nota clínica previa:", err);
@@ -1152,6 +1178,25 @@ export default function HcePage() {
 
       // Recargar cola de pacientes de Supabase
       await cargarColaEncuentros();
+
+      // Notificar a Admisión-Caja y otros módulos en tiempo real
+      try {
+        const canalCola = supabase.channel("cola-medica");
+        await canalCola.send({
+          type: "broadcast",
+          event: "paciente_atendido",
+          payload: {
+            encuentroId: selectedPatient.id,
+            paciente: selectedPatient.paciente,
+            dni: selectedPatient.dni,
+          },
+        });
+        if (typeof window !== "undefined") {
+          localStorage.setItem("lm_paciente_atendido", Date.now().toString());
+        }
+      } catch (broadcastErr) {
+        console.warn("Error enviando broadcast paciente_atendido:", broadcastErr);
+      }
     } catch (err: any) {
       alert("Error al sellar historia clínica:\n" + (err?.message || err));
     }

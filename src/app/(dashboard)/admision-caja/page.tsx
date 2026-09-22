@@ -479,6 +479,8 @@ export default function AdmisionCajaPage() {
           orden_pago (
             monto,
             pago (
+              id,
+              monto,
               medio_pago,
               referencia
             )
@@ -506,14 +508,34 @@ export default function AdmisionCajaPage() {
         const mapeadas: TransaccionAtencion[] = data.map((item: any) => {
           const pac = item.paciente || {};
           const ord = item.orden_pago?.[0];
-          const pag = ord?.pago?.[0];
+          const pagosRaw: any[] = Array.isArray(ord?.pago) ? ord.pago : (ord?.pago ? [ord.pago] : []);
           const fecha = new Date(item.fecha_hora);
           const horaStr = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
           const tieneOrden = !!ord;
           const montoReal = tieneOrden && ord.monto !== undefined && ord.monto !== null ? Number(ord.monto) : 0;
-          const medioPagoReal = tieneOrden && pag?.medio_pago ? (pag.medio_pago as any) : "CONTROL";
-          const refReal = tieneOrden && pag?.referencia ? pag.referencia : (montoReal === 0 ? "PASE_SALA_S0" : "VENTANILLA");
+
+          let medioPagoReal: any = "CONTROL";
+          let pagosMapeados: PagoFraccionado[] = [];
+
+          if (tieneOrden && pagosRaw.length > 0) {
+            pagosMapeados = pagosRaw.map((p, idx) => ({
+              id: p.id || `pago-${idx}-${Date.now()}`,
+              medio: p.medio_pago,
+              monto: Number(p.monto) || 0,
+              referencia: p.referencia || "",
+            }));
+
+            if (pagosRaw.length > 1) {
+              medioPagoReal = "MIXTO";
+            } else {
+              medioPagoReal = pagosRaw[0].medio_pago || "EFECTIVO";
+            }
+          }
+
+          const refReal = tieneOrden && pagosRaw.length > 0
+            ? (pagosRaw.map((p) => p.referencia).filter(Boolean).join(" / ") || "VENTANILLA")
+            : (montoReal === 0 ? "PASE_SALA_S0" : "VENTANILLA");
 
           return {
             id: `OP-${item.id.slice(0, 6).toUpperCase()}`,
@@ -528,6 +550,7 @@ export default function AdmisionCajaPage() {
             referencia: refReal,
             estadoConsultorio: item.estado,
             sede: normalizarSede(item.sede?.nombre),
+            pagos: pagosMapeados.length > 0 ? pagosMapeados : undefined,
           };
         });
         setTransacciones(mapeadas);
@@ -1057,6 +1080,10 @@ export default function AdmisionCajaPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "cita_reagendada" }, () => {
         cargarCitasDelDia(s);
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "encuentro" }, () => {
+        cargarTransaccionesDelDia(s, turnoActivo?.fechaApertura);
+        cargarCitasDelDia(s);
+      })
       .subscribe();
 
     const canalColaMedica = supabase
@@ -1065,10 +1092,18 @@ export default function AdmisionCajaPage() {
         cargarTransaccionesDelDia(s, turnoActivo?.fechaApertura);
         cargarCitasDelDia(s);
       })
+      .on("broadcast", { event: "paciente_atendido" }, () => {
+        cargarTransaccionesDelDia(s, turnoActivo?.fechaApertura);
+        cargarCitasDelDia(s);
+      })
+      .on("broadcast", { event: "nuevo-paciente" }, () => {
+        cargarTransaccionesDelDia(s, turnoActivo?.fechaApertura);
+        cargarCitasDelDia(s);
+      })
       .subscribe();
 
     const onStorageSync = (e: StorageEvent) => {
-      if (e.key === "lm_paciente_reprogramado") {
+      if (e.key === "lm_paciente_reprogramado" || e.key === "lm_paciente_atendido") {
         cargarTransaccionesDelDia(s, turnoActivo?.fechaApertura);
         cargarCitasDelDia(s);
       }
