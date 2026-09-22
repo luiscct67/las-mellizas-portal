@@ -88,6 +88,7 @@ interface TransaccionAtencion {
   id: string;
   encuentroId?: string;
   hora: string;
+  fechaHoraRaw?: string;
   dni: string;
   paciente: string;
   telefono?: string;
@@ -119,6 +120,10 @@ interface CitaAgendadaDia {
   estado: "PROGRAMADA" | "ATENDIDA" | "CANCELADA";
   site_id?: string;
   encuentro_id?: string | null;
+  encuentro?: {
+    id: string;
+    estado: string;
+  } | null;
   created_at?: string;
 }
 
@@ -459,6 +464,9 @@ export default function AdmisionCajaPage() {
       const s = sedeActual || sede;
       const siteId = getSiteId(s);
 
+      const inicioDia = new Date();
+      inicioDia.setHours(0, 0, 0, 0);
+
       let query = supabase
         .from("encuentro")
         .select(`
@@ -487,15 +495,8 @@ export default function AdmisionCajaPage() {
           )
         `)
         .eq("site_id", siteId)
+        .gte("fecha_hora", inicioDia.toISOString())
         .order("fecha_hora", { ascending: false });
-
-      if (fechaCorte) {
-        query = query.gte("fecha_hora", fechaCorte);
-      } else {
-        const inicioDia = new Date();
-        inicioDia.setHours(0, 0, 0, 0);
-        query = query.gte("fecha_hora", inicioDia.toISOString());
-      }
 
       const { data, error } = await query.limit(50);
 
@@ -541,6 +542,7 @@ export default function AdmisionCajaPage() {
             id: `OP-${item.id.slice(0, 6).toUpperCase()}`,
             encuentroId: item.id,
             hora: horaStr,
+            fechaHoraRaw: item.fecha_hora,
             dni: pac.dni || "S/DNI",
             paciente: `${pac.nombres || ""} ${pac.apellidos || ""}`.trim() || "Paciente Registrado",
             telefono: pac.telefono || "",
@@ -700,7 +702,7 @@ export default function AdmisionCajaPage() {
       // 1. Citas programadas para HOY o PENDIENTES en esta sede (deduplicadas por paciente)
       const { data: dataHoy, error: errorHoy } = await supabase
         .from("cita_reagendada")
-        .select("id, paciente_id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, encuentro_id, created_at")
+        .select("id, paciente_id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, encuentro_id, created_at, encuentro:encuentro_id(id, estado)")
         .eq("site_id", siteId)
         .lte("fecha", hoyLocal)
         .neq("estado", "CANCELADA")
@@ -723,7 +725,7 @@ export default function AdmisionCajaPage() {
       // 2. Próximas citas reprogramadas (fechas futuras en esta sede, garantizando 1 sola tarjeta por paciente)
       const { data: dataFuturas, error: errorFuturas } = await supabase
         .from("cita_reagendada")
-        .select("id, paciente_id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, encuentro_id, created_at")
+        .select("id, paciente_id, paciente_nombre, telefono, fecha, hora, motivo, estado, site_id, encuentro_id, created_at, encuentro:encuentro_id(id, estado)")
         .eq("site_id", siteId)
         .neq("estado", "CANCELADA")
         .gt("fecha", hoyLocal)
@@ -894,12 +896,14 @@ export default function AdmisionCajaPage() {
 
   // Pase Directo a Sala Médica (Controles de Seguimiento o Atenciones ya Canceladas - S/ 0.00)
   const handleIngresarDirectoASala = async (cita: CitaAgendadaDia) => {
-    const yaEnEspera = transacciones.some(
-      (t) =>
-        t.estadoConsultorio === "EN_ESPERA" &&
-        (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
-          cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
-    );
+    const yaEnEspera =
+      cita.encuentro?.estado === "EN_ESPERA" ||
+      transacciones.some(
+        (t) =>
+          t.estadoConsultorio === "EN_ESPERA" &&
+          (t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+            cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
+      );
 
     if (yaEnEspera) {
       alert(`El paciente "${cita.paciente_nombre}" ya se encuentra actualmente en la Sala de Espera médica.`);
@@ -2551,7 +2555,11 @@ export default function AdmisionCajaPage() {
   };
 
   // Cálculos Financieros del Turno (Aislados estrictamente al turno activo y con soporte Split)
-  const totalEfectivoCobros = transacciones.reduce((acc, t) => {
+  const transaccionesDelTurno = transacciones.filter(
+    (t) => !turnoActivo?.fechaApertura || !t.fechaHoraRaw || t.fechaHoraRaw >= turnoActivo.fechaApertura
+  );
+
+  const totalEfectivoCobros = transaccionesDelTurno.reduce((acc, t) => {
     if (t.pagos && t.pagos.length > 0) {
       const efSplit = t.pagos
         .filter((p) => p.medio === "EFECTIVO")
@@ -2561,7 +2569,7 @@ export default function AdmisionCajaPage() {
     return t.medioPago === "EFECTIVO" ? acc + t.monto : acc;
   }, 0);
 
-  const totalDigitalCobros = transacciones.reduce((acc, t) => {
+  const totalDigitalCobros = transaccionesDelTurno.reduce((acc, t) => {
     if (t.pagos && t.pagos.length > 0) {
       const digSplit = t.pagos
         .filter((p) => p.medio !== "EFECTIVO")
@@ -2940,15 +2948,18 @@ export default function AdmisionCajaPage() {
           return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {listaActual.map((cita) => {
-                const estaEnEspera = transacciones.some(
-                  (t) =>
-                    t.estadoConsultorio === "EN_ESPERA" &&
-                    ((cita.encuentro_id && t.encuentroId === cita.encuentro_id) ||
-                      t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
-                      cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
-                );
+                const estaEnEspera =
+                  cita.encuentro?.estado === "EN_ESPERA" ||
+                  transacciones.some(
+                    (t) =>
+                      t.estadoConsultorio === "EN_ESPERA" &&
+                      ((cita.encuentro_id && t.encuentroId === cita.encuentro_id) ||
+                        t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+                        cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
+                  );
                 const estaAtendida =
                   cita.estado === "ATENDIDA" ||
+                  cita.encuentro?.estado === "ATENDIDO" ||
                   transacciones.some(
                     (t) =>
                       t.estadoConsultorio === "ATENDIDO" &&
