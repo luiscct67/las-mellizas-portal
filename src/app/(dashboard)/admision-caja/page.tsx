@@ -2818,44 +2818,14 @@ export default function AdmisionCajaPage() {
     <div className="space-y-6">
 
       {/* 1. Header de Estado del Módulo & Barra de Turno */}
-      <div className="bg-white rounded-3xl p-5 border border-brand-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-3xl p-4 border border-brand-200/80 shadow-sm flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-brand-50 text-brand-700 flex items-center justify-center font-bold">
-            <DollarSign className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-2xl bg-brand-50 text-brand-700 flex items-center justify-center font-bold">
+            <DollarSign className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl font-black text-brand-900">Módulo de Administración</h1>
-              <div className="inline-flex items-center bg-neutral-100 p-0.5 rounded-xl border border-neutral-200">
-                <button
-                  type="button"
-                  onClick={() => cambiarSedeOperativa("Independencia")}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition flex items-center gap-1 ${
-                    normalizarSede(sede) === "Independencia"
-                      ? "bg-white text-emerald-800 shadow-xs border border-emerald-200"
-                      : "text-neutral-500 hover:text-neutral-900"
-                  }`}
-                >
-                  <MapPin className="w-3 h-3 text-emerald-600" />
-                  <span>Independencia</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => cambiarSedeOperativa("Vivanco")}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition flex items-center gap-1 ${
-                    normalizarSede(sede) === "Vivanco"
-                      ? "bg-white text-purple-900 shadow-xs border border-purple-200"
-                      : "text-neutral-500 hover:text-neutral-900"
-                  }`}
-                >
-                  <MapPin className="w-3 h-3 text-purple-700" />
-                  <span>Vivanco</span>
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-neutral-500">
-              Operador: <strong>{cajeroNombre}</strong> &bull; Recepción y Caja Asistencial en Ventanilla
-            </p>
+            <h1 className="text-lg font-black text-brand-900 leading-tight">Módulo de Administración</h1>
+            <p className="text-[11px] text-neutral-400 font-mono">Gestión Asistencial & Ventanilla</p>
           </div>
         </div>
 
@@ -2871,67 +2841,6 @@ export default function AdmisionCajaPage() {
             </button>
           </div>
         ) : null}
-      </div>
-
-      {/* 2. Barra de Navegación Rápida de Sub-Módulos (Sincronizada con Columna Vino) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
-        <button
-          type="button"
-          onClick={() => setSubModuloActivo("ADMISION_VENTA")}
-          className={`px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
-            subModuloActivo === "ADMISION_VENTA"
-              ? "bg-brand-900 text-white shadow-md ring-2 ring-brand-700"
-              : "bg-white text-neutral-600 hover:bg-neutral-50 border border-neutral-200/80"
-          }`}
-        >
-          <UserCheck className="w-4 h-4 text-brand-300" />
-          <span>1. Admisión & Venta</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSubModuloActivo("CITAS_REAGENDAMIENTOS")}
-          className={`px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
-            subModuloActivo === "CITAS_REAGENDAMIENTOS"
-              ? "bg-purple-950 text-white shadow-md ring-2 ring-purple-700"
-              : "bg-white text-neutral-600 hover:bg-neutral-50 border border-neutral-200/80"
-          }`}
-        >
-          <Calendar className="w-4 h-4 text-purple-400" />
-          <span>2. Citas & Reagendamientos</span>
-          <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-900 font-extrabold rounded-full">
-            {citasDelDia.length + proximasCitas.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSubModuloActivo("CAJA_ARQUEO")}
-          className={`px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
-            subModuloActivo === "CAJA_ARQUEO"
-              ? "bg-emerald-950 text-white shadow-md ring-2 ring-emerald-700"
-              : "bg-white text-neutral-600 hover:bg-neutral-50 border border-neutral-200/80"
-          }`}
-        >
-          <Coins className="w-4 h-4 text-emerald-400" />
-          <span>3. Caja & Arqueo</span>
-          {turnoActivo?.estado === "ABIERTA" && (
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSubModuloActivo("DISPENSACION")}
-          className={`px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
-            subModuloActivo === "DISPENSACION"
-              ? "bg-blue-950 text-white shadow-md ring-2 ring-blue-700"
-              : "bg-white text-neutral-600 hover:bg-neutral-50 border border-neutral-200/80"
-          }`}
-        >
-          <Package className="w-4 h-4 text-blue-400" />
-          <span>4. Dispensación Insumos</span>
-        </button>
       </div>
 
       {/* ========================================================== */}
