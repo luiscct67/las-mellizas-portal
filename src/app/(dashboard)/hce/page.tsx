@@ -2576,60 +2576,35 @@ export default function HcePage() {
   return (
     <div className="space-y-3 max-w-[1600px] mx-auto text-xs">
       {/* Barra de Control Clínico Superior */}
-      <div className="bg-white border border-neutral-200 rounded-xl p-2.5 px-3 flex flex-wrap items-center justify-between shadow-xs gap-2">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold text-neutral-900 text-xs tracking-tight">{profesionalNombre}</span>
-            <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${getCargoProfesional().badgeColor}`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
-              {getCargoProfesional().cargo} &bull; {getCargoProfesional().registro}
-            </span>
-          </div>
-          <span className="text-neutral-300 hidden sm:inline">&bull;</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-neutral-500">Paciente:</span>
-            <span className="font-bold text-neutral-900">
-              {selectedPatient ? selectedPatient.paciente : "Ningún paciente seleccionado"}
-            </span>
-            {selectedPatient && (
-              <span className="font-mono text-neutral-400">({selectedPatient.dni})</span>
-            )}
-            {selectedPatient?.alergias && selectedPatient.alergias !== "Ninguna" && (
-              <span className="text-[10px] font-bold bg-rose-50 text-rose-700 px-1.5 py-0.2 rounded border border-rose-200 flex items-center gap-0.5">
-                <AlertTriangle className="w-2.5 h-2.5" />
-                {selectedPatient.alergias}
-              </span>
-            )}
-          </div>
+      <div className="bg-white border border-neutral-200 rounded-xl p-2.5 px-3 flex items-center justify-between shadow-xs gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-extrabold text-neutral-900 text-xs tracking-tight truncate">{profesionalNombre}</span>
+          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-neutral-100 text-neutral-700 border-neutral-200 shrink-0">
+            {getRegistroConEspecialidad(esObstetra ? "COP" : "CMP")}
+          </span>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          {/* Indicador de Autoguardado Silencioso & Resiliencia Offline */}
-          <div className="flex items-center gap-1.5 font-mono text-[11px] text-neutral-400">
-            {saveStatus === "saving" ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                <span>Guardando...</span>
-              </>
-            ) : saveStatus === "offline_saved" ? (
-              <span className="flex items-center gap-1.5 text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200" title="Respaldo local seguro activo (Zero Data Loss). Sincronizará con la nube al restablecer conexión.">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                <span className="text-[10.5px] font-bold">Local seguro (Sin red)</span>
-              </span>
-            ) : (
-              <>
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span className="text-neutral-500">Auto {lastSavedTime || "activo"}</span>
-              </>
-            )}
-          </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Indicador sutil de guardado solo si está en proceso */}
+          {saveStatus === "saving" && (
+            <span className="flex items-center gap-1 font-mono text-[10px] text-amber-600 animate-pulse mr-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+              <span>Guardando...</span>
+            </span>
+          )}
+          {saveStatus === "offline_saved" && (
+            <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[10px] font-bold font-mono mr-1" title="Respaldo local seguro activo">
+              <ShieldCheck className="w-3 h-3 text-amber-600" />
+              <span>Local seguro</span>
+            </span>
+          )}
 
           {/* Botón de Impresión Ficha Clínica A4 */}
           <button
             type="button"
             onClick={imprimirFichaClinicaA4}
             disabled={!selectedPatient}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold rounded-lg border border-neutral-300 transition disabled:opacity-40 shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold rounded-lg border border-neutral-300 transition disabled:opacity-40 shadow-xs cursor-pointer"
             title="Imprimir Historia Clínica Electrónica completa en formato A4"
           >
             <Printer className="w-3.5 h-3.5 text-neutral-600" />
@@ -2641,7 +2616,7 @@ export default function HcePage() {
             <button
               onClick={handleSellarNota}
               disabled={!selectedPatient}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-black text-white font-bold rounded-lg transition disabled:opacity-40 shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-black text-white font-bold rounded-lg transition disabled:opacity-40 shadow-xs cursor-pointer"
             >
               <Lock className="w-3 h-3" />
               <span>Sellar & Firmar HCE</span>
@@ -2649,7 +2624,7 @@ export default function HcePage() {
           ) : (
             <button
               onClick={() => setShowAdendaModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-lg transition shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-lg transition shadow-xs cursor-pointer"
             >
               <PlusCircle className="w-3 h-3" />
               <span>Incorporar Adenda</span>
@@ -2733,28 +2708,6 @@ export default function HcePage() {
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Badge de Modalidad Asistencial Activa */}
-            <div className="flex items-center gap-2">
-              <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${getCargoProfesional().badgeColor}`}>
-                {modalidadAtencion === "OBSTETRICIA" && <Baby className="w-3.5 h-3.5" />}
-                {modalidadAtencion === "GINECOLOGIA" && <Activity className="w-3.5 h-3.5" />}
-                {modalidadAtencion === "ECOGRAFIA" && <Layers className="w-3.5 h-3.5" />}
-                {modalidadAtencion === "MEDICINA_GENERAL" && <Stethoscope className="w-3.5 h-3.5" />}
-                {modalidadAtencion === "LABORATORIO" && <FlaskConical className="w-3.5 h-3.5" />}
-                <span>
-                  {modalidadAtencion === "OBSTETRICIA"
-                    ? `Control Obstétrico & Prenatal (${getCargoProfesional().registro})`
-                    : modalidadAtencion === "GINECOLOGIA"
-                    ? `Ginecología Especializada (${getCargoProfesional().registro})`
-                    : modalidadAtencion === "ECOGRAFIA"
-                    ? `Ecografía de Apoyo Diagnóstico: ${tipoEcografia.replace("_", " ")}`
-                    : modalidadAtencion === "MEDICINA_GENERAL"
-                    ? `Medicina General Ambulatoria (${getCargoProfesional().registro})`
-                    : "Pruebas Rápidas & Tamizaje POCT"}
-                </span>
-              </span>
             </div>
           </div>
 
