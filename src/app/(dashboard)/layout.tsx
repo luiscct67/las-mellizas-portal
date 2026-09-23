@@ -962,8 +962,11 @@ function DashboardLayoutContent({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Contenedor dinámico para acciones clínicas de HCE (Imprimir, Sellar) */}
+            <div id="hce-topbar-actions" className="flex items-center gap-2"></div>
+
             {/* Perfil del Operador y Botón Universal de Cerrar Sesión */}
-            <div className="flex items-center gap-2 pl-2">
+            <div className="flex items-center gap-2 pl-2 border-l border-neutral-200">
               <div className="text-right hidden md:block leading-tight">
                 <span className="block text-[11px] font-black text-neutral-900 truncate max-w-[170px]" title={nombre || user || ""}>
                   {nombre || user || "Usuario"}

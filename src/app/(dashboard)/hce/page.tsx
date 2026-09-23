@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Stethoscope,
   Lock,
@@ -493,6 +494,11 @@ export default function HcePage() {
   const [reagendarMotivo, setReagendarMotivo] = useState("Control Prenatal y Ecografía de Seguimiento");
   const [reagendarSede, setReagendarSede] = useState("Independencia");
   const [reagendadaExito, setReagendadaExito] = useState(false);
+  const [topbarContainer, setTopbarContainer] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setTopbarContainer(document.getElementById("hce-topbar-actions"));
+  }, []);
 
   // ============================================================================
   // ESPECIALIZACIÓN DE FORMATOS Y MODALIDAD ASISTENCIAL (NTS N.° 139-MINSA)
@@ -2575,63 +2581,62 @@ export default function HcePage() {
 
   return (
     <div className="space-y-3 max-w-[1600px] mx-auto text-xs">
-      {/* Barra de Control Clínico Superior */}
-      <div className="bg-white border border-neutral-200 rounded-xl p-2.5 px-3 flex items-center justify-between shadow-xs gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-extrabold text-neutral-900 text-xs tracking-tight truncate">{profesionalNombre}</span>
-          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border bg-neutral-100 text-neutral-700 border-neutral-200 shrink-0">
-            {getRegistroConEspecialidad(esObstetra ? "COP" : "CMP")}
-          </span>
-        </div>
+      {/* Botones de Acción de HCE Montados en el Topbar Superior al lado de Cerrar Sesión */}
+      {topbarContainer &&
+        createPortal(
+          <div className="flex items-center gap-2">
+            {saveStatus === "saving" && (
+              <span className="flex items-center gap-1 font-mono text-[10px] text-amber-600 animate-pulse mr-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                <span>Guardando...</span>
+              </span>
+            )}
+            {saveStatus === "offline_saved" && (
+              <span
+                className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[10px] font-bold font-mono mr-1"
+                title="Respaldo local seguro activo"
+              >
+                <ShieldCheck className="w-3 h-3 text-amber-600" />
+                <span>Local seguro</span>
+              </span>
+            )}
 
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Indicador sutil de guardado solo si está en proceso */}
-          {saveStatus === "saving" && (
-            <span className="flex items-center gap-1 font-mono text-[10px] text-amber-600 animate-pulse mr-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-              <span>Guardando...</span>
-            </span>
-          )}
-          {saveStatus === "offline_saved" && (
-            <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[10px] font-bold font-mono mr-1" title="Respaldo local seguro activo">
-              <ShieldCheck className="w-3 h-3 text-amber-600" />
-              <span>Local seguro</span>
-            </span>
-          )}
-
-          {/* Botón de Impresión Ficha Clínica A4 */}
-          <button
-            type="button"
-            onClick={imprimirFichaClinicaA4}
-            disabled={!selectedPatient}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold rounded-lg border border-neutral-300 transition disabled:opacity-40 shadow-xs cursor-pointer"
-            title="Imprimir Historia Clínica Electrónica completa en formato A4"
-          >
-            <Printer className="w-3.5 h-3.5 text-neutral-600" />
-            <span>Imprimir Historia (A4)</span>
-          </button>
-
-          {/* Botón de Sellar / Adenda */}
-          {!isSealed ? (
+            {/* Botón de Impresión Ficha Clínica A4 */}
             <button
-              onClick={handleSellarNota}
+              type="button"
+              onClick={imprimirFichaClinicaA4}
               disabled={!selectedPatient}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-black text-white font-bold rounded-lg transition disabled:opacity-40 shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-xs rounded-xl border border-neutral-300 transition disabled:opacity-40 shadow-2xs cursor-pointer"
+              title="Imprimir Historia Clínica Electrónica completa en formato A4"
             >
-              <Lock className="w-3 h-3" />
-              <span>Sellar & Firmar HCE</span>
+              <Printer className="w-3.5 h-3.5 text-neutral-600" />
+              <span className="hidden sm:inline">Imprimir Historia (A4)</span>
             </button>
-          ) : (
-            <button
-              onClick={() => setShowAdendaModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-lg transition shadow-xs cursor-pointer"
-            >
-              <PlusCircle className="w-3 h-3" />
-              <span>Incorporar Adenda</span>
-            </button>
-          )}
-        </div>
-      </div>
+
+            {/* Botón de Sellar / Adenda */}
+            {!isSealed ? (
+              <button
+                type="button"
+                onClick={handleSellarNota}
+                disabled={!selectedPatient}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded-xl transition disabled:opacity-40 shadow-2xs cursor-pointer"
+              >
+                <Lock className="w-3 h-3" />
+                <span>Sellar & Firmar HCE</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAdendaModal(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs rounded-xl transition shadow-2xs cursor-pointer"
+              >
+                <PlusCircle className="w-3 h-3" />
+                <span>Incorporar Adenda</span>
+              </button>
+            )}
+          </div>,
+          topbarContainer
+        )}
 
       {/* ========================================================================= */}
       {/* WORKSTATION CLÍNICO UNIFICADO (100% ANCHO EXPANDIDO)                      */}
