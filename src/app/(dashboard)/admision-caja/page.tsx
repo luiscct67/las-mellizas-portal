@@ -4302,320 +4302,202 @@ export default function AdmisionCajaPage() {
             </div>
           </div>
 
-          {/* ACORDEÓN: Salidas de Dinero / Gastos & Pagos a Colaboradores */}
-          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleSection("egresos")}
-              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-black text-xs">
-                  <TrendingDown className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                    Egresos & Pagos a Colaboradores
-                  </h3>
-                  <p className="text-[11px] text-neutral-500">
-                    Salidas de caja autorizadas &bull; Total egresos: {formatCurrency(totalEgresos)}
-                  </p>
-                </div>
-              </div>
-              {openSection.egresos ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
-            </button>
-
-            {openSection.egresos && (
-              <div className="p-5 space-y-4">
-                <form onSubmit={handleRegistrarEgreso} className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Tipo de Salida *
-                      </label>
-                      <select
-                        value={egresoTipo}
-                        onChange={(e) => setEgresoTipo(e.target.value as any)}
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
-                      >
-                        <option value="PAGO_COLABORADOR">Pago Directo a Colaborador</option>
-                        <option value="GASTO_MENOR">Gasto Menor / Mantenimiento</option>
-                        <option value="VIATICO">Viáticos / Movilidad</option>
-                        <option value="INSUMOS_MEDICOS">Insumos Médicos Urgentes</option>
-                        <option value="OTRO">Otro Egreso</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Monto a Entregar (S/) *
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min={1}
-                        value={egresoMonto === 0 ? "" : egresoMonto}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => setEgresoMonto(e.target.value === "" ? 0 : Number(e.target.value))}
-                        placeholder="Monto en efectivo..."
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white"
-                      />
-                    </div>
+            {/* Ticket emitido de última atención (si existe) */}
+            {ticketEmitido && (
+              <div className="bg-white rounded-3xl border border-emerald-200 p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between text-emerald-800">
+                  <div className="flex items-center gap-1.5 text-xs font-black">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Ticket Emitido ({ticketEmitido.id})</span>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Destinatario / Colaborador *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={egresoDestinatario}
-                        onChange={(e) => setEgresoDestinatario(e.target.value)}
-                        placeholder="Nombre de quien recibe el dinero..."
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Aprobado por *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={egresoAprobadoPor}
-                        onChange={(e) => setEgresoAprobadoPor(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                      Concepto / Justificación *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={egresoConcepto}
-                      onChange={(e) => setEgresoConcepto(e.target.value)}
-                      placeholder="Motivo del pago o compra..."
-                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
-                    />
-                  </div>
-
                   <button
-                    type="submit"
-                    className="w-full py-2.5 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
+                    type="button"
+                    onClick={() => imprimirTicketTermico(ticketEmitido)}
+                    className="text-xs text-brand-700 hover:text-brand-900 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                   >
-                    <TrendingDown className="w-4 h-4" />
-                    <span>Registrar Salida de Efectivo</span>
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Imprimir 80mm</span>
                   </button>
-                </form>
+                </div>
 
-                {/* Historial de egresos del turno */}
-                {egresos.length === 0 ? (
-                  <div className="p-4 bg-neutral-50 border border-neutral-200/80 rounded-2xl text-center text-xs text-neutral-400">
-                    Sin egresos registrados en este turno activo.
+                <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200 text-xs font-mono space-y-1 text-neutral-700">
+                  <p className="font-bold text-neutral-900">LAS MELLIZAS PERÚ S.A.C.</p>
+                  <p className="text-[10px] text-neutral-500">RUC: 20611827335 &bull; Sede {ticketEmitido.sede}</p>
+                  <div className="border-t border-dashed border-neutral-300 my-1 pt-1">
+                    <p>PACIENTE: {ticketEmitido.paciente}</p>
+                    <p>DNI: {ticketEmitido.dni}</p>
+                    <p>SERVICIO: {ticketEmitido.servicio}</p>
+                    <p>IMPORTE: {formatCurrency(ticketEmitido.monto)}</p>
+                    <p>MEDIO: {ticketEmitido.medioPago}</p>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
-                      Egresos Registrados en este Turno ({egresos.length})
-                    </p>
-                    <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white text-xs">
-                      {egresos.map((eg) => (
-                        <div key={eg.id} className="p-3 flex items-center justify-between hover:bg-neutral-50/50 transition">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-neutral-900">{eg.destinatario}</span>
-                              <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono">
-                                {eg.tipo}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-neutral-500">{eg.concepto}</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <span className="font-mono font-black text-rose-700">
-                                -{formatCurrency(eg.monto)}
-                              </span>
-                              <span className="text-[10px] text-neutral-400 block">{eg.hora}</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleAnularEgreso(eg.id)}
-                              title="Anular egreso y restituir efectivo"
-                              className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             )}
           </div>
-          </div>
 
-          {/* Columna Derecha: Monitor en Tiempo Real & Auditoría Google Drive */}
+          {/* Columna Derecha: Egresos & Pagos a Colaboradores (en reemplazo de Pacientes del Turno) */}
           <div className="lg:col-span-6 space-y-5">
-          {/* Tarjeta 2: Monitor de Pacientes en Turno */}
-          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-brand-700" />
-                <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                  Pacientes del Turno ({transacciones.length})
-                </h3>
-                <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-full">
-                  {transacciones.filter((t) => t.estadoConsultorio === "EN_ESPERA").length} en sala
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
+            <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-black text-xs">
+                    <TrendingDown className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                      Egresos & Pagos a Colaboradores
+                    </h3>
+                    <p className="text-[11px] text-neutral-500">
+                      Salidas de caja autorizadas &bull; Total egresos: {formatCurrency(totalEgresos)}
+                    </p>
+                  </div>
+                </div>
+
                 {esAdminOSupervisor && (
                   <button
                     type="button"
                     onClick={handleExportarLibroCaja}
-                    title="Exportar Registro de Atenciones a CSV para Google Drive (Exclusivo Dirección y Supervisión)"
-                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-xl border border-emerald-200 transition flex items-center gap-1 shadow-sm"
+                    title="Exportar Registro a CSV para Google Drive"
+                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-xl border border-emerald-200 transition flex items-center gap-1 shadow-xs"
                   >
                     <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
-                    <span>Exportar Google Drive</span>
+                    <span>Exportar Drive</span>
                   </button>
                 )}
-                <span className="text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-bold">
-                  Tiempo Real
-                </span>
               </div>
-            </div>
 
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {transacciones.length === 0 ? (
-                <div className="py-8 text-center text-neutral-400">
-                  <Clock className="w-6 h-6 mx-auto mb-1.5 opacity-50" />
-                  <p className="font-bold text-xs text-neutral-600">No hay atenciones registradas hoy</p>
-                  <p className="text-[10px]">Las pacientes admitidas en ventanilla aparecerán aquí en tiempo real.</p>
+              <form onSubmit={handleRegistrarEgreso} className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                      Tipo de Salida *
+                    </label>
+                    <select
+                      value={egresoTipo}
+                      onChange={(e) => setEgresoTipo(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                    >
+                      <option value="PAGO_COLABORADOR">Pago Directo a Colaborador</option>
+                      <option value="GASTO_MENOR">Gasto Menor / Mantenimiento</option>
+                      <option value="VIATICO">Viáticos / Movilidad</option>
+                      <option value="INSUMOS_MEDICOS">Insumos Médicos Urgentes</option>
+                      <option value="OTRO">Otro Egreso</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                      Monto a Entregar (S/) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      value={egresoMonto === 0 ? "" : egresoMonto}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setEgresoMonto(e.target.value === "" ? 0 : Number(e.target.value))}
+                      placeholder="Monto en efectivo..."
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                      Destinatario / Colaborador *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={egresoDestinatario}
+                      onChange={(e) => setEgresoDestinatario(e.target.value)}
+                      placeholder="Nombre de quien recibe el dinero..."
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                      Aprobado por *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={egresoAprobadoPor}
+                      onChange={(e) => setEgresoAprobadoPor(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                    Concepto / Justificación *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={egresoConcepto}
+                    onChange={(e) => setEgresoConcepto(e.target.value)}
+                    placeholder="Motivo del pago o compra..."
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <TrendingDown className="w-4 h-4" />
+                  <span>Registrar Salida de Efectivo</span>
+                </button>
+              </form>
+
+              {/* Historial de egresos del turno */}
+              {egresos.length === 0 ? (
+                <div className="p-4 bg-neutral-50 border border-neutral-200/80 rounded-2xl text-center text-xs text-neutral-400">
+                  Sin egresos registrados en este turno activo.
                 </div>
               ) : (
-                transacciones.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="p-3 rounded-2xl border border-neutral-200/80 bg-neutral-50/50 hover:bg-white hover:border-neutral-300 transition flex items-center justify-between text-xs"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-neutral-900">{tx.paciente}</span>
-                      <span className="text-[10px] font-mono text-neutral-400">DNI: {tx.dni}</span>
-                    </div>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">{tx.servicio}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-mono font-bold text-brand-700">
-                        {formatCurrency(tx.monto)} ({tx.medioPago})
-                      </span>
-                      <span className="text-[10px] text-neutral-400">&bull; {tx.hora}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg border shadow-2xs ${
-                        tx.estadoConsultorio === "EN_ESPERA"
-                          ? "bg-amber-50 text-amber-900 border-amber-200/90"
-                          : tx.estadoConsultorio === "EN_ATENCION"
-                          ? "bg-blue-50 text-blue-900 border-blue-200/90"
-                          : tx.estadoConsultorio === "CANCELADO" || (tx.estadoConsultorio as string) === "REPROGRAMADO"
-                          ? "bg-purple-50 text-purple-900 border-purple-200/90"
-                          : "bg-emerald-50 text-emerald-900 border-emerald-200/90"
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          tx.estadoConsultorio === "EN_ESPERA"
-                            ? "bg-amber-500 animate-pulse"
-                            : tx.estadoConsultorio === "EN_ATENCION"
-                            ? "bg-blue-500 animate-pulse"
-                            : tx.estadoConsultorio === "CANCELADO" || (tx.estadoConsultorio as string) === "REPROGRAMADO"
-                            ? "bg-purple-500"
-                            : "bg-emerald-500"
-                        }`}
-                      />
-                      <span>{tx.estadoConsultorio === "CANCELADO" ? "REPROGRAMADO" : tx.estadoConsultorio.replace("_", " ")}</span>
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => imprimirTicketTermico(tx)}
-                        title="Reimprimir ticket térmico POS (80mm)"
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-neutral-700 hover:text-neutral-950 bg-white hover:bg-neutral-100 border border-neutral-300 px-2 py-1 rounded-lg shadow-xs transition"
-                      >
-                        <Printer className="w-3 h-3 text-neutral-600" />
-                        <span>Ticket</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => prepararReagendamientoPara(tx)}
-                        title="Reagendar cita para esta paciente"
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition"
-                      >
-                        <Calendar className="w-3 h-3 text-emerald-700" />
-                        <span>Reagendar</span>
-                      </button>
-                      {tx.estadoConsultorio === "EN_ESPERA" && (
-                        <button
-                          type="button"
-                          onClick={() => handleCancelarEncuentroDirecto(tx)}
-                          title="Retirar paciente de la cola de espera"
-                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-1.5 py-1 rounded-lg transition"
-                        >
-                          <X className="w-3 h-3 text-rose-600" />
-                          <span>Retirar</span>
-                        </button>
-                      )}
-                    </div>
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                    Egresos Registrados en este Turno ({egresos.length})
+                  </p>
+                  <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white text-xs max-h-56 overflow-y-auto">
+                    {egresos.map((eg) => (
+                      <div key={eg.id} className="p-3 flex items-center justify-between hover:bg-neutral-50/50 transition">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-neutral-900">{eg.destinatario}</span>
+                            <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono">
+                              {eg.tipo}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-neutral-500">{eg.concepto}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="font-mono font-black text-rose-700">
+                              -{formatCurrency(eg.monto)}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 block">{eg.hora}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAnularEgreso(eg.id)}
+                            title="Anular egreso y restituir efectivo"
+                            className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )))}
+              )}
             </div>
-          </div>
-
-          {/* Ticket emitido de última atención */}
-          {ticketEmitido && (
-            <div className="bg-white rounded-3xl border border-emerald-200 p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between text-emerald-800">
-                <div className="flex items-center gap-1.5 text-xs font-black">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Ticket Emitido ({ticketEmitido.id})</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => imprimirTicketTermico(ticketEmitido)}
-                  className="text-xs text-brand-700 hover:text-brand-900 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Imprimir 80mm</span>
-                </button>
-              </div>
-
-              <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200 text-xs font-mono space-y-1 text-neutral-700">
-                <p className="font-bold text-neutral-900">LAS MELLIZAS PERÚ S.A.C.</p>
-                <p className="text-[10px] text-neutral-500">RUC: 20611827335 &bull; Sede {ticketEmitido.sede}</p>
-                <div className="border-t border-dashed border-neutral-300 my-1 pt-1">
-                  <p>PACIENTE: {ticketEmitido.paciente}</p>
-                  <p>DNI: {ticketEmitido.dni}</p>
-                  <p>SERVICIO: {ticketEmitido.servicio}</p>
-                  <p>IMPORTE: {formatCurrency(ticketEmitido.monto)}</p>
-                  <p>MEDIO: {ticketEmitido.medioPago}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
           </div>
         </div>
       )}
