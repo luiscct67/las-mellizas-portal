@@ -112,6 +112,7 @@ export default function SplitLoginView() {
       let nombreCompleto: string = cuentaData?.nombre || "Personal Autorizado";
       let colegiatura: string = cuentaData?.colegiatura || "";
 
+      let userProfile: any = null;
       if (emailNorm === "admin@lasmellizasperu.com") {
         userRole = "ADMIN";
         nombreCompleto = "Dirección Médica & Gestión";
@@ -123,6 +124,8 @@ export default function SplitLoginView() {
             .select("*, sede:site_id(nombre)")
             .eq("id", data.user.id)
             .maybeSingle();
+
+          userProfile = profile;
 
           if (profile) {
             if (profile.activo === false) {
@@ -149,21 +152,24 @@ export default function SplitLoginView() {
         }
       }
 
-      // Almacenar en sesión local
+      // Almacenar en sesión local y cookies de sesión
       sessionStorage.setItem("lm_rol", userRole);
       sessionStorage.setItem("lm_user", data.user.email || emailNorm);
       sessionStorage.setItem("lm_sede", sedeNombre);
       sessionStorage.setItem("lm_nombre", nombreCompleto);
       if (colegiatura) sessionStorage.setItem("lm_colegiatura", colegiatura);
-      if ((profile as any)?.especialidad) sessionStorage.setItem("lm_especialidad", (profile as any).especialidad);
+      if (userProfile?.especialidad) sessionStorage.setItem("lm_especialidad", userProfile.especialidad);
 
-      // Redirección por rol
+      document.cookie = `lm_auth_user=${encodeURIComponent(data.user.email || emailNorm)}; path=/; max-age=86400; SameSite=Lax`;
+      document.cookie = `lm_auth_role=${encodeURIComponent(userRole)}; path=/; max-age=86400; SameSite=Lax`;
+
+      // Redirección por rol con navegación completa y limpia
       if (userRole === "RECEPCION_CAJA") {
-        router.push("/admision-caja");
+        window.location.href = "/admision-caja";
       } else if (userRole === "PROFESIONAL") {
-        router.push("/hce");
+        window.location.href = "/hce";
       } else {
-        router.push("/supervision");
+        window.location.href = "/supervision";
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Error de comunicación con el servidor.");

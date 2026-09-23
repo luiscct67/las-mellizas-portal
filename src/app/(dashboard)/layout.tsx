@@ -169,10 +169,13 @@ function DashboardLayoutContent({
     try {
       await supabase.auth.signOut();
     } catch {}
-    sessionStorage.clear();
+    try {
+      sessionStorage.clear();
+      localStorage.clear();
+    } catch {}
     document.cookie = "lm_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     document.cookie = "lm_auth_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    router.push("/login");
+    window.location.href = "/login";
   };
 
   // ============================================================================
@@ -981,6 +984,27 @@ function DashboardLayoutContent({
             >
               {rol}
             </span>
+
+            {/* Perfil del Operador y Botón Universal de Cerrar Sesión */}
+            <div className="flex items-center gap-2 pl-2 border-l border-neutral-200">
+              <div className="text-right hidden md:block leading-tight">
+                <span className="block text-[11px] font-black text-neutral-900 truncate max-w-[170px]" title={nombre || user || ""}>
+                  {nombre || user || "Usuario"}
+                </span>
+                <span className="text-[9.5px] font-mono text-neutral-500">
+                  {colegiatura ? `${colegiatura} • ` : ""}Sede {sede}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-700 border border-rose-200 hover:border-rose-700 transition shadow-2xs cursor-pointer"
+                title="Cerrar sesión de forma segura"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cerrar Sesión</span>
+              </button>
+            </div>
           </div>
         </header>
 
