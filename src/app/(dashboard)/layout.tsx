@@ -530,14 +530,20 @@ function DashboardLayoutContent({
                               onChange={(e: any) => setTipoEcografia(e.target.value)}
                               className="w-full text-[10.5px] p-1.5 bg-[#120207] border border-sky-600 rounded-md text-sky-100 font-bold focus:outline-none focus:ring-1 focus:ring-sky-400 cursor-pointer"
                             >
-                              <option value="OBSTETRICA">👶 Obstétrica / Fetal</option>
-                              <option value="TRANSVAGINAL">🔬 Transvaginal / Pélvica</option>
-                              <option value="ABDOMINAL">🩺 Abdominal Completa</option>
-                              <option value="RENAL">💧 Renal y Vías Urinarias</option>
-                              <option value="PROSTATICA">⚡ Prostática (Elipsoide)</option>
-                              <option value="PARTES_BLANDAS">🩹 Partes Blandas / Hernias</option>
-                              <option value="MAMARIA">🎗️ Mamaria (BI-RADS)</option>
-                              <option value="TIROIDEA">🦋 Tiroidea (TI-RADS)</option>
+                              <optgroup label="— Apoyo Diagnóstico Obstétrico —" className="text-rose-300 font-bold bg-[#1a050f]">
+                                <option value="OBSTETRICA">👶 Obstétrica / Fetal / Control</option>
+                              </optgroup>
+                              <optgroup label="— Apoyo Diagnóstico Ginecológico —" className="text-purple-300 font-bold bg-[#1a050f]">
+                                <option value="TRANSVAGINAL">🔬 Transvaginal / Pélvica</option>
+                                <option value="MAMARIA">🎗️ Mamaria (BI-RADS)</option>
+                              </optgroup>
+                              <optgroup label="— Apoyo Diagnóstico Clínico / General —" className="text-sky-300 font-bold bg-[#1a050f]">
+                                <option value="ABDOMINAL">🩺 Abdominal Completa</option>
+                                <option value="RENAL">💧 Renal y Vías Urinarias</option>
+                                <option value="PROSTATICA">⚡ Prostática (Elipsoide)</option>
+                                <option value="PARTES_BLANDAS">🩹 Partes Blandas / Hernias</option>
+                                <option value="TIROIDEA">🦋 Tiroidea (TI-RADS)</option>
+                              </optgroup>
                             </select>
                           </div>
                         )}
