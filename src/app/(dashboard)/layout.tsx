@@ -947,52 +947,26 @@ function DashboardLayoutContent({
         {/* Topbar Ultra-Compacto & Ergonómico (44px) */}
         <header className="h-11 bg-white border-b border-neutral-200 px-4 flex items-center justify-between shrink-0 shadow-xs">
           <div className="flex items-center gap-3 text-xs">
-            <div className="flex items-center gap-1.5 text-neutral-600 font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="font-sans font-semibold text-neutral-800">TLS 1.3 Cifrado</span>
-            </div>
-            <span className="text-neutral-300">&bull;</span>
-            <div className="flex items-center gap-1.5 text-neutral-700 font-medium">
-              <MapPin className="w-3.5 h-3.5 text-brand-700" />
-              <span>Sede {sede}</span>
-            </div>
             {horaActual && (
-              <>
-                <span className="text-neutral-300">&bull;</span>
-                <div className="flex items-center gap-1.5 font-mono text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/80 text-[11px]">
-                  <Clock className="w-3 h-3 text-neutral-500" />
-                  <span>{horaActual} PET</span>
-                </div>
-              </>
+              <div className="flex items-center gap-1.5 font-mono text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/80 text-[11px]">
+                <Clock className="w-3 h-3 text-neutral-500" />
+                <span>{horaActual} PET</span>
+              </div>
             )}
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-neutral-500">
-              <Lock className="w-3 h-3 text-neutral-400" />
-              <span>NTS N.º 139 &bull; Ley 26842 (Secreto Médico)</span>
-            </div>
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono border ${
-                rol === "ADMIN"
-                  ? "bg-purple-50 text-purple-700 border-purple-200"
-                  : rol === "PROFESIONAL"
-                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
-              }`}
-            >
-              {rol}
-            </span>
-
             {/* Perfil del Operador y Botón Universal de Cerrar Sesión */}
-            <div className="flex items-center gap-2 pl-2 border-l border-neutral-200">
+            <div className="flex items-center gap-2 pl-2">
               <div className="text-right hidden md:block leading-tight">
                 <span className="block text-[11px] font-black text-neutral-900 truncate max-w-[170px]" title={nombre || user || ""}>
                   {nombre || user || "Usuario"}
                 </span>
-                <span className="text-[9.5px] font-mono text-neutral-500">
-                  {colegiatura ? `${colegiatura} • ` : ""}Sede {sede}
-                </span>
+                {colegiatura && (
+                  <span className="text-[9.5px] font-mono text-neutral-500">
+                    {colegiatura}
+                  </span>
+                )}
               </div>
               <button
                 type="button"
@@ -1043,6 +1017,12 @@ function DashboardLayoutContent({
               </div>
             </div>
           )}
+
+          {/* Pie de Página Discreto y Minimalista */}
+          <footer className="mt-8 pt-4 border-t border-neutral-200/60 text-center text-[10px] text-neutral-400 font-mono flex items-center justify-center gap-1.5 pb-2">
+            <Lock className="w-3 h-3 text-neutral-400" />
+            <span>Consultorio Obstétrico Ecográfico Las Mellizas Perú S.A.C. &bull; NTS N.º 139-MINSA &bull; Ley N.º 26842 (Secreto Médico)</span>
+          </footer>
         </main>
       </div>
     </div>

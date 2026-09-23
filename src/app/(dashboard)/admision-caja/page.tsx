@@ -2837,7 +2837,7 @@ export default function AdmisionCajaPage() {
                   }`}
                 >
                   <MapPin className="w-3 h-3 text-emerald-600" />
-                  <span>Sede Independencia</span>
+                  <span>Independencia</span>
                 </button>
                 <button
                   type="button"
@@ -2849,7 +2849,7 @@ export default function AdmisionCajaPage() {
                   }`}
                 >
                   <MapPin className="w-3 h-3 text-purple-700" />
-                  <span>Sede Vivanco</span>
+                  <span>Vivanco</span>
                 </button>
               </div>
             </div>
