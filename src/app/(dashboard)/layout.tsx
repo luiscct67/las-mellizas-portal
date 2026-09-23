@@ -11,6 +11,8 @@ import {
   Lock,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   ShieldAlert,
   ArrowLeft,
   DollarSign,
@@ -83,6 +85,20 @@ function DashboardLayoutContent({
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
   const [horaActual, setHoraActual] = useState<string>("");
+
+  // Control manual de apertura/cierre de submenús tipo acordeón en el sidebar
+  const [collapsedMenus, setCollapsedMenus] = useState<Record<string, boolean>>({});
+
+  const toggleSubmenu = (href: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setCollapsedMenus((prev) => ({
+      ...prev,
+      [href]: !prev[href],
+    }));
+  };
 
   useEffect(() => {
     const updateTime = () => {
@@ -326,27 +342,54 @@ function DashboardLayoutContent({
               const isActive = pathname.startsWith(item.href);
               const isHceItem = item.href === "/hce";
               const isAdmisionItem = item.href === "/admision-caja";
+              const hasSubmenu = isHceItem || isAdmisionItem;
+              const isSubmenuOpen = isActive && !collapsedMenus[item.href];
 
               return (
                 <div key={item.href} className="space-y-1">
                   <Link
                     href={item.href}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                    onClick={(e) => {
+                      if (isActive && hasSubmenu) {
+                        e.preventDefault();
+                        toggleSubmenu(item.href);
+                      }
+                    }}
+                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition ${
                       isActive
                         ? "bg-white text-neutral-950 shadow-sm"
                         : "text-neutral-400 hover:text-white hover:bg-white/5"
                     }`}
                     title={isCollapsed ? item.label : undefined}
                   >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    {!isCollapsed && <span className="truncate">{item.label}</span>}
+                    <div className="flex items-center gap-2.5 min-w-0 truncate">
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {!isCollapsed && <span className="truncate">{item.label}</span>}
+                    </div>
+                    {!isCollapsed && hasSubmenu && isActive && (
+                      <span
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleSubmenu(item.href);
+                        }}
+                        className="p-0.5 rounded hover:bg-neutral-200 text-neutral-500 hover:text-neutral-900 transition shrink-0"
+                        title={isSubmenuOpen ? "Plegar menú" : "Desplegar menú"}
+                      >
+                        {isSubmenuOpen ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                      </span>
+                    )}
                   </Link>
 
                   {/* ========================================================== */}
                   {/* SELECTOR CLÍNICO RECOLOCADO EN EL ESPACIO COLOR VINO      */}
                   {/* (UBICADO DIRECTAMENTE DEBAJO DE "CONSULTORIO HCE")        */}
                   {/* ========================================================== */}
-                  {isHceItem && isActive && (
+                  {isHceItem && isSubmenuOpen && (
                     <div
                       className={`mt-1.5 space-y-1 animate-in fade-in duration-200 ${
                         isCollapsed
@@ -695,7 +738,7 @@ function DashboardLayoutContent({
                   {/* SUB-MÓDULOS DE ADMINISTRACIÓN EN EL ESPACIO COLOR VINO     */}
                   {/* (UBICADO DEBAJO DE "MÓDULO DE ADMINISTRACIÓN")             */}
                   {/* ========================================================== */}
-                  {isAdmisionItem && isActive && (
+                  {isAdmisionItem && isSubmenuOpen && (
                     <div
                       className={`mt-1.5 space-y-1 animate-in fade-in duration-200 ${
                         isCollapsed
