@@ -172,6 +172,7 @@ const CATALOGO_SERVICIOS: ServicioItem[] = [
   { nombre: "Pack Embarazo Control Inicial: Eco Genética + Perfil Prenatal", precio: 210, categoria: "Packs Promocionales", descripcion: "Descarte genético I trimestre + analítica completa" },
   { nombre: "Pack Chequeo Ginecológico Anual: Colposcopía + PAP + Eco Transvaginal", precio: 190, categoria: "Packs Promocionales", descripcion: "Chequeo preventivo integral femenino anual" },
   { nombre: "Pack Descarte ITS Integral: Rápido Dual + Frotis Vaginal + Orina", precio: 110, categoria: "Packs Promocionales", descripcion: "Evaluación integral de salud urogenital" },
+  { nombre: "Pack Urológico: Eco Renal + Vesicoprostática", precio: 120, categoria: "Packs Promocionales", descripcion: "Evaluación urológica integral de riñones, vejiga y próstata" },
 
   // --- ECOGRAFÍAS OBSTÉTRICAS Y GENERALES ---
   { nombre: "Ecografía Especializada (4D/5D)", precio: 150, categoria: "Ecografías", descripcion: "Visualización en tiempo real HD Live con video" },
@@ -185,6 +186,8 @@ const CATALOGO_SERVICIOS: ServicioItem[] = [
   { nombre: "Ecografía Tiroidea", precio: 80, categoria: "Ecografías", descripcion: "Evaluación de glándula tiroides y nódulos" },
   { nombre: "Ecografía Abdominal Completa", precio: 90, categoria: "Ecografías", descripcion: "Hígado, vesícula, páncreas, bazo y riñones" },
   { nombre: "Ecografía Renal y Vías Urinarias", precio: 80, categoria: "Ecografías", descripcion: "Riñones, vejiga y descarte litiasis" },
+  { nombre: "Ecografía Prostática (Vesicoprostática)", precio: 80, categoria: "Ecografías", descripcion: "Evaluación vesicoprostática suprapúbica con residuo postmiccional" },
+  { nombre: "Ecografía de Partes Blandas", precio: 70, categoria: "Ecografías", descripcion: "Evaluación de tejido subcutáneo, nódulos, lipomas y hernias" },
   { nombre: "Monitoreo Fetal Electrónico (NST)", precio: 50, categoria: "Ecografías", descripcion: "Registro cardiotocográfico no estresante" },
   { nombre: "Perfil Biofísico Fetal (PBF)", precio: 120, categoria: "Ecografías", descripcion: "Ecografía obstétrica + Monitoreo fetal computarizado" },
 
@@ -192,6 +195,8 @@ const CATALOGO_SERVICIOS: ServicioItem[] = [
   { nombre: "Control Prenatal Reenfocado", precio: 70, categoria: "Consultas", descripcion: "Evaluación clínica integral, triaje y carnet perinatal" },
   { nombre: "Consulta Médica Ginecológica", precio: 80, categoria: "Consultas", descripcion: "Evaluación especializada por gineco-obstetra" },
   { nombre: "Consulta Médica Obstétrica", precio: 70, categoria: "Consultas", descripcion: "Evaluación de la gestación y bienestar materno" },
+  { nombre: "Consulta de Medicina General", precio: 50, categoria: "Consultas", descripcion: "Evaluación clínica integral del adulto y medicina ambulatoria" },
+  { nombre: "Consulta de Control / Lectura de Exámenes (Medicina General)", precio: 30, categoria: "Consultas", descripcion: "Seguimiento médico y evaluación de análisis clínicos" },
   { nombre: "Planificación Familiar Integral", precio: 60, categoria: "Consultas", descripcion: "Consejería personalizada y prescripción anticonceptiva" },
   { nombre: "Consulta de Fertilidad y Pareja", precio: 100, categoria: "Consultas", descripcion: "Estudio inicial de infertilidad y salud reproductiva" },
   { nombre: "Consulta Ginecológica de Control", precio: 50, categoria: "Consultas", descripcion: "Revisión de resultados y seguimiento médico" },
