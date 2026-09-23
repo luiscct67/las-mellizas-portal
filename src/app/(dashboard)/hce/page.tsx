@@ -460,7 +460,7 @@ export default function HcePage() {
   const [eg, setEg] = useState("");
   const [alturaUterina, setAlturaUterina] = useState("");
   const [lcf, setLcf] = useState("");
-  const [presentacion, setPresentacion] = useState("Cefálica");
+  const [presentacion, setPresentacion] = useState("");
 
   // Anamnesis, Examen y Tratamiento (Inicia limpio sin mocks)
   const [motivo, setMotivo] = useState("");
@@ -491,7 +491,7 @@ export default function HcePage() {
   // Reagendamiento Post-Consulta y Recordatorio por WhatsApp
   const [reagendarFecha, setReagendarFecha] = useState("");
   const [reagendarHora, setReagendarHora] = useState("09:00");
-  const [reagendarMotivo, setReagendarMotivo] = useState("Control Prenatal y Ecografía de Seguimiento");
+  const [reagendarMotivo, setReagendarMotivo] = useState("");
   const [reagendarSede, setReagendarSede] = useState("Independencia");
   const [reagendadaExito, setReagendadaExito] = useState(false);
   const [topbarContainer, setTopbarContainer] = useState<HTMLElement | null>(null);
@@ -661,7 +661,7 @@ export default function HcePage() {
   const [prostataDl, setProstataDl] = useState(""); // Diámetro Longitudinal en mm
   const [prostataVejigaPre, setProstataVejigaPre] = useState(""); // Volumen vesical pre (cc)
   const [prostataResiduoPost, setProstataResiduoPost] = useState(""); // Volumen residual post (cc)
-  const [prostataLobuloMedio, setProstataLobuloMedio] = useState("No protruye al piso vesical");
+  const [prostataLobuloMedio, setProstataLobuloMedio] = useState("");
 
   // Cálculo automático del volumen prostático por elipsoide: (DT * DAP * DL * 0.52) / 1000 = cc
   const dtMm = parseFloat(prostataDt) || 0;
@@ -699,14 +699,14 @@ export default function HcePage() {
   const [ecoCa, setEcoCa] = useState("");
   const [ecoPfe, setEcoPfe] = useState("");
   const [ecoFcf, setEcoFcf] = useState("");
-  const [ecoPlacenta, setEcoPlacenta] = useState("Normoinserta posterior fúndica Grado I");
-  const [ecoIla, setEcoIla] = useState("Volumen normal");
+  const [ecoPlacenta, setEcoPlacenta] = useState("");
+  const [ecoIla, setEcoIla] = useState("");
 
   // 3. Ecografía Abdominal Completa
   const [ecoHigado, setEcoHigado] = useState("");
   const [ecoVesicula, setEcoVesicula] = useState("");
   const [ecoPancreasBazo, setEcoPancreasBazo] = useState("");
-  const [ecoLiquidoLibre, setEcoLiquidoLibre] = useState("No se observa líquido libre");
+  const [ecoLiquidoLibre, setEcoLiquidoLibre] = useState("");
 
   // 4. Ecografía Renal y Vías Urinarias
   const [ecoRinonDer, setEcoRinonDer] = useState("");
@@ -719,15 +719,15 @@ export default function HcePage() {
   const [ecoPartesHallazgos, setEcoPartesHallazgos] = useState("");
 
   // 6. Ecografía Mamaria y Tiroidea
-  const [ecoBirads, setEcoBirads] = useState("BI-RADS 1: Negativo / Hallazgos normales");
-  const [ecoTirads, setEcoTirads] = useState("TI-RADS 1: Benigno / Sin nódulos");
+  const [ecoBirads, setEcoBirads] = useState("");
+  const [ecoTirads, setEcoTirads] = useState("");
 
   // 7. Ecografía Transvaginal & Ginecológica Especializada
-  const [ecoUtero, setEcoUtero] = useState("En AVF, contornos regulares, miometrio homogéneo");
+  const [ecoUtero, setEcoUtero] = useState("");
   const [ecoEndometrio, setEcoEndometrio] = useState("");
   const [ecoOvarioDer, setEcoOvarioDer] = useState("");
   const [ecoOvarioIzq, setEcoOvarioIzq] = useState("");
-  const [ecoDouglas, setEcoDouglas] = useState("Libre, sin líquido coleccionado");
+  const [ecoDouglas, setEcoDouglas] = useState("");
 
   // 8. Conclusión Diagnóstica e Indicaciones del Informe Ecográfico
   const [conclusionEcografica, setConclusionEcografica] = useState("");
@@ -741,10 +741,10 @@ export default function HcePage() {
   // 9. Exámenes de Laboratorio & Tiras Reactivas
   const [labHemoglobina, setLabHemoglobina] = useState("");
   const [labGlucosa, setLabGlucosa] = useState("");
-  const [labOrinaLeucocitos, setLabOrinaLeucocitos] = useState("No realizada");
-  const [labOrinaProteinas, setLabOrinaProteinas] = useState("No realizada");
-  const [labOrinaNitritos, setLabOrinaNitritos] = useState("No realizada");
-  const [labPruebaEmbarazo, setLabPruebaEmbarazo] = useState("No realizada");
+  const [labOrinaLeucocitos, setLabOrinaLeucocitos] = useState("");
+  const [labOrinaProteinas, setLabOrinaProteinas] = useState("");
+  const [labOrinaNitritos, setLabOrinaNitritos] = useState("");
+  const [labPruebaEmbarazo, setLabPruebaEmbarazo] = useState("");
   const [labObservaciones, setLabObservaciones] = useState("");
 
   // Reset Síncrono Obligatorio de Todo el Estado del Formulario
@@ -763,8 +763,8 @@ export default function HcePage() {
     setEg("");
     setAlturaUterina("");
     setLcf("");
-    setPresentacion("Cefálica");
-    setMotivo(p ? `Atención de ${p.servicio}. Paciente acude para evaluación y control.` : "");
+    setPresentacion("");
+    setMotivo("");
     setAntecedentes("");
     setExamenFisico("");
     setPlanTratamiento("");
@@ -775,42 +775,42 @@ export default function HcePage() {
     setBusquedaCie("");
     setMostrarSugerenciasCie(false);
     setReagendarFecha("");
-    setReagendarMotivo(p ? `Control de Seguimiento - ${p.servicio}` : "Control Prenatal y Ecografía de Seguimiento");
+    setReagendarMotivo("");
     setReagendadaExito(false);
     setSaveStatus("idle");
     setLastSavedTime("");
 
-    // Reset campos de Ecografía y Próstata
+    // Reset campos de Ecografía y Próstata (Completamente limpios sin pre-cargas)
     setProstataDt("");
     setProstataDap("");
     setProstataDl("");
     setProstataVejigaPre("");
     setProstataResiduoPost("");
-    setProstataLobuloMedio("No protruye al piso vesical");
+    setProstataLobuloMedio("");
     setEcoDbp("");
     setEcoLf("");
     setEcoCa("");
     setEcoPfe("");
     setEcoFcf("");
-    setEcoPlacenta("Normoinserta posterior fúndica Grado I");
-    setEcoIla("Volumen normal");
+    setEcoPlacenta("");
+    setEcoIla("");
     setEcoHigado("");
     setEcoVesicula("");
     setEcoPancreasBazo("");
-    setEcoLiquidoLibre("No se observa líquido libre");
+    setEcoLiquidoLibre("");
     setEcoRinonDer("");
     setEcoRinonIzq("");
     setEcoVejigaRenal("");
     setEcoPartesRegion("");
     setEcoPartesDimensiones("");
     setEcoPartesHallazgos("");
-    setEcoBirads("BI-RADS 1: Negativo / Hallazgos normales");
-    setEcoTirads("TI-RADS 1: Benigno / Sin nódulos");
-    setEcoUtero("En AVF, contornos regulares, miometrio homogéneo");
+    setEcoBirads("");
+    setEcoTirads("");
+    setEcoUtero("");
     setEcoEndometrio("");
     setEcoOvarioDer("");
     setEcoOvarioIzq("");
-    setEcoDouglas("Libre, sin líquido coleccionado");
+    setEcoDouglas("");
     setConclusionEcografica("");
     setSugerenciasEcograficas("");
 
@@ -822,10 +822,10 @@ export default function HcePage() {
     // Reset Laboratorio
     setLabHemoglobina("");
     setLabGlucosa("");
-    setLabOrinaLeucocitos("No realizada");
-    setLabOrinaProteinas("No realizada");
-    setLabOrinaNitritos("No realizada");
-    setLabPruebaEmbarazo("No realizada");
+    setLabOrinaLeucocitos("");
+    setLabOrinaProteinas("");
+    setLabOrinaNitritos("");
+    setLabPruebaEmbarazo("");
     setLabObservaciones("");
 
     // Detección automática inteligente de la modalidad según el servicio contratado
@@ -1298,7 +1298,7 @@ export default function HcePage() {
           return {
             id: item.id,
             pacienteId: rawPac?.id,
-            paciente: rawPac ? `${rawPac.nombres || ""} ${rawPac.apellidos || ""}`.trim() || "Paciente Registrado" : "Paciente Registrado",
+            paciente: rawPac ? `${rawPac.nombres || ""} ${rawPac.apellidos || ""}`.trim() || "Paciente (Sin nombres)" : "Paciente no identificado",
             dni: rawPac?.dni || "S/DNI",
             edad: "28 a",
             servicio: item.servicio_solicitado,
@@ -1363,7 +1363,7 @@ export default function HcePage() {
           return {
             id: item.id,
             pacienteId: rawPac?.id,
-            paciente: rawPac ? `${rawPac.nombres || ""} ${rawPac.apellidos || ""}`.trim() || "Paciente Registrado" : "Paciente Registrado",
+            paciente: rawPac ? `${rawPac.nombres || ""} ${rawPac.apellidos || ""}`.trim() || "Paciente (Sin nombres)" : "Paciente no identificado",
             dni: rawPac?.dni || "S/DNI",
             edad: "28 a",
             servicio: item.servicio_solicitado,
@@ -1716,7 +1716,7 @@ export default function HcePage() {
             </div>
             <div class="data-box" style="margin-bottom:6px;">
               <div class="data-label">Morfología de Lóbulo Medio & Parénquima</div>
-              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${prostataLobuloMedio}. Cápsula prostática íntegra, contornos regulares.</div>
+              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${prostataLobuloMedio ? `${prostataLobuloMedio}. Cápsula prostática íntegra.` : "--"}</div>
             </div>
           ` : ''}
 
@@ -1727,24 +1727,26 @@ export default function HcePage() {
               <div class="data-box"><div class="data-label">Circ. Abdominal (CA)</div><div class="data-val">${ecoCa || "--"} mm</div></div>
               <div class="data-box"><div class="data-label">P.F.E. Estimado</div><div class="data-val">${ecoPfe || "--"} g</div></div>
               <div class="data-box"><div class="data-label">Frecuencia Cardíaca Fetal</div><div class="data-val">${ecoFcf || lcf || "--"} lpm</div></div>
-              <div class="data-box"><div class="data-label">Placenta</div><div class="data-val">${ecoPlacenta}</div></div>
-              <div class="data-box"><div class="data-label">Líquido Amniótico (ILA)</div><div class="data-val">${ecoIla}</div></div>
-              <div class="data-box"><div class="data-label">Presentación</div><div class="data-val">${presentacion}</div></div>
+              <div class="data-box"><div class="data-label">Placenta</div><div class="data-val">${ecoPlacenta || "--"}</div></div>
+              <div class="data-box"><div class="data-label">Líquido Amniótico (ILA)</div><div class="data-val">${ecoIla || "--"}</div></div>
+              <div class="data-box"><div class="data-label">Presentación</div><div class="data-val">${presentacion || "--"}</div></div>
             </div>
           ` : ''}
 
           ${tipoEcografia === "ABDOMINAL" ? `
-            <div class="data-box" style="margin-bottom:4px;">
-              <div class="data-label">Hígado</div>
-              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoHigado || "Morfología y ecogenicidad habitual, bordes regulares, sin lesiones focales."}</div>
-            </div>
-            <div class="data-box" style="margin-bottom:4px;">
-              <div class="data-label">Vesícula & Vías Biliares</div>
-              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoVesicula || "Paredes finas menores de 3mm, alitiásica. Vía biliar intra y extrahepática de calibre normal."}</div>
+            <div class="grid-2" style="margin-bottom:4px;">
+              <div class="data-box">
+                <div class="data-label">Hígado</div>
+                <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoHigado || "--"}</div>
+              </div>
+              <div class="data-box">
+                <div class="data-label">Vesícula & Vías Biliares</div>
+                <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoVesicula || "--"}</div>
+              </div>
             </div>
             <div class="data-box" style="margin-bottom:4px;">
               <div class="data-label">Páncreas, Bazo & Cavidad Peritoneal</div>
-              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoPancreasBazo || "Páncreas y bazo de características ecográficas conservadas."} ${ecoLiquidoLibre}.</div>
+              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoPancreasBazo || "--"} ${ecoLiquidoLibre ? `&bull; ${ecoLiquidoLibre}` : ""}</div>
             </div>
           ` : ''}
 
@@ -1752,62 +1754,62 @@ export default function HcePage() {
             <div class="grid-2" style="margin-bottom:4px;">
               <div class="data-box">
                 <div class="data-label">Riñón Derecho</div>
-                <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoRinonDer || "Morfología y tamaño normal, buena diferenciación córtico-medular, sin litiasis ni ectasia."}</div>
+                <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoRinonDer || "--"}</div>
               </div>
               <div class="data-box">
                 <div class="data-label">Riñón Izquierdo</div>
-                <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoRinonIzq || "Morfología y tamaño normal, parénquima conservado, sin signos de uropatía obstructiva."}</div>
+                <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoRinonIzq || "--"}</div>
               </div>
             </div>
             <div class="data-box" style="margin-bottom:4px;">
               <div class="data-label">Vejiga Urinaria</div>
-              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoVejigaRenal || "Buena repleción vesical, paredes delgadas y regulares, sin litiasis endoluminal."}</div>
+              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoVejigaRenal || "--"}</div>
             </div>
           ` : ''}
 
           ${tipoEcografia === "PARTES_BLANDAS" ? `
             <div class="grid-2" style="margin-bottom:4px;">
-              <div class="data-box"><div class="data-label">Región Anatómica</div><div class="data-val">${ecoPartesRegion || "Región señalada"}</div></div>
-              <div class="data-box"><div class="data-label">Dimensiones de la Lesión</div><div class="data-val">${ecoPartesDimensiones || "No medible / difuso"}</div></div>
+              <div class="data-box"><div class="data-label">Región Anatómica</div><div class="data-val">${ecoPartesRegion || "--"}</div></div>
+              <div class="data-box"><div class="data-label">Dimensiones de la Lesión</div><div class="data-val">${ecoPartesDimensiones || "--"}</div></div>
             </div>
             <div class="data-box" style="margin-bottom:4px;">
               <div class="data-label">Hallazgos Ecográficos</div>
-              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoPartesHallazgos || "Estructuras dérmicas, tejido celular subcutáneo y planos musculares conservados."}</div>
+              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoPartesHallazgos || "--"}</div>
             </div>
           ` : ''}
 
           ${tipoEcografia === "MAMARIA" ? `
             <div class="data-box" style="margin-bottom:4px;">
               <div class="data-label">Clasificación Mamaria</div>
-              <div class="data-val" style="color:#0f172a;">${ecoBirads}</div>
+              <div class="data-val" style="color:#0f172a;">${ecoBirads || "--"}</div>
             </div>
           ` : ''}
 
           ${tipoEcografia === "TIROIDEA" ? `
             <div class="data-box" style="margin-bottom:4px;">
               <div class="data-label">Clasificación Tiroidea</div>
-              <div class="data-val" style="color:#0f172a;">${ecoTirads}</div>
+              <div class="data-val" style="color:#0f172a;">${ecoTirads || "--"}</div>
             </div>
           ` : ''}
 
           ${tipoEcografia === "TRANSVAGINAL" ? `
             <div class="grid-2" style="margin-bottom:4px;">
-              <div class="data-box"><div class="data-label">Útero (Posición & Medidas)</div><div class="data-val">${ecoUtero || "En AVF, contornos regulares"}</div></div>
-              <div class="data-box"><div class="data-label">Grosor Endometrial</div><div class="data-val">${ecoEndometrio ? ecoEndometrio + " mm" : "Normal / Proliferativo"}</div></div>
+              <div class="data-box"><div class="data-label">Útero (Posición & Medidas)</div><div class="data-val">${ecoUtero || "--"}</div></div>
+              <div class="data-box"><div class="data-label">Grosor Endometrial</div><div class="data-val">${ecoEndometrio ? ecoEndometrio + " mm" : "--"}</div></div>
             </div>
             <div class="grid-2" style="margin-bottom:4px;">
-              <div class="data-box"><div class="data-label">Ovario Derecho</div><div class="data-val">${ecoOvarioDer || "Parénquima y folículos conservados"}</div></div>
-              <div class="data-box"><div class="data-label">Ovario Izquierdo</div><div class="data-val">${ecoOvarioIzq || "Parénquima y folículos conservados"}</div></div>
+              <div class="data-box"><div class="data-label">Ovario Derecho</div><div class="data-val">${ecoOvarioDer || "--"}</div></div>
+              <div class="data-box"><div class="data-label">Ovario Izquierdo</div><div class="data-val">${ecoOvarioIzq || "--"}</div></div>
             </div>
             <div class="data-box" style="margin-bottom:4px;">
               <div class="data-label">Fondo de Saco de Douglas</div>
-              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoDouglas || "Libre, sin líquido coleccionado."}</div>
+              <div class="data-val" style="font-weight:normal; font-size:10.5px;">${ecoDouglas || "--"}</div>
             </div>
           ` : ''}
 
           <div class="section-title">3. Conclusión Diagnóstica Ecográfica</div>
           <div class="content-block" style="font-weight:700; background:#f8fafc; border-left:3px solid #0284c7;">
-            ${conclusionEcografica || examenFisico || "Estudio ecográfico dentro de límites normales para la edad y motivo de evaluación."}
+            ${conclusionEcografica || examenFisico || "--"}
           </div>
 
           ${sugerenciasEcograficas ? `
@@ -1833,7 +1835,7 @@ export default function HcePage() {
             <div class="data-box"><div class="data-label">Tiempo de Enfermedad</div><div class="data-val">${tiempoEnfermedad || "No precisado"}</div></div>
             <div class="data-box"><div class="data-label">Descanso Médico Recomendado</div><div class="data-val">${descansoMedicoDias ? descansoMedicoDias + " días" : "No amerita"}</div></div>
           </div>
-          <div class="content-block">${motivo || "Consulta médica general."}</div>
+          <div class="content-block">${motivo || "--"}</div>
 
           ${antecedentes ? `
             <div class="section-title">3. Antecedentes Personales & Mórbidos</div>
@@ -1841,17 +1843,17 @@ export default function HcePage() {
           ` : ''}
 
           <div class="section-title">4. Examen Físico Regional Dirigido</div>
-          <div class="content-block">${examenRegionalMedicina || examenFisico || "Examen clínico general conservado."}</div>
+          <div class="content-block">${examenRegionalMedicina || examenFisico || "--"}</div>
         ` : modalidadAtencion === "LABORATORIO" ? `
           <!-- LABORATORIO & TIRAS -->
           <div class="section-title">2. Exámenes Auxiliares Rápidos & Laboratorio</div>
           <div class="grid-4" style="margin-bottom:6px;">
             <div class="data-box"><div class="data-label">Hemoglobina (Hb)</div><div class="data-val">${labHemoglobina ? labHemoglobina + " g/dL" : "--"}</div></div>
             <div class="data-box"><div class="data-label">Glucosa Rápida</div><div class="data-val">${labGlucosa ? labGlucosa + " mg/dL" : "--"}</div></div>
-            <div class="data-box"><div class="data-label">Prueba Embarazo (GCH)</div><div class="data-val">${labPruebaEmbarazo}</div></div>
-            <div class="data-box"><div class="data-label">Leucocitos Orina</div><div class="data-val">${labOrinaLeucocitos}</div></div>
-            <div class="data-box"><div class="data-label">Proteínas Orina</div><div class="data-val">${labOrinaProteinas}</div></div>
-            <div class="data-box"><div class="data-label">Nitritos Orina</div><div class="data-val">${labOrinaNitritos}</div></div>
+            <div class="data-box"><div class="data-label">Prueba Embarazo (GCH)</div><div class="data-val">${labPruebaEmbarazo || "--"}</div></div>
+            <div class="data-box"><div class="data-label">Leucocitos Orina</div><div class="data-val">${labOrinaLeucocitos || "--"}</div></div>
+            <div class="data-box"><div class="data-label">Proteínas Orina</div><div class="data-val">${labOrinaProteinas || "--"}</div></div>
+            <div class="data-box"><div class="data-label">Nitritos Orina</div><div class="data-val">${labOrinaNitritos || "--"}</div></div>
           </div>
           ${labObservaciones ? `
             <div class="section-title">Observaciones Analíticas</div>
@@ -1860,7 +1862,7 @@ export default function HcePage() {
         ` : modalidadAtencion === "GINECOLOGIA" ? `
           <!-- GINECOLOGÍA ESPECIALIZADA -->
           <div class="section-title">2. Anamnesis Ginecológica & Motivo de Consulta</div>
-          <div class="content-block">${motivo || "Consulta médica ginecológica especializada."}</div>
+          <div class="content-block">${motivo || "--"}</div>
 
           ${antecedentes ? `
             <div class="section-title">3. Antecedentes Ginecológicos & Quirúrgicos</div>
@@ -1868,7 +1870,7 @@ export default function HcePage() {
           ` : ''}
 
           <div class="section-title">4. Examen Ginecológico Preferencial / Especuloscopía</div>
-          <div class="content-block">${examenFisico || "Evaluación ginecológica: genitales externos normales, especuloscopía sin lesiones activas, tacto bimanual conservado."}</div>
+          <div class="content-block">${examenFisico || "--"}</div>
         ` : `
           <!-- OBSTETRICIA & CONTROL PRENATAL -->
           ${(formulaG || fur || eg || alturaUterina || lcf) ? `
@@ -1882,7 +1884,7 @@ export default function HcePage() {
           ` : ''}
 
           <div class="section-title">3. Anamnesis & Motivo de Consulta Obstétrica</div>
-          <div class="content-block">${motivo || "Control prenatal y seguimiento materno-perinatal."}</div>
+          <div class="content-block">${motivo || "--"}</div>
 
           ${antecedentes ? `
             <div class="section-title">4. Antecedentes Obstétricos & Perinatales</div>
@@ -1890,7 +1892,7 @@ export default function HcePage() {
           ` : ''}
 
           <div class="section-title">5. Examen Clínico / Evaluación Materno-Fetal</div>
-          <div class="content-block">${examenFisico || "Control prenatal conforme a Guías de Práctica Clínica y NTS N.° 139-MINSA."}</div>
+          <div class="content-block">${examenFisico || "--"}</div>
         `}
 
         <!-- DIAGNÓSTICOS CIE-10 -->
@@ -2771,8 +2773,8 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={pa}
                   onChange={(e) => setPa(e.target.value)}
-                  placeholder="120/80"
-                  className={`w-full px-2.5 py-1.5 border rounded-lg font-mono font-bold text-xs ${
+                  placeholder="Ej: 120/80"
+                  className={`w-full px-2.5 py-1.5 border rounded-lg font-mono font-bold text-xs placeholder:text-neutral-300 placeholder:font-normal placeholder:italic ${
                     isHipertension ? "border-rose-400 bg-rose-50 text-rose-900" : "border-neutral-200"
                   }`}
                 />
@@ -2785,8 +2787,8 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={fc}
                   onChange={(e) => setFc(e.target.value)}
-                  placeholder="76"
-                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs"
+                  placeholder="Ej: 76"
+                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                 />
               </div>
 
@@ -2797,8 +2799,8 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={temp}
                   onChange={(e) => setTemp(e.target.value)}
-                  placeholder="36.5"
-                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs"
+                  placeholder="Ej: 36.5"
+                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                 />
               </div>
 
@@ -2809,8 +2811,8 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={satO2}
                   onChange={(e) => setSatO2(e.target.value)}
-                  placeholder="98"
-                  className={`w-full px-2.5 py-1.5 border rounded-lg font-mono font-bold text-xs ${
+                  placeholder="Ej: 98"
+                  className={`w-full px-2.5 py-1.5 border rounded-lg font-mono font-bold text-xs placeholder:text-neutral-300 placeholder:font-normal placeholder:italic ${
                     isHipoxia ? "border-amber-400 bg-amber-50 text-amber-900" : "border-neutral-200"
                   }`}
                 />
@@ -2823,8 +2825,8 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={peso}
                   onChange={(e) => setPeso(e.target.value)}
-                  placeholder="62.5"
-                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs"
+                  placeholder="Ej: 60.0"
+                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                 />
               </div>
 
@@ -2835,8 +2837,8 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={talla}
                   onChange={(e) => setTalla(e.target.value)}
-                  placeholder="1.60"
-                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs"
+                  placeholder="Ej: 1.60"
+                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                 />
               </div>
             </div>
@@ -2937,8 +2939,8 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={lcf}
                         onChange={(e) => setLcf(e.target.value)}
-                        placeholder="140"
-                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-mono font-bold text-neutral-900 text-xs bg-white"
+                        placeholder="Ej: 140"
+                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-mono font-bold text-neutral-900 text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                       />
                     </div>
 
@@ -2948,8 +2950,9 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={presentacion}
                         onChange={(e) => setPresentacion(e.target.value)}
-                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-semibold text-xs bg-white"
+                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-semibold text-xs bg-white text-neutral-800"
                       >
+                        <option value="">-- Seleccionar --</option>
                         <option value="Cefálica">Cefálica</option>
                         <option value="Podálica">Podálica</option>
                         <option value="Transversa">Transversa</option>
@@ -2970,7 +2973,7 @@ export default function HcePage() {
                       value={motivo}
                       onChange={(e) => setMotivo(e.target.value)}
                       placeholder="Gestante acude para evaluación de control prenatal..."
-                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900 placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                     />
                   </div>
 
@@ -2984,7 +2987,7 @@ export default function HcePage() {
                       value={antecedentes}
                       onChange={(e) => setAntecedentes(e.target.value)}
                       placeholder="Partos previos, cesáreas, abortos, complicaciones, grupo sanguíneo de pareja..."
-                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900 placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                     />
                   </div>
                 </div>
@@ -3042,7 +3045,7 @@ export default function HcePage() {
                       value={motivo}
                       onChange={(e) => setMotivo(e.target.value)}
                       placeholder="Paciente acude por flujo vaginal, dolor pélvico, chequeo preventivo o descarte..."
-                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900 placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                     />
                   </div>
 
@@ -3056,7 +3059,7 @@ export default function HcePage() {
                       value={antecedentes}
                       onChange={(e) => setAntecedentes(e.target.value)}
                       placeholder="Menarquia, ciclos menstruales (RC), fecha última menstruación (FUM), método anticonceptivo (MAC), PAP previo, cirugías..."
-                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900 placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                     />
                   </div>
                 </div>
@@ -3205,8 +3208,8 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={prostataLobuloMedio}
                         onChange={(e) => setProstataLobuloMedio(e.target.value)}
-                        placeholder="No protruye al piso vesical. Cápsula íntegra, contornos regulares..."
-                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        placeholder="Ej: No protruye al piso vesical. Cápsula íntegra..."
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                       />
                     </div>
                   </div>
@@ -3229,7 +3232,7 @@ export default function HcePage() {
                           value={ecoDbp}
                           onChange={(e) => setEcoDbp(e.target.value)}
                           placeholder="Ej: 54"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3240,7 +3243,7 @@ export default function HcePage() {
                           value={ecoLf}
                           onChange={(e) => setEcoLf(e.target.value)}
                           placeholder="Ej: 40"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3251,7 +3254,7 @@ export default function HcePage() {
                           value={ecoCa}
                           onChange={(e) => setEcoCa(e.target.value)}
                           placeholder="Ej: 180"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3262,7 +3265,7 @@ export default function HcePage() {
                           value={ecoPfe}
                           onChange={(e) => setEcoPfe(e.target.value)}
                           placeholder="Ej: 650"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white font-bold"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white font-bold placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                     </div>
@@ -3275,8 +3278,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoFcf}
                           onChange={(e) => setEcoFcf(e.target.value)}
-                          placeholder="142"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          placeholder="Ej: 140"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3286,7 +3289,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoPlacenta}
                           onChange={(e) => setEcoPlacenta(e.target.value)}
-                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white"
+                          placeholder="Ej: Normoinserta posterior fúndica Grado I..."
+                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3296,7 +3300,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoIla}
                           onChange={(e) => setEcoIla(e.target.value)}
-                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white"
+                          placeholder="Ej: Volumen normal (ILA 12 cm)..."
+                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                     </div>
@@ -3314,8 +3319,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoHigado}
                           onChange={(e) => setEcoHigado(e.target.value)}
-                          placeholder="Morfología y ecogenicidad habitual, bordes regulares, sin lesiones focales..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          placeholder="Ej: Morfología y ecogenicidad habitual, sin lesiones focales..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3325,8 +3330,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoVesicula}
                           onChange={(e) => setEcoVesicula(e.target.value)}
-                          placeholder="Paredes finas menores de 3mm, alitiásica. Vía biliar intra y extrahepática normal..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          placeholder="Ej: Paredes finas < 3mm, alitiásica. Vía biliar normal..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                     </div>
@@ -3339,8 +3344,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoPancreasBazo}
                           onChange={(e) => setEcoPancreasBazo(e.target.value)}
-                          placeholder="Características ecográficas conservadas..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          placeholder="Ej: Páncreas y bazo de aspecto ecográfico normal..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3350,8 +3355,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoLiquidoLibre}
                           onChange={(e) => setEcoLiquidoLibre(e.target.value)}
-                          placeholder="No se observa líquido libre en espacios de Morrison ni Douglas..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          placeholder="Ej: No se observa líquido libre en Morrison ni Douglas..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                     </div>
@@ -3410,8 +3415,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoRinonDer}
                           onChange={(e) => setEcoRinonDer(e.target.value)}
-                          placeholder="Morfología, dimensiones normales, espesor cortical conservado, sin litiasis ni ectasia..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          placeholder="Ej: Dimensiones normales, buena diferenciación córtico-medular..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3421,8 +3426,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoRinonIzq}
                           onChange={(e) => setEcoRinonIzq(e.target.value)}
-                          placeholder="Dimensiones habituales, adecuada diferenciación córtico-medular, sin hidronefrosis..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          placeholder="Ej: Dimensiones habituales, sin hidronefrosis ni cálculos..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                     </div>
@@ -3434,8 +3439,8 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={ecoVejigaRenal}
                         onChange={(e) => setEcoVejigaRenal(e.target.value)}
-                        placeholder="Buena repleción, paredes finas y regulares, sin litiasis endoluminales..."
-                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        placeholder="Ej: Adecuada repleción, paredes regulares, sin litiasis..."
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                       />
                     </div>
 
@@ -3505,8 +3510,8 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={ecoPartesHallazgos}
                         onChange={(e) => setEcoPartesHallazgos(e.target.value)}
-                        placeholder="Masa nodular ovalada en TCSC, límites definidos, sin vascularización Doppler..."
-                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        placeholder="Ej: Masa nodular ovalada en TCSC, límites definidos..."
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                       />
                     </div>
 
@@ -3548,6 +3553,7 @@ export default function HcePage() {
                       onChange={(e) => setEcoBirads(e.target.value)}
                       className="w-full p-2 border border-neutral-300 rounded-lg text-xs font-bold text-neutral-900 bg-white"
                     >
+                      <option value="">-- No clasificado / No evaluado --</option>
                       <option value="BI-RADS 1: Negativo / Hallazgos normales">BI-RADS 1: Negativo / Hallazgos normales</option>
                       <option value="BI-RADS 2: Hallazgos benignos (Quiste simple, fibroadenoma típico)">BI-RADS 2: Hallazgos benignos (Quiste simple / Fibroadenoma calcificado)</option>
                       <option value="BI-RADS 3: Probablemente benigno (< 2% malignidad) - Seguimiento 6 meses">BI-RADS 3: Probablemente benigno - Control en 6 meses</option>
@@ -3565,6 +3571,7 @@ export default function HcePage() {
                       onChange={(e) => setEcoTirads(e.target.value)}
                       className="w-full p-2 border border-neutral-300 rounded-lg text-xs font-bold text-neutral-900 bg-white"
                     >
+                      <option value="">-- No clasificado / No evaluado --</option>
                       <option value="TI-RADS 1: Benigno / Sin nódulos">TI-RADS 1: Benigno / Sin nódulos</option>
                       <option value="TI-RADS 2: No sospechoso (Quiste coloide)">TI-RADS 2: No sospechoso / Benigno</option>
                       <option value="TI-RADS 3: Leve sospecha de malignidad">TI-RADS 3: Leve sospecha</option>
@@ -3589,8 +3596,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoUtero}
                           onChange={(e) => setEcoUtero(e.target.value)}
-                          placeholder="En AVF, contornos regulares, 72 x 36 x 40 mm..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          placeholder="Ej: En AVF, contornos regulares, 72 x 36 x 40 mm..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3601,7 +3608,7 @@ export default function HcePage() {
                           value={ecoEndometrio}
                           onChange={(e) => setEcoEndometrio(e.target.value)}
                           placeholder="Ej: 8.2 mm, trilaminar proliferativo..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                     </div>
@@ -3614,8 +3621,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoOvarioDer}
                           onChange={(e) => setEcoOvarioDer(e.target.value)}
-                          placeholder="28 x 16 mm, parénquima folicular habitual..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          placeholder="Ej: 28 x 16 mm, parénquima folicular habitual..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                       <div>
@@ -3625,8 +3632,8 @@ export default function HcePage() {
                           disabled={isSealed}
                           value={ecoOvarioIzq}
                           onChange={(e) => setEcoOvarioIzq(e.target.value)}
-                          placeholder="26 x 15 mm, folículos periféricos normales..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                          placeholder="Ej: 26 x 15 mm, folículos normales..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                         />
                       </div>
                     </div>
@@ -3638,8 +3645,8 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={ecoDouglas}
                         onChange={(e) => setEcoDouglas(e.target.value)}
-                        placeholder="Libre, sin líquido coleccionado..."
-                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        placeholder="Ej: Libre, sin líquido coleccionado..."
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                       />
                     </div>
 
@@ -3700,7 +3707,7 @@ export default function HcePage() {
                       value={conclusionEcografica}
                       onChange={(e) => setConclusionEcografica(e.target.value)}
                       placeholder="Conclusión diagnóstica del estudio ultrasonográfico..."
-                      className="w-full p-2.5 border border-sky-300 bg-sky-50/30 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-600"
+                      className="w-full p-2.5 border border-sky-300 bg-sky-50/30 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-600 placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                     />
                   </div>
 
@@ -3714,7 +3721,7 @@ export default function HcePage() {
                       value={sugerenciasEcograficas}
                       onChange={(e) => setSugerenciasEcograficas(e.target.value)}
                       placeholder="Controles de seguimiento, exámenes complementarios..."
-                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900 placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                     />
                   </div>
                 </div>
@@ -3735,8 +3742,8 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={tiempoEnfermedad}
                         onChange={(e) => setTiempoEnfermedad(e.target.value)}
-                        placeholder="Ej. 3 días, 1 semana..."
-                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono text-xs bg-white"
+                        placeholder="Ej: 3 días, 1 semana..."
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                       />
                     </div>
                     <div>
@@ -3748,8 +3755,8 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={descansoMedicoDias}
                         onChange={(e) => setDescansoMedicoDias(e.target.value)}
-                        placeholder="0"
-                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono text-xs bg-white"
+                        placeholder="Ej: 0"
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                       />
                     </div>
                   </div>
@@ -3845,14 +3852,14 @@ export default function HcePage() {
                         value={labOrinaLeucocitos}
                         onChange={(e) => setLabOrinaLeucocitos(e.target.value)}
                         className={`w-full p-2 border rounded-lg text-xs font-bold ${
-                          labOrinaLeucocitos === "No realizada"
-                            ? "border-neutral-300 text-neutral-600 bg-white font-medium"
+                          !labOrinaLeucocitos || labOrinaLeucocitos === "No realizada"
+                            ? "border-neutral-300 text-neutral-500 bg-white font-normal"
                             : labOrinaLeucocitos === "Negativo"
                             ? "border-emerald-300 text-emerald-900 bg-emerald-50/50"
                             : "border-rose-400 text-rose-900 bg-rose-50"
                         }`}
                       >
-                        <option value="No realizada">No realizada</option>
+                        <option value="">-- No realizada --</option>
                         <option value="Negativo">Negativo (Normal)</option>
                         <option value="Trazas">Trazas (±)</option>
                         <option value="Positivo (+)">Positivo (+)</option>
@@ -3868,14 +3875,14 @@ export default function HcePage() {
                         value={labOrinaProteinas}
                         onChange={(e) => setLabOrinaProteinas(e.target.value)}
                         className={`w-full p-2 border rounded-lg text-xs font-bold ${
-                          labOrinaProteinas === "No realizada"
-                            ? "border-neutral-300 text-neutral-600 bg-white font-medium"
+                          !labOrinaProteinas || labOrinaProteinas === "No realizada"
+                            ? "border-neutral-300 text-neutral-500 bg-white font-normal"
                             : labOrinaProteinas === "Negativo"
                             ? "border-emerald-300 text-emerald-900 bg-emerald-50/50"
                             : "border-rose-400 text-rose-900 bg-rose-50"
                         }`}
                       >
-                        <option value="No realizada">No realizada</option>
+                        <option value="">-- No realizada --</option>
                         <option value="Negativo">Negativo (Normal)</option>
                         <option value="Trazas">Trazas (±)</option>
                         <option value="Positivo (+)">Positivo (+)</option>
@@ -3890,14 +3897,14 @@ export default function HcePage() {
                         value={labOrinaNitritos}
                         onChange={(e) => setLabOrinaNitritos(e.target.value)}
                         className={`w-full p-2 border rounded-lg text-xs font-bold ${
-                          labOrinaNitritos === "No realizada"
-                            ? "border-neutral-300 text-neutral-600 bg-white font-medium"
+                          !labOrinaNitritos || labOrinaNitritos === "No realizada"
+                            ? "border-neutral-300 text-neutral-500 bg-white font-normal"
                             : labOrinaNitritos === "Negativo"
                             ? "border-emerald-300 text-emerald-900 bg-emerald-50/50"
                             : "border-rose-400 text-rose-900 bg-rose-50"
                         }`}
                       >
-                        <option value="No realizada">No realizada</option>
+                        <option value="">-- No realizada --</option>
                         <option value="Negativo">Negativo (Normal)</option>
                         <option value="Positivo (+)">Positivo (+) (Sugiere ITU)</option>
                       </select>
@@ -3913,8 +3920,8 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={labHemoglobina}
                         onChange={(e) => setLabHemoglobina(e.target.value)}
-                        placeholder="Ej. 12.4"
-                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono font-bold text-xs bg-white"
+                        placeholder="Ej: 12.4"
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono font-bold text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                       />
                     </div>
 
@@ -3925,8 +3932,8 @@ export default function HcePage() {
                         disabled={isSealed}
                         value={labGlucosa}
                         onChange={(e) => setLabGlucosa(e.target.value)}
-                        placeholder="Ej. 92"
-                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono font-bold text-xs bg-white"
+                        placeholder="Ej: 92"
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono font-bold text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
                       />
                     </div>
 
@@ -3937,10 +3944,12 @@ export default function HcePage() {
                         value={labPruebaEmbarazo}
                         onChange={(e) => setLabPruebaEmbarazo(e.target.value)}
                         className={`w-full p-2 border rounded-lg text-xs font-bold ${
-                          labPruebaEmbarazo === "Positiva (+)" ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-neutral-300 bg-white"
+                          labPruebaEmbarazo === "Positiva (+)"
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-900"
+                            : "border-neutral-300 bg-white text-neutral-700 font-normal"
                         }`}
                       >
-                        <option value="No realizada">No realizada</option>
+                        <option value="">-- No realizada --</option>
                         <option value="Negativa">Negativa (-)</option>
                         <option value="Positiva (+)">Positiva (+) Reactiva</option>
                       </select>
@@ -4226,7 +4235,8 @@ export default function HcePage() {
                 disabled={isSealed}
                 value={planTratamiento}
                 onChange={(e) => setPlanTratamiento(e.target.value)}
-                className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                placeholder="Indicaciones terapéuticas, prescripción DCI, régimen posológico y controles..."
+                className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-900 placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
               />
             </div>
           </div>
