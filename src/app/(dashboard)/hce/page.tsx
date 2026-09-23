@@ -218,6 +218,135 @@ const CIE10_FRECUENTES = [
   { codigo: "D50.9", descripcion: "Anemia por deficiencia de hierro sin especificación" },
 ];
 
+export function getCie10Sugeridos(
+  modalidad: "OBSTETRICIA" | "GINECOLOGIA" | "MEDICINA_GENERAL" | "ECOGRAFIA" | "LABORATORIO",
+  tipoEco: string
+): { codigo: string; descripcion: string }[] {
+  if (modalidad === "ECOGRAFIA") {
+    switch (tipoEco) {
+      case "PROSTATICA":
+        return [
+          { codigo: "N40", descripcion: "Hiperplasia benigna de próstata (HBP)" },
+          { codigo: "N41.0", descripcion: "Prostatitis aguda" },
+          { codigo: "N41.1", descripcion: "Prostatitis crónica" },
+          { codigo: "R33", descripcion: "Retención de orina / RPM elevado" },
+          { codigo: "R35", descripcion: "Poliuria / Nicturia frecuente" },
+          { codigo: "R39.1", descripcion: "Dificultad de micción (Chorro débil)" },
+          { codigo: "Z12.5", descripcion: "Pesquisa / Despistaje prostático" },
+        ];
+      case "ABDOMINAL":
+        return [
+          { codigo: "K76.0", descripcion: "Esteatosis hepática (Hígado graso)" },
+          { codigo: "K80.2", descripcion: "Cálculo de vesícula (Colelitiasis)" },
+          { codigo: "K80.0", descripcion: "Colelitiasis con colecistitis" },
+          { codigo: "K82.8", descripcion: "Pólipo de la vesícula biliar" },
+          { codigo: "R10.4", descripcion: "Dolor abdominal no especificado" },
+        ];
+      case "RENAL":
+        return [
+          { codigo: "N20.0", descripcion: "Cálculo de riñón (Nefrolitiasis)" },
+          { codigo: "N20.1", descripcion: "Cálculo del uréter" },
+          { codigo: "N28.1", descripcion: "Quiste renal simple" },
+          { codigo: "N13.3", descripcion: "Hidronefrosis / ectasia pielocalicial" },
+          { codigo: "N39.0", descripcion: "Infección de tracto urinario (ITU)" },
+        ];
+      case "PARTES_BLANDAS":
+        return [
+          { codigo: "D17.9", descripcion: "Lipoma en tejido celular subcutáneo" },
+          { codigo: "L72.0", descripcion: "Quiste epidermoide / sebáceo" },
+          { codigo: "K40.9", descripcion: "Hernia inguinal" },
+          { codigo: "K42.9", descripcion: "Hernia umbilical" },
+        ];
+      case "MAMARIA":
+        return [
+          { codigo: "N60.2", descripcion: "Fibroadenoma de mama (BI-RADS 2/3)" },
+          { codigo: "N60.9", descripcion: "Displasia mamaria benigna" },
+          { codigo: "N64.4", descripcion: "Mastodinia / Dolor mamario" },
+          { codigo: "N61", descripcion: "Mastitis inflamatoria" },
+        ];
+      case "TIROIDEA":
+        return [
+          { codigo: "E04.1", descripcion: "Nódulo tiroideo solitario (TI-RADS)" },
+          { codigo: "E04.2", descripcion: "Bocio multinodular no tóxico" },
+        ];
+      case "TRANSVAGINAL":
+        return [
+          { codigo: "D25.9", descripcion: "Mioma uterino (Miomatosis)" },
+          { codigo: "D25.1", descripcion: "Mioma intramural" },
+          { codigo: "N83.2", descripcion: "Quiste de ovario no especificado" },
+          { codigo: "E28.2", descripcion: "Síndrome de ovario poliquístico (SOP)" },
+          { codigo: "N80.9", descripcion: "Endometriosis pélvica" },
+          { codigo: "N84.0", descripcion: "Pólipo endometrial" },
+          { codigo: "O00.9", descripcion: "Sospecha de embarazo ectópico" },
+        ];
+      case "OBSTETRICA":
+      default:
+        return [
+          { codigo: "Z34.0", descripcion: "Supervisión primer embarazo normal" },
+          { codigo: "Z34.8", descripcion: "Supervisión otros embarazos normales" },
+          { codigo: "Z36.8", descripcion: "Pesquisa ecográfica prenatal" },
+          { codigo: "O20.0", descripcion: "Amenaza de aborto" },
+          { codigo: "O60.0", descripcion: "Amenaza de parto prematuro" },
+          { codigo: "O13", descripcion: "Hipertensión gestacional" },
+          { codigo: "O44.0", descripcion: "Placenta previa sin sangrado" },
+        ];
+    }
+  }
+  if (modalidad === "OBSTETRICIA") {
+    return [
+      { codigo: "Z34.0", descripcion: "Supervisión de primer embarazo normal" },
+      { codigo: "Z34.8", descripcion: "Supervisión de otros embarazos normales" },
+      { codigo: "O20.0", descripcion: "Amenaza de aborto" },
+      { codigo: "O13", descripcion: "Hipertensión gestacional sin proteinuria" },
+      { codigo: "O14.0", descripcion: "Preeclampsia leve a moderada" },
+      { codigo: "O24.4", descripcion: "Diabetes mellitus gestacional" },
+      { codigo: "O23.4", descripcion: "Infección urinaria en el embarazo" },
+      { codigo: "O99.0", descripcion: "Anemia que complica el embarazo" },
+      { codigo: "Z30.0", descripcion: "Consejo y asesoramiento anticonceptivo" },
+    ];
+  }
+  if (modalidad === "GINECOLOGIA") {
+    return [
+      { codigo: "N76.0", descripcion: "Vaginitis aguda / Vulvovaginitis" },
+      { codigo: "N72", descripcion: "Cervicitis / Inflamación cuello uterino" },
+      { codigo: "N86", descripcion: "Erosión de cuello uterino (Úlcera)" },
+      { codigo: "N87.0", descripcion: "Displasia cervical leve (NIC I)" },
+      { codigo: "D25.9", descripcion: "Leiomioma del útero (Miomatosis)" },
+      { codigo: "E28.2", descripcion: "Síndrome ovario poliquístico (SOP)" },
+      { codigo: "N83.2", descripcion: "Quiste de ovario" },
+      { codigo: "N92.0", descripcion: "Menorragia / Menstruación excesiva" },
+      { codigo: "N95.1", descripcion: "Estados menopáusicos y climaterio" },
+      { codigo: "Z30.1", descripcion: "Inserción o retiro de DIU" },
+      { codigo: "Z30.8", descripcion: "Inserción de implante subdérmico" },
+      { codigo: "N39.0", descripcion: "Infección urinaria baja (ITU)" },
+    ];
+  }
+  if (modalidad === "MEDICINA_GENERAL") {
+    return [
+      { codigo: "J00", descripcion: "Resfriado común (Rinofaringitis)" },
+      { codigo: "J02.9", descripcion: "Faringitis aguda" },
+      { codigo: "K29.7", descripcion: "Gastritis no especificada / Dispepsia" },
+      { codigo: "A09", descripcion: "Gastroenteritis aguda (EDA)" },
+      { codigo: "I10", descripcion: "Hipertensión esencial (primaria)" },
+      { codigo: "M54.5", descripcion: "Lumbalgia mecánica / postural" },
+      { codigo: "G44.2", descripcion: "Cefalea tensional" },
+      { codigo: "E11.9", descripcion: "Diabetes mellitus tipo 2" },
+      { codigo: "N39.0", descripcion: "Infección de tracto urinario (ITU)" },
+    ];
+  }
+  if (modalidad === "LABORATORIO") {
+    return [
+      { codigo: "D50.9", descripcion: "Anemia por deficiencia de hierro" },
+      { codigo: "N39.0", descripcion: "Infección del tracto urinario (ITU)" },
+      { codigo: "E11.9", descripcion: "Diabetes mellitus tipo 2" },
+      { codigo: "E78.5", descripcion: "Hiperlipidemia (Dislipidemia)" },
+      { codigo: "Z01.7", descripcion: "Examen de laboratorio de rutina" },
+      { codigo: "Z32.1", descripcion: "Confirmación de embarazo (GCH)" },
+    ];
+  }
+  return [];
+}
+
 export default function HcePage() {
   const [sede, setSede] = useState<string>("Independencia");
   const [profesionalNombre, setProfesionalNombre] = useState<string>("Profesional de Turno");
@@ -300,8 +429,52 @@ export default function HcePage() {
   // ESPECIALIZACIÓN DE FORMATOS Y MODALIDAD ASISTENCIAL (NTS N.° 139-MINSA)
   // ============================================================================
   const [modalidadAtencion, setModalidadAtencion] = useState<
-    "GINECO_OBSTETRICIA" | "MEDICINA_GENERAL" | "ECOGRAFIA" | "LABORATORIO"
-  >("GINECO_OBSTETRICIA");
+    "OBSTETRICIA" | "GINECOLOGIA" | "MEDICINA_GENERAL" | "ECOGRAFIA" | "LABORATORIO"
+  >("OBSTETRICIA");
+
+  // Pestaña activa de herramientas secundarias inferiores (Solución A)
+  const [herramientaActiva, setHerramientaActiva] = useState<"imagenes" | "reagendar" | "adendas">("imagenes");
+
+  // Identificación regulatoria oficial según Ley N.° 23346 (Obstetras) vs Ley N.° 15125 (Médicos)
+  const getCargoProfesional = () => {
+    switch (modalidadAtencion) {
+      case "OBSTETRICIA":
+        return {
+          cargo: "Obstetra (Salud Materno-Perinatal)",
+          registro: colegiatura ? `COP ${colegiatura}` : "COP 13102",
+          badgeColor: "bg-rose-50 text-rose-800 border-rose-200",
+          leyRef: "Ley N.° 23346 (Acto Obstétrico)",
+        };
+      case "GINECOLOGIA":
+        return {
+          cargo: "Médico Ginecólogo-Obstetra",
+          registro: colegiatura ? `CMP ${colegiatura}` : "CMP 72450 • RNE",
+          badgeColor: "bg-purple-50 text-purple-800 border-purple-200",
+          leyRef: "Ley N.° 15125 (Acto Médico Especializado)",
+        };
+      case "ECOGRAFIA":
+        return {
+          cargo: "Médico Ecografista",
+          registro: colegiatura ? `CMP ${colegiatura}` : "CMP Colegiado",
+          badgeColor: "bg-sky-50 text-sky-800 border-sky-200",
+          leyRef: "Diagnóstico por Imágenes",
+        };
+      case "MEDICINA_GENERAL":
+        return {
+          cargo: "Médico Cirujano",
+          registro: colegiatura ? `CMP ${colegiatura}` : "CMP Colegiado",
+          badgeColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
+          leyRef: "Ley N.° 15125 (Medicina General)",
+        };
+      case "LABORATORIO":
+        return {
+          cargo: "Responsable de Laboratorio POCT",
+          registro: colegiatura || "POCT Certificado",
+          badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
+          leyRef: "Tamizaje Clínico & Pruebas Rápidas",
+        };
+    }
+  };
 
   // Sub-modalidad de Ecografía
   const [tipoEcografia, setTipoEcografia] = useState<
@@ -500,8 +673,23 @@ export default function HcePage() {
         setModalidadAtencion("MEDICINA_GENERAL");
       } else if (srvLower.includes("laboratorio") || srvLower.includes("orina") || srvLower.includes("sangre") || srvLower.includes("hemograma") || srvLower.includes("perfil")) {
         setModalidadAtencion("LABORATORIO");
+      } else if (
+        srvLower.includes("ginecolog") ||
+        srvLower.includes("papanicolaou") ||
+        srvLower.includes("pap") ||
+        srvLower.includes("colposcop") ||
+        srvLower.includes("cauteriz") ||
+        srvLower.includes("biopsia") ||
+        srvLower.includes("flujo") ||
+        srvLower.includes("leucorrea") ||
+        srvLower.includes("diu") ||
+        srvLower.includes("implante") ||
+        srvLower.includes("climater") ||
+        srvLower.includes("menopaus")
+      ) {
+        setModalidadAtencion("GINECOLOGIA");
       } else {
-        setModalidadAtencion("GINECO_OBSTETRICIA");
+        setModalidadAtencion("OBSTETRICIA");
       }
     }
   };
@@ -633,7 +821,17 @@ export default function HcePage() {
             if (ef.lcf) setLcf(ef.lcf);
             if (ef.presentacion) setPresentacion(ef.presentacion);
             if (ef.detalles) setExamenFisico(ef.detalles);
-            if (ef.modalidadAtencion) setModalidadAtencion(ef.modalidadAtencion);
+            if (ef.modalidadAtencion) {
+              if (ef.modalidadAtencion === "GINECO_OBSTETRICIA") {
+                if (ef.formulaG || ef.fur || ef.eg || ef.alturaUterina || ef.lcf) {
+                  setModalidadAtencion("OBSTETRICIA");
+                } else {
+                  setModalidadAtencion("GINECOLOGIA");
+                }
+              } else {
+                setModalidadAtencion(ef.modalidadAtencion);
+              }
+            }
             if (ef.tipoEcografia) setTipoEcografia(ef.tipoEcografia);
 
             // Próstata
@@ -1116,11 +1314,13 @@ export default function HcePage() {
             <div><strong>${
               modalidadAtencion === "ECOGRAFIA"
                 ? `INFORME ECOGRÁFICO (${tipoEcografia.replace('_', ' ')})`
+                : modalidadAtencion === "OBSTETRICIA"
+                ? "HISTORIA CLÍNICA MATERNO-PERINATAL (COP)"
+                : modalidadAtencion === "GINECOLOGIA"
+                ? "HISTORIA CLÍNICA GINECOLÓGICA (CMP/RNE)"
                 : modalidadAtencion === "MEDICINA_GENERAL"
-                ? "HISTORIA CLÍNICA - MEDICINA GENERAL"
-                : modalidadAtencion === "LABORATORIO"
-                ? "REPORTE DE LABORATORIO & TIRAS"
-                : "HISTORIA CLÍNICA ELECTRÓNICA"
+                ? "HISTORIA CLÍNICA - MEDICINA GENERAL (CMP)"
+                : "REPORTE DE LABORATORIO & POCT"
             }</strong></div>
             <div>Encuentro ID: ${selectedPatient.id.slice(0, 8)}</div>
             <div>Emisión: ${fechaHoy}</div>
@@ -1313,10 +1513,22 @@ export default function HcePage() {
             <div class="section-title">Observaciones Analíticas</div>
             <div class="content-block">${labObservaciones}</div>
           ` : ''}
+        ` : modalidadAtencion === "GINECOLOGIA" ? `
+          <!-- GINECOLOGÍA ESPECIALIZADA -->
+          <div class="section-title">2. Anamnesis Ginecológica & Motivo de Consulta</div>
+          <div class="content-block">${motivo || "Consulta médica ginecológica especializada."}</div>
+
+          ${antecedentes ? `
+            <div class="section-title">3. Antecedentes Ginecológicos & Quirúrgicos</div>
+            <div class="content-block">${antecedentes}</div>
+          ` : ''}
+
+          <div class="section-title">4. Examen Ginecológico Preferencial / Especuloscopía</div>
+          <div class="content-block">${examenFisico || "Evaluación ginecológica: genitales externos normales, especuloscopía sin lesiones activas, tacto bimanual conservado."}</div>
         ` : `
-          <!-- GINECO-OBSTETRICIA (DEFECTO) -->
+          <!-- OBSTETRICIA & CONTROL PRENATAL -->
           ${(formulaG || fur || eg || alturaUterina || lcf) ? `
-            <div class="section-title">2. Perfil y Control Obstétrico</div>
+            <div class="section-title">2. Perfil y Control Obstétrico (Carnet Perinatal)</div>
             <div class="grid-4">
               <div class="data-box"><div class="data-label">Fórmula Gestacional</div><div class="data-val">G: ${formulaG || "-"} P: ${formulaP || "-"}</div></div>
               <div class="data-box"><div class="data-label">F.U.R. / F.P.P.</div><div class="data-val">${fur || "--"} / ${fpp || "--"}</div></div>
@@ -1325,16 +1537,16 @@ export default function HcePage() {
             </div>
           ` : ''}
 
-          <div class="section-title">3. Anamnesis & Motivo de Consulta</div>
-          <div class="content-block">${motivo || "Sin registro de motivo de consulta específico."}</div>
+          <div class="section-title">3. Anamnesis & Motivo de Consulta Obstétrica</div>
+          <div class="content-block">${motivo || "Control prenatal y seguimiento materno-perinatal."}</div>
 
           ${antecedentes ? `
-            <div class="section-title">4. Antecedentes Gineco-Obstétricos</div>
+            <div class="section-title">4. Antecedentes Obstétricos & Perinatales</div>
             <div class="content-block">${antecedentes}</div>
           ` : ''}
 
-          <div class="section-title">5. Examen Físico Preferencial / Especuloscopía</div>
-          <div class="content-block">${examenFisico || "Evaluación clínica realizada conforme a estándares y protocolos de atención."}</div>
+          <div class="section-title">5. Examen Clínico / Evaluación Materno-Fetal</div>
+          <div class="content-block">${examenFisico || "Control prenatal conforme a Guías de Práctica Clínica y NTS N.° 139-MINSA."}</div>
         `}
 
         <!-- DIAGNÓSTICOS CIE-10 -->
@@ -1390,7 +1602,17 @@ export default function HcePage() {
           </div>
           <div class="signature-line">
             ${profesionalNombre}<br>
-            <span style="font-size:9px; color:#64748b; font-weight:normal;">${colegiatura || "Obstetricia / Ginecología"}</span>
+            ${
+              modalidadAtencion === "OBSTETRICIA"
+                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Lic. en Obstetricia &bull; COP: ${colegiatura || "13102"}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Salud Materno-Perinatal &bull; Ley N.° 23346</span>`
+                : modalidadAtencion === "GINECOLOGIA"
+                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Gineco-Obstetra &bull; CMP: ${colegiatura || "72450"}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Especialista RNE &bull; Ley N.° 15125</span>`
+                : modalidadAtencion === "ECOGRAFIA"
+                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Ecografista &bull; CMP: ${colegiatura || "CMP"}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Diagnóstico por Imágenes & Ultrasonografía</span>`
+                : modalidadAtencion === "MEDICINA_GENERAL"
+                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Cirujano &bull; CMP: ${colegiatura || "CMP"}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Atención Médica Primaria &bull; Ley N.° 15125</span>`
+                : `<span style="font-size:9.5px; color:#334155; font-weight:700;">Responsable de Laboratorio POCT</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Reg. Profesional: ${colegiatura || "Certificado"}</span>`
+            }
           </div>
         </div>
       </body>
@@ -1888,16 +2110,17 @@ export default function HcePage() {
 
   return (
     <div className="space-y-3 max-w-[1600px] mx-auto text-xs">
-      {/* Barra de Control Clínico & Autoguardado */}
-      <div className="bg-white border border-neutral-200 rounded-lg p-2.5 flex items-center justify-between shadow-sm">
+      {/* Barra de Control Clínico Superior */}
+      <div className="bg-white border border-neutral-200 rounded-xl p-2.5 px-3 flex flex-wrap items-center justify-between shadow-xs gap-2">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-neutral-900 text-xs">{profesionalNombre}</span>
-            <span className="font-mono text-[10px] bg-neutral-100 text-neutral-700 px-1.5 py-0.2 rounded border border-neutral-200">
-              {colegiatura}
+            <span className="font-extrabold text-neutral-900 text-xs tracking-tight">{profesionalNombre}</span>
+            <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${getCargoProfesional().badgeColor}`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+              {getCargoProfesional().cargo} &bull; {getCargoProfesional().registro}
             </span>
           </div>
-          <span className="text-neutral-300">&bull;</span>
+          <span className="text-neutral-300 hidden sm:inline">&bull;</span>
           <div className="flex items-center gap-1.5">
             <span className="text-neutral-500">Paciente:</span>
             <span className="font-bold text-neutral-900">
@@ -1915,18 +2138,18 @@ export default function HcePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Indicador de Autoguardado Silencioso */}
           <div className="flex items-center gap-1.5 font-mono text-[11px] text-neutral-400">
             {saveStatus === "saving" ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                <span>Guardando cambios...</span>
+                <span>Guardando...</span>
               </>
             ) : (
               <>
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span className="text-neutral-500">Guardado aut. {lastSavedTime}</span>
+                <span className="text-neutral-500">Auto {lastSavedTime || "activo"}</span>
               </>
             )}
           </div>
@@ -1936,7 +2159,7 @@ export default function HcePage() {
             type="button"
             onClick={imprimirFichaClinicaA4}
             disabled={!selectedPatient}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold rounded-lg border border-neutral-300 transition disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold rounded-lg border border-neutral-300 transition disabled:opacity-40 shadow-xs"
             title="Imprimir Historia Clínica Electrónica completa en formato A4"
           >
             <Printer className="w-3.5 h-3.5 text-neutral-600" />
@@ -1948,7 +2171,7 @@ export default function HcePage() {
             <button
               onClick={handleSellarNota}
               disabled={!selectedPatient}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-black text-white font-bold rounded-lg transition disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-black text-white font-bold rounded-lg transition disabled:opacity-40 shadow-xs"
             >
               <Lock className="w-3 h-3" />
               <span>Sellar & Firmar HCE</span>
@@ -1956,7 +2179,7 @@ export default function HcePage() {
           ) : (
             <button
               onClick={() => setShowAdendaModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-lg transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-lg transition shadow-xs"
             >
               <PlusCircle className="w-3 h-3" />
               <span>Incorporar Adenda</span>
@@ -1965,92 +2188,16 @@ export default function HcePage() {
         </div>
       </div>
 
-      {/* Banner de Bloqueo Inmutable Post-Atención */}
-      {(isSealed || selectedPatient?.estado === "ATENDIDO") && selectedPatient && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-900 px-3.5 py-2 rounded-lg flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-amber-700 shrink-0" />
-            <span className="font-extrabold text-xs">Historia Clínica Sellada & Cerrada (Modo Solo Lectura)</span>
-            <span className="text-[11px] text-amber-700 hidden sm:inline">&bull; Ley N.° 30024 & NTS N.° 139-MINSA (Acto Médico Inalterable)</span>
-          </div>
-          {sealedHash && (
-            <span className="font-mono text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-              Firma Hash: {sealedHash.slice(0, 16)}...
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Barra de Pestañas de Modalidad Clínica Contextual (Ergonomía & No Saturación) */}
-      <div className="bg-white border border-neutral-200 rounded-xl p-1.5 flex flex-wrap items-center justify-between shadow-2xs gap-1.5">
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setModalidadAtencion("GINECO_OBSTETRICIA")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-              modalidadAtencion === "GINECO_OBSTETRICIA"
-                ? "bg-brand-50 text-brand-900 border border-brand-200 shadow-2xs"
-                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
-            }`}
-          >
-            <Baby className="w-3.5 h-3.5 text-brand-700" />
-            <span>Gineco-Obstetricia / Prenatal</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setModalidadAtencion("MEDICINA_GENERAL")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-              modalidadAtencion === "MEDICINA_GENERAL"
-                ? "bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs"
-                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
-            }`}
-          >
-            <Stethoscope className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Medicina General</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setModalidadAtencion("ECOGRAFIA")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-              modalidadAtencion === "ECOGRAFIA"
-                ? "bg-sky-50 text-sky-900 border border-sky-200 shadow-2xs"
-                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 text-sky-700" />
-            <span>Informe Ecográfico Especializado</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setModalidadAtencion("LABORATORIO")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-              modalidadAtencion === "LABORATORIO"
-                ? "bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs"
-                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50"
-            }`}
-          >
-            <FlaskConical className="w-3.5 h-3.5 text-amber-700" />
-            <span>Exámenes Auxiliares & Tiras</span>
-          </button>
-        </div>
-
-        <div className="hidden lg:flex items-center gap-2 pr-2 text-[10px] text-neutral-400 font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span>NTS N.° 139-MINSA Adaptativa &bull; Ley N.° 30024</span>
-        </div>
-      </div>
-
-      {/* Grid Clínico de Alta Densidad (3 Columnas) */}
-      <div className="grid lg:grid-cols-12 gap-3">
-        {/* ================================================================== */}
-        {/* COLUMNA 1: COLA DE SEDE, TRIAJE & OBSTÉTRICO (3 columnas)           */}
-        {/* ================================================================== */}
+      {/* ========================================================================= */}
+      {/* ARQUITECTURA MASTER-DETAIL (SOLUCIÓN A): 2 COLUMNAS (3 COLS | 9 COLS)     */}
+      {/* ========================================================================= */}
+      <div className="grid lg:grid-cols-12 gap-3.5">
+        {/* ======================================================================= */}
+        {/* COLUMNA IZQUIERDA (MASTER): COLA, PERFIL, SUB-ESTUDIO & TRIAJE (3 COLS) */}
+        {/* ======================================================================= */}
         <div className="lg:col-span-3 space-y-3">
-          {/* Selector Rápido de Pacientes en Espera / Atendidos */}
-          <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2">
+          {/* 1. Cola de Pacientes de la Sede */}
+          <div className="bg-white border border-neutral-200 rounded-xl p-3 space-y-2 shadow-2xs">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-1.5">
               <div className="flex items-center gap-1 bg-neutral-100 p-0.5 rounded-lg text-[10px] font-bold">
                 <button
@@ -2081,13 +2228,13 @@ export default function HcePage() {
               </span>
             </div>
 
-            <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
               {vistaCola === "espera" ? (
                 pacientesFiltrados.length === 0 ? (
                   <div className="py-6 text-center text-neutral-400">
                     <Clock className="w-5 h-5 mx-auto mb-1 opacity-40" />
                     <p className="font-bold text-[11px] text-neutral-600">No hay pacientes en espera</p>
-                    <p className="text-[10px] text-neutral-400">Las admisiones ingresadas aparecerán automáticamente.</p>
+                    <p className="text-[10px] text-neutral-400">Las admisiones aparecerán en tiempo real.</p>
                   </div>
                 ) : (
                   pacientesFiltrados.map((p) => {
@@ -2103,8 +2250,8 @@ export default function HcePage() {
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-neutral-900 truncate">{p.paciente}</span>
-                          <span className="text-[9px] px-1 py-0.2 rounded font-mono font-bold bg-neutral-100 text-neutral-600">
+                          <span className="text-neutral-900 truncate font-semibold">{p.paciente}</span>
+                          <span className="text-[9px] px-1 py-0.2 rounded font-mono font-bold bg-neutral-100 text-neutral-600 shrink-0">
                             {p.estado === "EN_ATENCION" ? "EN ATENCIÓN" : "EN ESPERA"}
                           </span>
                         </div>
@@ -2153,11 +2300,200 @@ export default function HcePage() {
             </div>
           </div>
 
-          {/* Triaje / Funciones Vitales */}
-          <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2.5">
+          {/* 2. Selector de Perfil Profesional & Especialidad Asistencial */}
+          <div className="bg-white border border-neutral-200 rounded-xl p-3 space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-1.5">
+              <span className="font-bold text-[11px] text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Stethoscope className="w-3.5 h-3.5 text-brand-700" />
+                Perfil & Especialidad
+              </span>
+              <span className="text-[9px] font-mono text-neutral-400">NTS N.° 139</span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-1.5">
+              {/* Botón 1: Obstetricia (COP) */}
+              <button
+                type="button"
+                onClick={() => setModalidadAtencion("OBSTETRICIA")}
+                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
+                  modalidadAtencion === "OBSTETRICIA"
+                    ? "bg-rose-50/80 border-rose-300 text-rose-950 font-bold shadow-xs"
+                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                    modalidadAtencion === "OBSTETRICIA" ? "bg-rose-200/80 text-rose-800" : "bg-neutral-100 text-neutral-500"
+                  }`}>
+                    <Baby className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <span className="text-xs font-bold block leading-tight truncate">Obstetricia & Prenatal</span>
+                    <span className="text-[10px] text-rose-700/80 font-mono block">COP 13102 • Obstetra</span>
+                  </div>
+                </div>
+                {modalidadAtencion === "OBSTETRICIA" && <Check className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+              </button>
+
+              {/* Botón 2: Ginecología (CMP / RNE) */}
+              <button
+                type="button"
+                onClick={() => setModalidadAtencion("GINECOLOGIA")}
+                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
+                  modalidadAtencion === "GINECOLOGIA"
+                    ? "bg-purple-50/80 border-purple-300 text-purple-950 font-bold shadow-xs"
+                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                    modalidadAtencion === "GINECOLOGIA" ? "bg-purple-200/80 text-purple-800" : "bg-neutral-100 text-neutral-500"
+                  }`}>
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <span className="text-xs font-bold block leading-tight truncate">Ginecología Especializada</span>
+                    <span className="text-[10px] text-purple-700/80 font-mono block">CMP 72450 • Ginecólogo</span>
+                  </div>
+                </div>
+                {modalidadAtencion === "GINECOLOGIA" && <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
+              </button>
+
+              {/* Botón 3: Ecografía Especializada */}
+              <button
+                type="button"
+                onClick={() => setModalidadAtencion("ECOGRAFIA")}
+                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
+                  modalidadAtencion === "ECOGRAFIA"
+                    ? "bg-sky-50/80 border-sky-300 text-sky-950 font-bold shadow-xs"
+                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                    modalidadAtencion === "ECOGRAFIA" ? "bg-sky-200/80 text-sky-800" : "bg-neutral-100 text-neutral-500"
+                  }`}>
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <span className="text-xs font-bold block leading-tight truncate">Ecografía Especializada</span>
+                    <span className="text-[10px] text-sky-700/80 font-mono block">8 modalidades clínicas</span>
+                  </div>
+                </div>
+                {modalidadAtencion === "ECOGRAFIA" && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0" />}
+              </button>
+
+              {/* Botón 4: Medicina General */}
+              <button
+                type="button"
+                onClick={() => setModalidadAtencion("MEDICINA_GENERAL")}
+                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
+                  modalidadAtencion === "MEDICINA_GENERAL"
+                    ? "bg-emerald-50/80 border-emerald-300 text-emerald-950 font-bold shadow-xs"
+                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                    modalidadAtencion === "MEDICINA_GENERAL" ? "bg-emerald-200/80 text-emerald-800" : "bg-neutral-100 text-neutral-500"
+                  }`}>
+                    <Stethoscope className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <span className="text-xs font-bold block leading-tight truncate">Medicina General</span>
+                    <span className="text-[10px] text-emerald-700/80 font-mono block">CMP • Consulta Adulto</span>
+                  </div>
+                </div>
+                {modalidadAtencion === "MEDICINA_GENERAL" && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+              </button>
+
+              {/* Botón 5: Laboratorio POCT */}
+              <button
+                type="button"
+                onClick={() => setModalidadAtencion("LABORATORIO")}
+                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
+                  modalidadAtencion === "LABORATORIO"
+                    ? "bg-amber-50/80 border-amber-300 text-amber-950 font-bold shadow-xs"
+                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                    modalidadAtencion === "LABORATORIO" ? "bg-amber-200/80 text-amber-800" : "bg-neutral-100 text-neutral-500"
+                  }`}>
+                    <FlaskConical className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <span className="text-xs font-bold block leading-tight truncate">Exámenes de Laboratorio</span>
+                    <span className="text-[10px] text-amber-700/80 font-mono block">POCT • Tiras & Pruebas</span>
+                  </div>
+                </div>
+                {modalidadAtencion === "LABORATORIO" && <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+              </button>
+            </div>
+          </div>
+
+          {/* 3. Selector de Sub-modalidad de Ecografía (solo visible si modalidad === ECOGRAFIA) */}
+          {modalidadAtencion === "ECOGRAFIA" && (
+            <div className="bg-white border border-sky-200 rounded-xl p-3 space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-sky-100 pb-1">
+                <span className="font-bold text-[11px] text-sky-950 uppercase tracking-wider">
+                  Tipo de Ecografía
+                </span>
+                <span className="text-[9px] font-mono text-sky-700 bg-sky-50 px-1.5 py-0.2 rounded border border-sky-200">
+                  8 Modalidades
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-[10px] text-neutral-600 mb-1 font-bold">Estudio Seleccionado:</label>
+                  <select
+                    disabled={isSealed}
+                    value={tipoEcografia}
+                    onChange={(e: any) => setTipoEcografia(e.target.value)}
+                    className="w-full p-2 border border-sky-300 bg-sky-50/50 rounded-lg text-xs font-bold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  >
+                    <option value="OBSTETRICA">Ecografía Obstétrica / Fetal</option>
+                    <option value="TRANSVAGINAL">Ecografía Transvaginal / Pélvica</option>
+                    <option value="ABDOMINAL">Ecografía Abdominal Completa</option>
+                    <option value="RENAL">Ecografía Renal y Vías Urinarias</option>
+                    <option value="PROSTATICA">Ecografía Prostática (Vesicoprostática)</option>
+                    <option value="PARTES_BLANDAS">Ecografía de Partes Blandas / Hernias / Lipomas</option>
+                    <option value="MAMARIA">Ecografía Mamaria Bilateral (BI-RADS)</option>
+                    <option value="TIROIDEA">Ecografía Tiroidea y Cuello (TI-RADS)</option>
+                  </select>
+                </div>
+
+                <div className="p-2 bg-sky-50/60 border border-sky-100 rounded-lg text-[10px] text-sky-900 space-y-1">
+                  <div className="font-bold flex items-center justify-between">
+                    <span>Transductor:</span>
+                    <span className="font-mono text-[9px] bg-sky-200/70 px-1.5 py-0.2 rounded font-semibold text-sky-900">
+                      {tipoEcografia === "TRANSVAGINAL"
+                        ? "Endocavitario 6.5 MHz"
+                        : tipoEcografia === "PARTES_BLANDAS" || tipoEcografia === "MAMARIA" || tipoEcografia === "TIROIDEA"
+                        ? "Lineal 7.5 - 12 MHz"
+                        : "Convexo 3.5 - 5 MHz"}
+                    </span>
+                  </div>
+                  <div className="text-[9.5px] text-sky-700 leading-tight">
+                    {tipoEcografia === "PROSTATICA"
+                      ? "Cálculo volumétrico elipsoide automatizado + % Residuo Post-Miccional."
+                      : tipoEcografia === "OBSTETRICA"
+                      ? "Biometría fetal estandarizada (DBP, LF, CA, PFE, ILA)."
+                      : "Protocolo clínico y CIE-10 adaptados específicamente a este estudio."}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. Triaje Vital & Funciones Antropométricas */}
+          <div className="bg-white border border-neutral-200 rounded-xl p-3 space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
-              <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                1. Triaje Vital
+              <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider flex items-center gap-1">
+                <HeartPulse className="w-3.5 h-3.5 text-rose-600" />
+                Triaje Vital
               </span>
               <span className="font-mono text-[10px] text-neutral-500">
                 IMC: <strong className="text-neutral-900">{imc}</strong>
@@ -2173,13 +2509,13 @@ export default function HcePage() {
                   value={pa}
                   onChange={(e) => setPa(e.target.value)}
                   placeholder="120/80"
-                  className={`w-full px-2 py-1 border rounded font-mono font-semibold ${
+                  className={`w-full px-2 py-1 border rounded font-mono font-semibold text-xs ${
                     isHipertension ? "border-rose-400 bg-rose-50 text-rose-900" : "border-neutral-200"
                   }`}
                 />
                 {isHipertension && (
                   <span className="text-[9px] font-bold text-rose-700 bg-rose-100/80 px-1 py-0.5 rounded block mt-0.5 leading-tight">
-                    ⚠️ Alerta MEOWS: PA Elevada (Descartar Preeclampsia)
+                    ⚠️ Alerta: PA Elevada
                   </span>
                 )}
               </div>
@@ -2190,7 +2526,7 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={fc}
                   onChange={(e) => setFc(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono font-semibold"
+                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono font-semibold text-xs"
                 />
               </div>
               <div>
@@ -2200,7 +2536,7 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={temp}
                   onChange={(e) => setTemp(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono"
+                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono text-xs"
                 />
               </div>
               <div>
@@ -2210,7 +2546,7 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={satO2}
                   onChange={(e) => setSatO2(e.target.value)}
-                  className={`w-full px-2 py-1 border rounded font-mono ${
+                  className={`w-full px-2 py-1 border rounded font-mono text-xs ${
                     isHipoxia ? "border-amber-400 bg-amber-50 text-amber-900 font-bold" : "border-neutral-200"
                   }`}
                 />
@@ -2227,7 +2563,7 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={peso}
                   onChange={(e) => setPeso(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono"
+                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono text-xs"
                 />
               </div>
               <div>
@@ -2237,1387 +2573,1378 @@ export default function HcePage() {
                   disabled={isSealed}
                   value={talla}
                   onChange={(e) => setTalla(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono"
+                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono text-xs"
                 />
               </div>
             </div>
           </div>
-
-          {/* Módulo Especializado según Modalidad */}
-          {modalidadAtencion === "GINECO_OBSTETRICIA" && (
-            <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
-                <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                  2. Parámetros Materno-Fetales
-                </span>
-                <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                  Regla Naegele Activa
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] text-neutral-500 mb-0.5">G / P</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="text"
-                      disabled={isSealed}
-                      value={formulaG}
-                      onChange={(e) => setFormulaG(e.target.value)}
-                      placeholder="G"
-                      className="w-1/2 px-1.5 py-1 border border-neutral-200 rounded font-mono text-center font-bold"
-                    />
-                    <input
-                      type="text"
-                      disabled={isSealed}
-                      value={formulaP}
-                      onChange={(e) => setFormulaP(e.target.value)}
-                      placeholder="P"
-                      className="w-1/2 px-1.5 py-1 border border-neutral-200 rounded font-mono text-center font-bold"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-neutral-500 mb-0.5">EG Semanas</label>
-                  <input
-                    type="text"
-                    disabled={isSealed}
-                    value={eg}
-                    onChange={(e) => setEg(e.target.value)}
-                    placeholder="Auto por FUR"
-                    className="w-full px-2 py-1 border border-neutral-200 rounded font-mono font-bold text-brand-900 bg-brand-50/20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-neutral-500 mb-0.5">F.U.R. (Inicio)</label>
-                  <input
-                    type="date"
-                    disabled={isSealed}
-                    value={fur}
-                    onChange={(e) => handleFurChange(e.target.value)}
-                    className="w-full px-1.5 py-1 border border-neutral-200 rounded font-mono text-[10px]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-neutral-500 mb-0.5">F.P.P. (Naegele)</label>
-                  <input
-                    type="date"
-                    disabled={isSealed}
-                    value={fpp}
-                    onChange={(e) => setFpp(e.target.value)}
-                    className="w-full px-1.5 py-1 border border-neutral-200 rounded font-mono text-[10px] font-semibold text-emerald-800 bg-emerald-50/20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-neutral-500 mb-0.5">A.U. (cm)</label>
-                  <input
-                    type="text"
-                    disabled={isSealed}
-                    value={alturaUterina}
-                    onChange={(e) => setAlturaUterina(e.target.value)}
-                    className="w-full px-2 py-1 border border-neutral-200 rounded font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-neutral-500 mb-0.5">L.C.F. (lpm)</label>
-                  <input
-                    type="text"
-                    disabled={isSealed}
-                    value={lcf}
-                    onChange={(e) => setLcf(e.target.value)}
-                    className="w-full px-2 py-1 border border-neutral-200 rounded font-mono font-bold text-neutral-900"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {modalidadAtencion === "MEDICINA_GENERAL" && (
-            <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2.5">
-              <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
-                <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                  2. Parámetros Clínicos Generales
-                </span>
-                <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                  Medicina Adulto
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                <div>
-                  <label className="block text-[10px] text-neutral-500 mb-0.5">Tiempo de Enfermedad (TE)</label>
-                  <input
-                    type="text"
-                    disabled={isSealed}
-                    value={tiempoEnfermedad}
-                    onChange={(e) => setTiempoEnfermedad(e.target.value)}
-                    placeholder="Ej. 3 días, 1 semana..."
-                    className="w-full px-2 py-1 border border-neutral-200 rounded font-mono text-xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] text-neutral-500 mb-0.5">Descanso Médico Sugerido (Días)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="30"
-                    disabled={isSealed}
-                    value={descansoMedicoDias}
-                    onChange={(e) => setDescansoMedicoDias(e.target.value)}
-                    placeholder="0"
-                    className="w-full px-2 py-1 border border-neutral-200 rounded font-mono text-xs"
-                  />
-                </div>
-
-                <div className="p-2 bg-neutral-50 rounded-lg border border-neutral-200 space-y-1">
-                  <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block">
-                    Comorbilidades / Alertas Rápidas
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    <span className="text-[9px] bg-white border border-neutral-200 text-neutral-700 px-1.5 py-0.5 rounded font-medium">
-                      HTA
-                    </span>
-                    <span className="text-[9px] bg-white border border-neutral-200 text-neutral-700 px-1.5 py-0.5 rounded font-medium">
-                      DM2
-                    </span>
-                    <span className="text-[9px] bg-white border border-neutral-200 text-neutral-700 px-1.5 py-0.5 rounded font-medium">
-                      Asma
-                    </span>
-                    <span className="text-[9px] bg-white border border-neutral-200 text-neutral-700 px-1.5 py-0.5 rounded font-medium">
-                      Gastritis
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {modalidadAtencion === "ECOGRAFIA" && (
-            <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2.5">
-              <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
-                <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                  2. Tipo de Ecografía
-                </span>
-                <span className="text-[9px] font-mono text-sky-700 bg-sky-50 px-1.5 py-0.2 rounded border border-sky-200">
-                  8 Modalidades
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                <div>
-                  <label className="block text-[10px] text-neutral-500 mb-0.5 font-bold">Estudio Seleccionado:</label>
-                  <select
-                    disabled={isSealed}
-                    value={tipoEcografia}
-                    onChange={(e: any) => setTipoEcografia(e.target.value)}
-                    className="w-full p-1.5 border border-sky-300 bg-sky-50/50 rounded-lg text-xs font-bold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  >
-                    <option value="OBSTETRICA">Ecografía Obstétrica / Fetal</option>
-                    <option value="TRANSVAGINAL">Ecografía Transvaginal / Pélvica</option>
-                    <option value="ABDOMINAL">Ecografía Abdominal Completa</option>
-                    <option value="RENAL">Ecografía Renal y Vías Urinarias</option>
-                    <option value="PROSTATICA">Ecografía Prostática (Vesicoprostática)</option>
-                    <option value="PARTES_BLANDAS">Ecografía de Partes Blandas / Hernias / Lipomas</option>
-                    <option value="MAMARIA">Ecografía Mamaria Bilateral (BI-RADS)</option>
-                    <option value="TIROIDEA">Ecografía Tiroidea y Cuello (TI-RADS)</option>
-                  </select>
-                </div>
-
-                <div className="p-2 bg-sky-50/50 border border-sky-100 rounded-lg text-[10px] text-sky-900 space-y-0.5">
-                  <div className="font-bold flex items-center justify-between">
-                    <span>Transductor:</span>
-                    <span className="font-mono text-[9px] bg-sky-200/70 px-1 rounded">
-                      {tipoEcografia === "TRANSVAGINAL"
-                        ? "Endocavitario 6.5 MHz"
-                        : tipoEcografia === "PARTES_BLANDAS" || tipoEcografia === "MAMARIA" || tipoEcografia === "TIROIDEA"
-                        ? "Lineal 7.5 - 12 MHz"
-                        : "Convexo 3.5 - 5 MHz"}
-                    </span>
-                  </div>
-                  <div className="text-[9.5px] text-sky-700">
-                    {tipoEcografia === "PROSTATICA"
-                      ? "Cálculo volumétrico elipsoide automatizado + % Residuo Post-Miccional."
-                      : tipoEcografia === "OBSTETRICA"
-                      ? "Biometría fetal estandarizada (DBP, LF, CA, PFE, ILA)."
-                      : "Protocolo adaptativo según estándar ecográfico oficial."}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {modalidadAtencion === "LABORATORIO" && (
-            <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2.5">
-              <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
-                <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                  2. Registro de Muestra
-                </span>
-                <span className="text-[9px] font-mono text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                  POCT Rápido
-                </span>
-              </div>
-
-              <div className="space-y-1.5 text-xs text-neutral-600">
-                <div className="flex items-center justify-between p-1.5 bg-neutral-50 rounded border border-neutral-200 text-[10px]">
-                  <span>Orina primera micción</span>
-                  <span className="font-bold text-emerald-700">✓ Conforme</span>
-                </div>
-                <div className="flex items-center justify-between p-1.5 bg-neutral-50 rounded border border-neutral-200 text-[10px]">
-                  <span>Tira reactiva multiparámetro</span>
-                  <span className="font-bold text-emerald-700">✓ 10 Parám.</span>
-                </div>
-                <div className="flex items-center justify-between p-1.5 bg-neutral-50 rounded border border-neutral-200 text-[10px]">
-                  <span>Sangre capilar (Hb / Glucosa)</span>
-                  <span className="font-bold text-emerald-700">✓ Inmediato</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* ================================================================== */}
-        {/* COLUMNA 2: ANAMNESIS, EXAMEN, CIE-10 & TRATAMIENTO (6 columnas)    */}
-        {/* ================================================================== */}
-        <div className="lg:col-span-6 bg-white border border-neutral-200 rounded-lg p-3.5 space-y-3">
-          {/* BANNER: BLOQUE PRIMARIO SELLADO (INALTERABLE) */}
-          {isSealed && (
-            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-lg flex items-start gap-2.5">
+        {/* ======================================================================= */}
+        {/* COLUMNA DERECHA (CANVAS CLÍNICO AMPLIO): CONSULTA, CIE-10, TRATAMIENTO   */}
+        {/* Y HERRAMIENTAS INTEGRADAS EN PESTAÑAS INFERIORES (9 COLS)              */}
+        {/* ======================================================================= */}
+        <div className="lg:col-span-9 space-y-3">
+          {/* Banner de Bloqueo Inmutable Post-Atención */}
+          {(isSealed || selectedPatient?.estado === "ATENDIDO") && selectedPatient && (
+            <div className="bg-emerald-50 border border-emerald-300 text-emerald-950 p-3 rounded-xl flex items-start gap-2.5 shadow-xs">
               <Lock className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-              <div className="text-xs text-emerald-900 leading-snug w-full">
+              <div className="text-xs leading-snug w-full">
                 <div className="font-bold flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-emerald-950">
-                    BLOQUE PRIMARIO SELLADO &bull; ACTO MÉDICO INALTERABLE
+                    HISTORIA CLÍNICA SELLADA &bull; ACTO MÉDICO INALTERABLE
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 bg-emerald-200 text-emerald-800 rounded font-mono">
+                  <span className="text-[10px] px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded font-mono font-bold">
                     NTS N.° 139-MINSA
                   </span>
                 </div>
-                <p className="text-[11px] text-emerald-700 mt-1">
-                  Este registro clínico fue sellado digitalmente{fechaSellado ? ` el ${fechaSellado}` : ""}. Los campos de anamnesis, examen físico, CIE-10 y plan terapéutico han quedado bloqueados contra edición. Toda anotación complementaria o de evolución médica debe realizarse en el <strong>Bloque de Adendas Evolutivas</strong> (panel derecho).
+                <p className="text-[11px] text-emerald-800 mt-1">
+                  Este registro clínico fue sellado digitalmente{fechaSellado ? ` el ${fechaSellado}` : ""}. Los campos de consulta han quedado en modo solo lectura. Toda ampliación debe realizarse en la pestaña <strong>Adendas Evolutivas</strong>.
                 </p>
                 {sealedHash && (
-                  <div className="mt-2.5 p-2 rounded-xl bg-white border border-emerald-300 shadow-2xs flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-emerald-900 block">Sello Criptográfico Digital SHA-256</span>
-                      <p className="text-[10px] font-mono font-bold text-emerald-800 truncate select-all">{sealedHash}</p>
-                    </div>
+                  <div className="mt-2 p-1.5 px-2 rounded-lg bg-white border border-emerald-300 shadow-2xs flex items-center gap-2">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <span className="text-[9px] font-mono font-bold text-emerald-800 truncate select-all">
+                      Firma Digital SHA-256: {sealedHash}
+                    </span>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* ========================================================== */}
-          {/* CASO A: ECOGRAFÍA ESPECIALIZADA (8 MODALIDADES)             */}
-          {/* ========================================================== */}
-          {modalidadAtencion === "ECOGRAFIA" && (
-            <div className="space-y-3">
-              {/* Encabezado del Informe con Sub-modalidad */}
-              <div className="flex items-center justify-between bg-sky-50 border border-sky-200 px-3 py-2 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-sky-700" />
-                  <span className="font-bold text-xs text-sky-950">
-                    Protocolo de Evaluación: {tipoEcografia.replace("_", " ")}
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono text-sky-800 bg-sky-100 px-2 py-0.5 rounded font-bold">
-                  {tipoEcografia === "PROSTATICA" ? "Fórmula Elipsoide Activa" : "Informe Estructurado"}
-                </span>
+          {/* Barra de Paciente & Contexto Clínico Activo */}
+          <div className="bg-white border border-neutral-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                {selectedPatient ? selectedPatient.paciente.charAt(0) : "P"}
               </div>
-
-              {/* Formulario Específico según tipoEcografia */}
-              {tipoEcografia === "PROSTATICA" && (
-                <div className="p-3 bg-neutral-50/80 rounded-lg border border-neutral-200 space-y-2.5">
-                  <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
-                    <span className="font-bold text-[11px] text-neutral-800 flex items-center gap-1.5">
-                      <Calculator className="w-3.5 h-3.5 text-brand-700" />
-                      Biometría Prostática & Dinámica de Evacuación
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-extrabold text-sm text-neutral-900">
+                    {selectedPatient ? selectedPatient.paciente : "Seleccione un paciente de la cola"}
+                  </h2>
+                  {selectedPatient && (
+                    <span className="font-mono text-xs text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
+                      DNI: {selectedPatient.dni}
                     </span>
-                    <span className="text-[9px] font-mono text-neutral-500">Vol = DT × DAP × DL × 0.52</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">D. Transverso (DT mm)</label>
-                      <input
-                        type="number"
-                        disabled={isSealed}
-                        value={prostataDt}
-                        onChange={(e) => setProstataDt(e.target.value)}
-                        placeholder="Ej. 45"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded font-mono font-bold text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">D. Anteroposterior (DAP mm)</label>
-                      <input
-                        type="number"
-                        disabled={isSealed}
-                        value={prostataDap}
-                        onChange={(e) => setProstataDap(e.target.value)}
-                        placeholder="Ej. 38"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded font-mono font-bold text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">D. Longitudinal (DL mm)</label>
-                      <input
-                        type="number"
-                        disabled={isSealed}
-                        value={prostataDl}
-                        onChange={(e) => setProstataDl(e.target.value)}
-                        placeholder="Ej. 42"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded font-mono font-bold text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Resumen Calculado en Tiempo Real */}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9.5px] font-bold text-emerald-800 uppercase">Volumen Prostático:</span>
-                        <span className="text-xs font-mono font-black text-emerald-900">{volumenProstataCc} cc</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-700 block mt-0.5">
-                        Clasificación: {gradoHbp}
+                  )}
+                  {selectedPatient?.grupoSanguineo && (
+                    <span className="font-mono text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                      {selectedPatient.grupoSanguineo}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-neutral-500 mt-0.5">
+                  <span>Servicio: <strong className="text-neutral-800">{selectedPatient?.servicio || "--"}</strong></span>
+                  <span>&bull;</span>
+                  <span>Sede: <strong className="text-neutral-800">{selectedPatient?.sede || sede}</strong></span>
+                  {selectedPatient?.alergias && selectedPatient.alergias !== "Ninguna" && (
+                    <>
+                      <span>&bull;</span>
+                      <span className="text-rose-700 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Alergias: {selectedPatient.alergias}
                       </span>
-                    </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
 
-                    <div className="p-2 bg-sky-50 border border-sky-200 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9.5px] font-bold text-sky-800 uppercase">% Residuo Post-Miccional:</span>
-                        <span className="text-xs font-mono font-black text-sky-900">{porcentajeResiduo}% RPM</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-sky-700 block mt-0.5">
-                        {parseFloat(porcentajeResiduo) > 20 ? "⚠️ Residuo Elevado (> 20%)" : "✓ Residuo No Significativo (< 10%)"}
-                      </span>
-                    </div>
+            {/* Badge de Modalidad Asistencial Activa */}
+            <div className="flex items-center gap-2">
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${getCargoProfesional().badgeColor}`}>
+                {modalidadAtencion === "OBSTETRICIA" && <Baby className="w-3.5 h-3.5" />}
+                {modalidadAtencion === "GINECOLOGIA" && <Activity className="w-3.5 h-3.5" />}
+                {modalidadAtencion === "ECOGRAFIA" && <Layers className="w-3.5 h-3.5" />}
+                {modalidadAtencion === "MEDICINA_GENERAL" && <Stethoscope className="w-3.5 h-3.5" />}
+                {modalidadAtencion === "LABORATORIO" && <FlaskConical className="w-3.5 h-3.5" />}
+                <span>
+                  {modalidadAtencion === "OBSTETRICIA"
+                    ? "Control Obstétrico & Prenatal (COP 13102)"
+                    : modalidadAtencion === "GINECOLOGIA"
+                    ? "Ginecología Especializada (CMP 72450)"
+                    : modalidadAtencion === "ECOGRAFIA"
+                    ? `Informe Ecográfico: ${tipoEcografia.replace("_", " ")}`
+                    : modalidadAtencion === "MEDICINA_GENERAL"
+                    ? "Medicina General Ambulatoria (CMP)"
+                    : "Exámenes de Laboratorio (POCT)"}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          {/* Formulario Clínico Principal */}
+          <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3.5 shadow-2xs">
+            {/* ================================================================ */}
+            {/* 1. CASO: OBSTETRICIA & CONTROL PRENATAL (COP 13102)               */}
+            {/* ================================================================ */}
+            {modalidadAtencion === "OBSTETRICIA" && (
+              <div className="space-y-3">
+                {/* Panel Perfil Obstétrico / Carnet Perinatal (Fila Amplia) */}
+                <div className="p-3 bg-rose-50/40 border border-rose-200 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-rose-100 pb-1">
+                    <span className="font-bold text-[11px] text-rose-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <Baby className="w-3.5 h-3.5 text-rose-700" />
+                      Biometría Materno-Fetal & Regla de Naegele
+                    </span>
+                    <span className="text-[9px] font-mono text-rose-800 bg-rose-100/80 px-2 py-0.5 rounded font-bold">
+                      Control Perinatal Oficial
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
                     <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Vejiga Pre-Miccional (cc)</label>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Fórmula G / P</label>
+                      <div className="flex gap-1">
+                        <input
+                          type="text"
+                          disabled={isSealed}
+                          value={formulaG}
+                          onChange={(e) => setFormulaG(e.target.value)}
+                          placeholder="G"
+                          className="w-1/2 px-1.5 py-1.5 border border-neutral-200 rounded font-mono text-center font-bold text-xs bg-white"
+                        />
+                        <input
+                          type="text"
+                          disabled={isSealed}
+                          value={formulaP}
+                          onChange={(e) => setFormulaP(e.target.value)}
+                          placeholder="P"
+                          className="w-1/2 px-1.5 py-1.5 border border-neutral-200 rounded font-mono text-center font-bold text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">F.U.R. (Inicio)</label>
                       <input
-                        type="number"
+                        type="date"
                         disabled={isSealed}
-                        value={prostataVejigaPre}
-                        onChange={(e) => setProstataVejigaPre(e.target.value)}
-                        placeholder="Ej. 300"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs"
+                        value={fur}
+                        onChange={(e) => handleFurChange(e.target.value)}
+                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-mono text-xs bg-white"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Residuo Post-Miccional (cc)</label>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">F.P.P. (Naegele)</label>
                       <input
-                        type="number"
+                        type="date"
                         disabled={isSealed}
-                        value={prostataResiduoPost}
-                        onChange={(e) => setProstataResiduoPost(e.target.value)}
-                        placeholder="Ej. 15"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs"
+                        value={fpp}
+                        onChange={(e) => setFpp(e.target.value)}
+                        className="w-full px-2 py-1.5 border border-emerald-300 rounded font-mono text-xs font-bold text-emerald-900 bg-emerald-50/40"
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">EG Semanas</label>
+                      <input
+                        type="text"
+                        disabled={isSealed}
+                        value={eg}
+                        onChange={(e) => setEg(e.target.value)}
+                        placeholder="Auto por FUR"
+                        className="w-full px-2 py-1.5 border border-brand-300 rounded font-mono font-bold text-brand-950 bg-brand-50/40 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">A.U. (cm)</label>
+                      <input
+                        type="text"
+                        disabled={isSealed}
+                        value={alturaUterina}
+                        onChange={(e) => setAlturaUterina(e.target.value)}
+                        placeholder="Ej: 24"
+                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-mono text-xs bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">L.C.F. (lpm)</label>
+                      <input
+                        type="text"
+                        disabled={isSealed}
+                        value={lcf}
+                        onChange={(e) => setLcf(e.target.value)}
+                        placeholder="140"
+                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-mono font-bold text-neutral-900 text-xs bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Presentación</label>
+                      <select
+                        disabled={isSealed}
+                        value={presentacion}
+                        onChange={(e) => setPresentacion(e.target.value)}
+                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-semibold text-xs bg-white"
+                      >
+                        <option value="Cefálica">Cefálica</option>
+                        <option value="Podálica">Podálica</option>
+                        <option value="Transversa">Transversa</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Motivo & Antecedentes en 2 Columnas amplias */}
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
+                      1. Motivo de Consulta & Relato Obstétrico
+                    </label>
+                    <textarea
+                      rows={3}
+                      disabled={isSealed}
+                      value={motivo}
+                      onChange={(e) => setMotivo(e.target.value)}
+                      placeholder="Gestante acude para evaluación de control prenatal..."
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5">Evaluación de Lóbulo Medio</label>
-                    <select
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
+                      2. Antecedentes Obstétricos & Perinatales
+                    </label>
+                    <textarea
+                      rows={3}
                       disabled={isSealed}
-                      value={prostataLobuloMedio}
-                      onChange={(e) => setProstataLobuloMedio(e.target.value)}
-                      className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white"
-                    >
-                      <option value="No protruye al piso vesical">No protruye al piso vesical</option>
-                      <option value="Protruye levemente hacia el piso vesical (Grado 1: < 5 mm)">
-                        Protruye levemente hacia el piso vesical (Grado 1: &lt; 5 mm)
-                      </option>
-                      <option value="Protruye moderadamente al piso vesical (Grado 2: 5 - 10 mm)">
-                        Protruye moderadamente al piso vesical (Grado 2: 5 - 10 mm)
-                      </option>
-                      <option value="Protruye severamente al piso vesical (Grado 3: > 10 mm)">
-                        Protruye severamente al piso vesical (Grado 3: &gt; 10 mm)
-                      </option>
-                    </select>
+                      value={antecedentes}
+                      onChange={(e) => setAntecedentes(e.target.value)}
+                      placeholder="Partos previos, cesáreas, abortos, complicaciones, grupo sanguíneo de pareja..."
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    />
                   </div>
-
-                  {!isSealed && (
-                    <div className="flex flex-wrap items-center gap-1 pt-1">
-                      <span className="text-[9px] text-neutral-400 font-mono">Macros Rápidas:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProstataDt("38");
-                          setProstataDap("30");
-                          setProstataDl("32");
-                          setProstataVejigaPre("250");
-                          setProstataResiduoPost("10");
-                          setProstataLobuloMedio("No protruye al piso vesical");
-                          setConclusionEcografica("1. Próstata de volumen normal para la edad (19 cc).\n2. Cápsula prostática íntegra, sin nódulos definidos.\n3. Vejiga de paredes delgadas y vaciamiento adecuado (RPM < 10%).");
-                          setSugerenciasEcograficas("Control urológico periódico anual. Correlacionar con valor de PSA total.");
-                        }}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + Próstata Normal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProstataDt("48");
-                          setProstataDap("42");
-                          setProstataDl("45");
-                          setProstataVejigaPre("280");
-                          setProstataResiduoPost("45");
-                          setProstataLobuloMedio("Protruye levemente hacia el piso vesical (Grado 1: < 5 mm)");
-                          setConclusionEcografica("1. Hiperplasia Benigna de Próstata (HBP) Grado II (~47 cc).\n2. Cambios fibroesclerosos periuretrales leves.\n3. Residuo post-miccional significativo (~16%).");
-                          setSugerenciasEcograficas("Evaluación por Urología para manejo médico. Solicitar PSA Total y Urocultivo.");
-                        }}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + HBP Grado II
-                      </button>
-                    </div>
-                  )}
                 </div>
-              )}
 
-              {tipoEcografia === "OBSTETRICA" && (
-                <div className="p-3 bg-neutral-50/80 rounded-lg border border-neutral-200 space-y-2.5">
-                  <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
-                    <span className="font-bold text-[11px] text-neutral-800 flex items-center gap-1.5">
-                      <Baby className="w-3.5 h-3.5 text-brand-700" />
-                      Biometría Fetal Estandarizada
-                    </span>
-                    <span className="text-[9px] font-mono text-neutral-500">Hadlock Estándar</span>
+                {/* Examen Físico / Evaluación Materno-Fetal */}
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
+                      3. Examen Físico / Evaluación Materno-Fetal
+                    </label>
+                    {!isSealed && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroExamen("Control Prenatal Normal: Gestante lúcida, afebril, hemodinámicamente estable. Altura uterina acorde a edad gestacional. LCF rítmicos presentes. Sin dinámica uterina ni sangrado vaginal. No edemas patológicos.")}
+                          className="text-[9.5px] bg-rose-50 hover:bg-rose-100 text-rose-800 px-2 py-0.5 rounded border border-rose-200 font-medium transition"
+                        >
+                          + Prenatal Normal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroExamen("Ecografía Obstétrica: Feto único activo en cefálica, biometría acorde a edad gestacional por FUR. Placenta fúndica posterior Grado I. ILA normal. LCF presentes rítmicos.")}
+                          className="text-[9.5px] bg-rose-50 hover:bg-rose-100 text-rose-800 px-2 py-0.5 rounded border border-rose-200 font-medium transition"
+                        >
+                          + Eco Obstétrica
+                        </button>
+                      </div>
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-4 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">D.B.P. (mm)</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={ecoDbp}
-                        onChange={(e) => setEcoDbp(e.target.value)}
-                        placeholder="Ej. 78"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">L. Femoral (mm)</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={ecoLf}
-                        onChange={(e) => setEcoLf(e.target.value)}
-                        placeholder="Ej. 60"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">C. Abdominal (mm)</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={ecoCa}
-                        onChange={(e) => setEcoCa(e.target.value)}
-                        placeholder="Ej. 260"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">P.F.E. Est. (g)</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={ecoPfe}
-                        onChange={(e) => setEcoPfe(e.target.value)}
-                        placeholder="Ej. 1850"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs font-bold text-brand-900 bg-brand-50/30"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Localización Placenta</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={ecoPlacenta}
-                        onChange={(e) => setEcoPlacenta(e.target.value)}
-                        className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Líquido Amniótico (ILA)</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={ecoIla}
-                        onChange={(e) => setEcoIla(e.target.value)}
-                        className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  {!isSealed && (
-                    <div className="flex flex-wrap items-center gap-1 pt-1">
-                      <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setConclusionEcografica("1. Gestación única activa de acuerdo a biometría fetal promedio.\n2. Situación longitudinal, presentación cefálica, dorso izquierdo.\n3. LCF rítmicos y vitalidad conservada.\n4. Placenta normoinserta corporal posterior Grado I.\n5. Volumen de líquido amniótico normal.");
-                          setSugerenciasEcograficas("Control prenatal y ecográfico según cronograma obstétrico.");
-                        }}
-                        className="text-[9px] bg-brand-50 hover:bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded border border-brand-200 font-medium transition"
-                      >
-                        + Biometría Fetal Normal
-                      </button>
-                    </div>
-                  )}
+                  <textarea
+                    rows={3}
+                    disabled={isSealed}
+                    value={examenFisico}
+                    onChange={(e) => setExamenFisico(e.target.value)}
+                    className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  />
                 </div>
-              )}
+              </div>
+            )}
 
-              {tipoEcografia === "ABDOMINAL" && (
-                <div className="p-3 bg-neutral-50/80 rounded-lg border border-neutral-200 space-y-2.5">
-                  <div className="space-y-2">
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Hígado & Vías Biliares Intrahepáticas</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={ecoHigado}
-                        onChange={(e) => setEcoHigado(e.target.value)}
-                        placeholder="Morfología y ecogenicidad habitual, bordes netos, sin lesiones focales..."
-                        className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
-                      />
+            {/* ================================================================ */}
+            {/* 2. CASO: GINECOLOGÍA ESPECIALIZADA (CMP 72450 • RNE)              */}
+            {/* ================================================================ */}
+            {modalidadAtencion === "GINECOLOGIA" && (
+              <div className="space-y-3">
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
+                      1. Motivo de Consulta Ginecológica
+                    </label>
+                    <textarea
+                      rows={3}
+                      disabled={isSealed}
+                      value={motivo}
+                      onChange={(e) => setMotivo(e.target.value)}
+                      placeholder="Paciente acude por flujo vaginal, dolor pélvico, chequeo preventivo o descarte..."
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
+                      2. Antecedentes Ginecológicos (Menarquia, FUM, MAC, PAP)
+                    </label>
+                    <textarea
+                      rows={3}
+                      disabled={isSealed}
+                      value={antecedentes}
+                      onChange={(e) => setAntecedentes(e.target.value)}
+                      placeholder="Menarquia, ciclos menstruales (RC), fecha última menstruación (FUM), método anticonceptivo (MAC), PAP previo, cirugías..."
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
+                      3. Examen Físico Ginecológico Preferencial (Especuloscopía & Cérvix)
+                    </label>
+                    {!isSealed && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroExamen("Examen Ginecológico Normal: Abdomen blando, depresible, no doloroso a la palpación. Genitales externos conservados. Especuloscopía: Cérvix eutrófico, sin sangrado ni leucorrea patológica. Fondo de saco libre. Tacto bimanual: Útero en AVF, tamaño normal, no doloroso a la movilización, anexos libres.")}
+                          className="text-[9.5px] bg-purple-50 hover:bg-purple-100 text-purple-800 px-2 py-0.5 rounded border border-purple-200 font-medium transition"
+                        >
+                          + Gineco Normal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroExamen("Especuloscopía: Presencia de leucorrea blanquecina grumosa en paredes vaginales, adherida, no fétida. Cérvix eritematoso compatible con vulvovaginitis por Candida sp.")}
+                          className="text-[9.5px] bg-purple-50 hover:bg-purple-100 text-purple-800 px-2 py-0.5 rounded border border-purple-200 font-medium transition"
+                        >
+                          + Vulvovaginitis
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroExamen("Especuloscopía: Se observa área eritematosa periorificial cervical rojiza de 10mm (Ectropión cervical / zona de transformación activa). Toma de muestra para PAP realizada.")}
+                          className="text-[9.5px] bg-purple-50 hover:bg-purple-100 text-purple-800 px-2 py-0.5 rounded border border-purple-200 font-medium transition"
+                        >
+                          + Ectropión / PAP
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <textarea
+                    rows={3}
+                    disabled={isSealed}
+                    value={examenFisico}
+                    onChange={(e) => setExamenFisico(e.target.value)}
+                    className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================ */}
+            {/* 3. CASO: ECOGRAFÍA ESPECIALIZADA (8 MODALIDADES)                  */}
+            {/* ================================================================ */}
+            {modalidadAtencion === "ECOGRAFIA" && (
+              <div className="space-y-3">
+                {/* 1. Ecografía Prostática & Vesicoprostática */}
+                {tipoEcografia === "PROSTATICA" && (
+                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-3">
+                    <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+                      <span className="font-bold text-xs text-neutral-800 flex items-center gap-1.5">
+                        <Calculator className="w-4 h-4 text-sky-700" />
+                        Biometría Prostática & Dinámica de Evacuación (Fórmula Elipsoide)
+                      </span>
+                      <span className="text-[10px] font-mono text-neutral-500">Vol = DT × DAP × DL × 0.52</span>
                     </div>
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Vesícula Biliar & Colédoco</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={ecoVesicula}
-                        onChange={(e) => setEcoVesicula(e.target.value)}
-                        placeholder="Paredes delgadas (<3mm), alitiásica. Colédoco de calibre normal (<5mm)..."
-                        className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5">Páncreas & Bazo</label>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">D. Transverso (DT mm)</label>
+                        <input
+                          type="number"
+                          disabled={isSealed}
+                          value={prostataDt}
+                          onChange={(e) => setProstataDt(e.target.value)}
+                          placeholder="Ej: 46"
+                          className="w-full px-2 py-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">D. Anteroposterior (DAP mm)</label>
+                        <input
+                          type="number"
+                          disabled={isSealed}
+                          value={prostataDap}
+                          onChange={(e) => setProstataDap(e.target.value)}
+                          placeholder="Ej: 38"
+                          className="w-full px-2 py-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">D. Longitudinal (DL mm)</label>
+                        <input
+                          type="number"
+                          disabled={isSealed}
+                          value={prostataDl}
+                          onChange={(e) => setProstataDl(e.target.value)}
+                          placeholder="Ej: 42"
+                          className="w-full px-2 py-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Volumen Prostático Calculado</span>
+                          <div className="text-lg font-black font-mono text-emerald-900 mt-0.5">{volumenProstataCc} cc</div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-emerald-700 block font-medium">Clasificación HBP:</span>
+                          <span className="text-xs font-bold text-emerald-950 font-mono bg-emerald-200/80 px-2 py-0.5 rounded">
+                            {gradoHbp}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-neutral-100/80 border border-neutral-200 rounded-xl space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider">Dinámica Vesical & Residuo</span>
+                          <span className="text-[10px] font-mono font-bold text-neutral-800">
+                            RPM: <strong className={parseFloat(porcentajeResiduo) > 20 ? "text-rose-700" : "text-emerald-700"}>{porcentajeResiduo}%</strong>
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="number"
+                            disabled={isSealed}
+                            value={prostataVejigaPre}
+                            onChange={(e) => setProstataVejigaPre(e.target.value)}
+                            placeholder="Pre-micción (cc)"
+                            className="px-2 py-1 border border-neutral-300 rounded text-xs bg-white"
+                          />
+                          <input
+                            type="number"
+                            disabled={isSealed}
+                            value={prostataResiduoPost}
+                            onChange={(e) => setProstataResiduoPost(e.target.value)}
+                            placeholder="Post-micción (cc)"
+                            className="px-2 py-1 border border-neutral-300 rounded text-xs bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-1 font-semibold">Morfología de Lóbulo Medio & Cápsula</label>
+                      <input
+                        type="text"
+                        disabled={isSealed}
+                        value={prostataLobuloMedio}
+                        onChange={(e) => setProstataLobuloMedio(e.target.value)}
+                        placeholder="No protruye al piso vesical. Cápsula íntegra, contornos regulares..."
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Ecografía Obstétrica Fetal */}
+                {tipoEcografia === "OBSTETRICA" && (
+                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
+                      <span className="font-bold text-xs text-neutral-800">Biometría Fetal Estandarizada</span>
+                      <span className="text-[10px] font-mono text-neutral-500">Curvas Hadlock</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">D.B.P. (mm)</label>
+                        <input
+                          type="number"
+                          disabled={isSealed}
+                          value={ecoDbp}
+                          onChange={(e) => setEcoDbp(e.target.value)}
+                          placeholder="Ej: 54"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Long. Femoral LF (mm)</label>
+                        <input
+                          type="number"
+                          disabled={isSealed}
+                          value={ecoLf}
+                          onChange={(e) => setEcoLf(e.target.value)}
+                          placeholder="Ej: 40"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Circ. Abdominal CA (mm)</label>
+                        <input
+                          type="number"
+                          disabled={isSealed}
+                          value={ecoCa}
+                          onChange={(e) => setEcoCa(e.target.value)}
+                          placeholder="Ej: 180"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">P.F.E. Estimado (g)</label>
+                        <input
+                          type="number"
+                          disabled={isSealed}
+                          value={ecoPfe}
+                          onChange={(e) => setEcoPfe(e.target.value)}
+                          placeholder="Ej: 650"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1">
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Frec. Cardíaca Fetal (lpm)</label>
+                        <input
+                          type="number"
+                          disabled={isSealed}
+                          value={ecoFcf}
+                          onChange={(e) => setEcoFcf(e.target.value)}
+                          placeholder="142"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Placenta</label>
+                        <input
+                          type="text"
+                          disabled={isSealed}
+                          value={ecoPlacenta}
+                          onChange={(e) => setEcoPlacenta(e.target.value)}
+                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Líquido Amniótico (ILA)</label>
+                        <input
+                          type="text"
+                          disabled={isSealed}
+                          value={ecoIla}
+                          onChange={(e) => setEcoIla(e.target.value)}
+                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Ecografía Abdominal Completa */}
+                {tipoEcografia === "ABDOMINAL" && (
+                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-2.5">
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Hígado</label>
+                        <textarea
+                          rows={2}
+                          disabled={isSealed}
+                          value={ecoHigado}
+                          onChange={(e) => setEcoHigado(e.target.value)}
+                          placeholder="Morfología y ecogenicidad habitual, bordes regulares, sin lesiones focales..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Vesícula & Vías Biliares</label>
+                        <textarea
+                          rows={2}
+                          disabled={isSealed}
+                          value={ecoVesicula}
+                          onChange={(e) => setEcoVesicula(e.target.value)}
+                          placeholder="Paredes finas menores de 3mm, alitiásica. Vía biliar intra y extrahepática normal..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Páncreas & Bazo</label>
                         <input
                           type="text"
                           disabled={isSealed}
                           value={ecoPancreasBazo}
                           onChange={(e) => setEcoPancreasBazo(e.target.value)}
-                          placeholder="Páncreas y bazo conservados..."
-                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
+                          placeholder="Características ecográficas conservadas..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5">Líquido Libre / Peritoneo</label>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Cavidad Peritoneal</label>
                         <input
                           type="text"
                           disabled={isSealed}
                           value={ecoLiquidoLibre}
                           onChange={(e) => setEcoLiquidoLibre(e.target.value)}
-                          placeholder="No se observa líquido libre..."
-                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
+                          placeholder="No se observa líquido libre en espacios de Morrison ni Douglas..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
                         />
                       </div>
                     </div>
+
+                    {!isSealed && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEcoHigado("Hígado de tamaño y morfología conservada. Parénquima homogéneo sin lesiones focales ni difusas.");
+                            setEcoVesicula("Vesícula biliar distendida de paredes delgadas (< 3mm), contenido anecoico sin litiasis. Vía biliar normal.");
+                            setEcoPancreasBazo("Páncreas y bazo de características ecográficas normales.");
+                            setEcoLiquidoLibre("No se observa líquido libre en cavidad peritoneal.");
+                            setConclusionEcografica("Estudio ecográfico abdominal completo dentro de límites normales.");
+                          }}
+                          className="text-[9.5px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200 font-medium transition"
+                        >
+                          + Abdomen Normal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEcoHigado("Hígado con aumento difuso de su ecogenicidad (brillo hepático aumentado), atenuación sónica posterior leve. Compatible con esteatosis.");
+                            setConclusionEcografica("1. Esteatosis Hepática Leve a Moderada (Grado I - II).\n2. Resto de parénquima abdominal evaluado sin alteraciones agudas.");
+                            setSugerenciasEcograficas("Plan nutricional y evaluación de perfil lipídico y enzimas hepáticas (TGO, TGP).");
+                          }}
+                          className="text-[9.5px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200 font-medium transition"
+                        >
+                          + Esteatosis Grado I-II
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEcoVesicula("Vesícula biliar distendida, presenta en su interior imágenes litiásicas múltiples de hasta 12mm que producen sombra acústica posterior neta.");
+                            setConclusionEcografica("1. Colelitiasis vesicular sintomática sin signos ecográficos de colecistitis aguda.");
+                            setSugerenciasEcograficas("Evaluación por Cirugía General para programación de colecistectomía laparoscópica electiva.");
+                          }}
+                          className="text-[9.5px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200 font-medium transition"
+                        >
+                          + Colelitiasis
+                        </button>
+                      </div>
+                    )}
                   </div>
+                )}
 
-                  {!isSealed && (
-                    <div className="flex flex-wrap items-center gap-1 pt-1">
-                      <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEcoHigado("Hígado de tamaño y bordes normales. Ecogenicidad homogénea conservada.");
-                          setEcoVesicula("Vesícula biliar distendida, paredes finas y regulares, alitiásica. Colédoco normal.");
-                          setEcoPancreasBazo("Páncreas de ecoestructura homogénea. Bazo sin esplenomegalia.");
-                          setEcoLiquidoLibre("No se observa líquido libre en cavidad peritoneal ni recesos.");
-                          setConclusionEcografica("Estudio ecográfico abdominal superior dentro de límites normales.");
-                          setSugerenciasEcograficas("Correlato clínico y control según criterio médico.");
-                        }}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + Abdomen Normal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEcoHigado("Hígado con aumento difuso de su ecogenicidad (brillo hepático aumentado), atenuación sónica posterior leve. Compatible con esteatosis.");
-                          setEcoVesicula("Vesícula biliar alitiásica, paredes normales.");
-                          setConclusionEcografica("1. Esteatosis Hepática Leve a Moderada (Grado I - II).\n2. Resto de órganos abdominales evaluados sin alteraciones ecográficas agudas.");
-                          setSugerenciasEcograficas("Plan nutricional y evaluación de perfil lipídico y enzimas hepáticas (TGO, TGP).");
-                        }}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + Esteatosis Grado I-II
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEcoVesicula("Vesícula biliar distendida, presenta en su interior imágenes litiásicas múltiples de hasta 12mm que producen sombra acústica posterior neta.");
-                          setConclusionEcografica("1. Colelitiasis vesicular sintomática sin signos ecográficos de colecistitis aguda en el momento del examen (pared vesicular < 3mm).");
-                          setSugerenciasEcograficas("Evaluación por Cirugía General para programación de colecistectomía laparoscópica electiva.");
-                        }}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + Colelitiasis
-                      </button>
+                {/* 4. Ecografía Renal */}
+                {tipoEcografia === "RENAL" && (
+                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-2.5">
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Riñón Derecho</label>
+                        <textarea
+                          rows={2}
+                          disabled={isSealed}
+                          value={ecoRinonDer}
+                          onChange={(e) => setEcoRinonDer(e.target.value)}
+                          placeholder="Morfología, dimensiones normales, espesor cortical conservado, sin litiasis ni ectasia..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Riñón Izquierdo</label>
+                        <textarea
+                          rows={2}
+                          disabled={isSealed}
+                          value={ecoRinonIzq}
+                          onChange={(e) => setEcoRinonIzq(e.target.value)}
+                          placeholder="Dimensiones habituales, adecuada diferenciación córtico-medular, sin hidronefrosis..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {tipoEcografia === "RENAL" && (
-                <div className="p-3 bg-neutral-50/80 rounded-lg border border-neutral-200 space-y-2.5">
-                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Riñón Derecho</label>
-                      <textarea
-                        rows={2}
-                        disabled={isSealed}
-                        value={ecoRinonDer}
-                        onChange={(e) => setEcoRinonDer(e.target.value)}
-                        placeholder="Morfología, dimensiones normales, espesor cortical conservado, sin litiasis ni ectasia..."
-                        className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Riñón Izquierdo</label>
-                      <textarea
-                        rows={2}
-                        disabled={isSealed}
-                        value={ecoRinonIzq}
-                        onChange={(e) => setEcoRinonIzq(e.target.value)}
-                        placeholder="Dimensiones habituales, adecuada diferenciación córtico-medular, sin hidronefrosis..."
-                        className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5">Vejiga Urinaria</label>
-                    <input
-                      type="text"
-                      disabled={isSealed}
-                      value={ecoVejigaRenal}
-                      onChange={(e) => setEcoVejigaRenal(e.target.value)}
-                      placeholder="Buena repleción, paredes finas y regulares, sin litiasis endoluminales..."
-                      className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
-                    />
-                  </div>
-
-                  {!isSealed && (
-                    <div className="flex flex-wrap items-center gap-1 pt-1">
-                      <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEcoRinonDer("Riñón derecho de situación y tamaño normal (105 x 44 mm). Parénquima y diferenciación córtico-medular conservada. Seno renal sin ectasias ni litiasis.");
-                          setEcoRinonIzq("Riñón izquierdo de situación y tamaño normal (108 x 46 mm). Seno renal sin imágenes litiásicas ni dilatación de grupos caliciales.");
-                          setEcoVejigaRenal("Vejiga adecuadamente distendida, paredes delgadas y simétricas.");
-                          setConclusionEcografica("Estudio ecográfico renal y vesical bilateral dentro de límites normales.");
-                          setSugerenciasEcograficas("Adecuada ingesta de líquidos.");
-                        }}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + Renal Bilateral Normal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEcoRinonDer("Riñón derecho presenta en grupo calicial medio imagen hiperecogénica de 6.2 mm con sombra acústica posterior. Sin ectasia pielocalicial.");
-                          setConclusionEcografica("1. Litiasis renal derecha única no obstructiva (6.2 mm).\n2. Riñón izquierdo y vejiga ecográficamente normales.");
-                          setSugerenciasEcograficas("Manejo urológico y sedimento de orina / urocultivo.");
-                        }}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + Litiasis Renal Derecha
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {tipoEcografia === "PARTES_BLANDAS" && (
-                <div className="p-3 bg-neutral-50/80 rounded-lg border border-neutral-200 space-y-2.5">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Región Anatómica Explorada</label>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Vejiga Urinaria</label>
                       <input
                         type="text"
                         disabled={isSealed}
-                        value={ecoPartesRegion}
-                        onChange={(e) => setEcoPartesRegion(e.target.value)}
-                        placeholder="Ej. Pared abdominal anterior, muslo derecho, espalda..."
-                        className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
+                        value={ecoVejigaRenal}
+                        onChange={(e) => setEcoVejigaRenal(e.target.value)}
+                        placeholder="Buena repleción, paredes finas y regulares, sin litiasis endoluminales..."
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
                       />
                     </div>
+
+                    {!isSealed && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEcoRinonDer("Riñón derecho de situación y tamaño normal (105 x 44 mm). Parénquima y diferenciación córtico-medular conservada. Seno renal sin ectasias ni litiasis.");
+                            setEcoRinonIzq("Riñón izquierdo de situación y tamaño normal (108 x 46 mm). Seno renal sin imágenes litiásicas ni dilatación calicial.");
+                            setEcoVejigaRenal("Vejiga adecuadamente distendida, paredes delgadas y regulares.");
+                            setConclusionEcografica("Estudio ecográfico renal y vesical bilateral dentro de límites normales.");
+                          }}
+                          className="text-[9.5px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200 font-medium transition"
+                        >
+                          + Renal Bilateral Normal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEcoRinonDer("Riñón derecho presenta en grupo calicial medio imagen hiperecogénica de 6.2 mm con sombra acústica posterior. Sin ectasia.");
+                            setConclusionEcografica("1. Litiasis renal derecha única no obstructiva (6.2 mm).\n2. Riñón izquierdo y vejiga normales.");
+                            setSugerenciasEcograficas("Evaluación urológica y análisis de sedimento de orina.");
+                          }}
+                          className="text-[9.5px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200 font-medium transition"
+                        >
+                          + Litiasis Renal Derecha
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 5. Partes Blandas & Hernias */}
+                {tipoEcografia === "PARTES_BLANDAS" && (
+                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-2.5">
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Región Anatómica Explorada</label>
+                        <input
+                          type="text"
+                          disabled={isSealed}
+                          value={ecoPartesRegion}
+                          onChange={(e) => setEcoPartesRegion(e.target.value)}
+                          placeholder="Ej. Pared abdominal anterior, muslo derecho, región inguinal..."
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Dimensiones de la Lesión</label>
+                        <input
+                          type="text"
+                          disabled={isSealed}
+                          value={ecoPartesDimensiones}
+                          onChange={(e) => setEcoPartesDimensiones(e.target.value)}
+                          placeholder="Ej. 28 x 14 x 18 mm"
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+
                     <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5">Dimensiones de la Lesión</label>
-                      <input
-                        type="text"
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Descripción de Hallazgos / Valsalva</label>
+                      <textarea
+                        rows={2}
                         disabled={isSealed}
-                        value={ecoPartesDimensiones}
-                        onChange={(e) => setEcoPartesDimensiones(e.target.value)}
-                        placeholder="Ej. 28 x 14 x 18 mm"
-                        className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
+                        value={ecoPartesHallazgos}
+                        onChange={(e) => setEcoPartesHallazgos(e.target.value)}
+                        placeholder="Masa nodular ovalada en TCSC, límites definidos, sin vascularización Doppler..."
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
                       />
                     </div>
+
+                    {!isSealed && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEcoPartesHallazgos("A nivel del tejido celular subcutáneo se evidencia lesión sólida, ovalada, de contornos bien delimitados, discretamente hiperecogénica, compresible, sin captación Doppler.");
+                            setConclusionEcografica("Hallazgos ecográficos compatibles con Tumoración Benigna de Tejido Adiposo (Lipoma en TCSC).");
+                          }}
+                          className="text-[9.5px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200 font-medium transition"
+                        >
+                          + Lipoma TCSC
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEcoPartesHallazgos("Defecto de la pared con protrusión de saco herniario reducible con maniobra de Valsalva.");
+                            setConclusionEcografica("Defecto herniario reducible sin signos de incarceración ni estrangulamiento agudo.");
+                          }}
+                          className="text-[9.5px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200 font-medium transition"
+                        >
+                          + Hernia Reducible
+                        </button>
+                      </div>
+                    )}
                   </div>
+                )}
 
-                  <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5">Descripción de Hallazgos / Valsalva</label>
-                    <textarea
-                      rows={2}
-                      disabled={isSealed}
-                      value={ecoPartesHallazgos}
-                      onChange={(e) => setEcoPartesHallazgos(e.target.value)}
-                      placeholder="Masa nodular ovalada en TCSC, límites definidos, hiperecogénica, sin vascularización Doppler..."
-                      className="w-full px-2 py-1 border border-neutral-300 rounded text-xs"
-                    />
-                  </div>
-
-                  {!isSealed && (
-                    <div className="flex flex-wrap items-center gap-1 pt-1">
-                      <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEcoPartesHallazgos("A nivel del tejido celular subcutáneo se evidencia lesión sólida, ovalada, de contornos bien delimitados, discretamente hiperecogénica, compresible, sin captación Doppler.");
-                          setConclusionEcografica("Hallazgos ecográficos compatibles con Tumoración Benigna de Tejido Adiposo (Lipoma en TCSC).");
-                          setSugerenciasEcograficas("Conducta expectante o exéresis quirúrgica si genera dolor o disconfort estético.");
-                        }}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + Lipoma en TCSC
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEcoPartesHallazgos("A nivel de la región inguinal se evidencia defecto o anillo aponeurótico permeable por el cual protruye contenido graso peritoneal durante la maniobra de Valsalva activa.");
-                          setConclusionEcografica("Hernia Inguinal con anillo permeable, reducible activamente con la descompresión.");
-                          setSugerenciasEcograficas("Evaluación por Cirugía General para resolución quirúrgica programada.");
-                        }}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + Hernia Inguinal Reducible
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {tipoEcografia === "MAMARIA" && (
-                <div className="p-3 bg-neutral-50/80 rounded-lg border border-neutral-200 space-y-2.5">
-                  <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5 font-bold">Categorización BI-RADS</label>
+                {/* 6. Mamaria & Tiroidea */}
+                {tipoEcografia === "MAMARIA" && (
+                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-2">
+                    <label className="block text-[10px] text-neutral-600 font-semibold">Clasificación Ecográfica Mamaria (BI-RADS)</label>
                     <select
                       disabled={isSealed}
                       value={ecoBirads}
                       onChange={(e) => setEcoBirads(e.target.value)}
-                      className="w-full px-2 py-1.5 border border-sky-300 rounded text-xs bg-white font-bold"
+                      className="w-full p-2 border border-neutral-300 rounded-lg text-xs font-bold text-neutral-900 bg-white"
                     >
                       <option value="BI-RADS 1: Negativo / Hallazgos normales">BI-RADS 1: Negativo / Hallazgos normales</option>
-                      <option value="BI-RADS 2: Hallazgos benignos (Quiste simple / Fibroadenoma estable)">BI-RADS 2: Hallazgos benignos (Quiste simple / Fibroadenoma estable)</option>
-                      <option value="BI-RADS 3: Probablemente benigno (Seguimiento a 6 meses)">BI-RADS 3: Probablemente benigno (Seguimiento a 6 meses)</option>
+                      <option value="BI-RADS 2: Hallazgos benignos (Quiste simple, fibroadenoma típico)">BI-RADS 2: Hallazgos benignos (Quiste simple / Fibroadenoma calcificado)</option>
+                      <option value="BI-RADS 3: Probablemente benigno (< 2% malignidad) - Seguimiento 6 meses">BI-RADS 3: Probablemente benigno - Control en 6 meses</option>
                       <option value="BI-RADS 4: Sospecha de malignidad (Requiere biopsia)">BI-RADS 4: Sospecha de malignidad (Requiere biopsia)</option>
-                      <option value="BI-RADS 0: Estudio incompleto / Requiere mamografía adicional">BI-RADS 0: Estudio incompleto / Requiere mamografía adicional</option>
                     </select>
                   </div>
-                </div>
-              )}
+                )}
 
-              {tipoEcografia === "TIROIDEA" && (
-                <div className="p-3 bg-neutral-50/80 rounded-lg border border-neutral-200 space-y-2.5">
-                  <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5 font-bold">Categorización TI-RADS</label>
+                {tipoEcografia === "TIROIDEA" && (
+                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-2">
+                    <label className="block text-[10px] text-neutral-600 font-semibold">Clasificación Tiroidea (TI-RADS)</label>
                     <select
                       disabled={isSealed}
                       value={ecoTirads}
                       onChange={(e) => setEcoTirads(e.target.value)}
-                      className="w-full px-2 py-1.5 border border-sky-300 rounded text-xs bg-white font-bold"
+                      className="w-full p-2 border border-neutral-300 rounded-lg text-xs font-bold text-neutral-900 bg-white"
                     >
                       <option value="TI-RADS 1: Benigno / Sin nódulos">TI-RADS 1: Benigno / Sin nódulos</option>
-                      <option value="TI-RADS 2: No sospechoso / Quiste o nódulo espongiforme">TI-RADS 2: No sospechoso / Quiste o nódulo espongiforme</option>
-                      <option value="TI-RADS 3: Levemente sospechoso">TI-RADS 3: Levemente sospechoso</option>
-                      <option value="TI-RADS 4: Moderadamente sospechoso">TI-RADS 4: Moderadamente sospechoso</option>
-                      <option value="TI-RADS 5: Altamente sospechoso">TI-RADS 5: Altamente sospechoso</option>
+                      <option value="TI-RADS 2: No sospechoso (Quiste coloide)">TI-RADS 2: No sospechoso / Benigno</option>
+                      <option value="TI-RADS 3: Leve sospecha de malignidad">TI-RADS 3: Leve sospecha</option>
+                      <option value="TI-RADS 4: Moderada sospecha de malignidad">TI-RADS 4: Moderada sospecha</option>
                     </select>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Conclusión Diagnóstica e Indicaciones del Informe */}
-              <div>
-                <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-                  Conclusión Diagnóstica Ecográfica *
-                </label>
-                <textarea
-                  rows={3}
-                  disabled={isSealed}
-                  value={conclusionEcografica}
-                  onChange={(e) => setConclusionEcografica(e.target.value)}
-                  placeholder="Redacte la conclusión diagnóstica principal del estudio ecográfico..."
-                  className="w-full p-2 border border-sky-200 rounded-lg text-xs leading-relaxed focus:ring-1 focus:ring-sky-500 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-                  Sugerencias & Recomendaciones
-                </label>
-                <textarea
-                  rows={2}
-                  disabled={isSealed}
-                  value={sugerenciasEcograficas}
-                  onChange={(e) => setSugerenciasEcograficas(e.target.value)}
-                  placeholder="Ej. Control ecográfico en 6 meses / Interconsulta con Urología / Cirugía..."
-                  className="w-full p-2 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:ring-1 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================== */}
-          {/* CASO B: MEDICINA GENERAL                                    */}
-          {/* ========================================================== */}
-          {modalidadAtencion === "MEDICINA_GENERAL" && (
-            <div className="space-y-3">
-              <div>
-                <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-                  3. Motivo de Consulta & Anamnesis
-                </label>
-                <textarea
-                  rows={2}
-                  disabled={isSealed}
-                  value={motivo}
-                  onChange={(e) => setMotivo(e.target.value)}
-                  placeholder="Relato cronológico de la molestia o enfermedad actual..."
-                  className="w-full p-2 border border-neutral-200 rounded-lg text-xs leading-relaxed"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-                  4. Antecedentes Personales y Mórbidos (HTA, Diabetes, Alergias)
-                </label>
-                <textarea
-                  rows={2}
-                  disabled={isSealed}
-                  value={antecedentes}
-                  onChange={(e) => setAntecedentes(e.target.value)}
-                  placeholder="Antecedentes médicos, patológicos, quirúrgicos y medicamentos habituales..."
-                  className="w-full p-2 border border-neutral-200 rounded-lg text-xs leading-relaxed"
-                />
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
-                  <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                    5. Examen Físico Regional Dirigido
-                  </label>
-                  {!isSealed && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroExamenRegional("Estado general conservado, LOTEP. Piel y mucosas normocoloreadas e hidratadas.\nTórax y pulmones: Murmullo vesicular pasa bien en ambos hemitórax, no rales.\nCardiovascular: Ruidos cardíacos rítmicos y regulares, no soplos audibles.\nAbdomen: Blando, depresible, no doloroso a la palpación superficial ni profunda, RHA normales.\nExtremidades: Simétricas, eutróficas, sin edemas.")}
-                        className="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 font-medium transition"
-                      >
-                        + Examen General Normal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroExamenRegional("Orofaringe: Congestión moderada a severa de pilares y mucosa faríngea, amígdalas hipertróficas grado II con exudado blanquecino en criptas.\nCuello: Adenopatías submandibulares palpables y dolorosas de ~1cm.")}
-                        className="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 font-medium transition"
-                      >
-                        + Faringoamigdalitis
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroExamenRegional("Abdomen: Blando, doloroso a la palpación profunda en epigastrio y mesogastrio, sin signos de irritación peritoneal, Blumberg negativo, Murphy negativo, RHA conservados.")}
-                        className="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 font-medium transition"
-                      >
-                        + Síndrome Dispéptico
-                      </button>
+                {/* Conclusión & Sugerencias Ecográficas */}
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-bold text-[11px] text-sky-950 uppercase tracking-wider">
+                        Conclusión Diagnóstica del Informe *
+                      </label>
+                      {!isSealed && (
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroConclusionEco("Estudio ecográfico dentro de límites normales para la edad y motivo de evaluación.")}
+                          className="text-[9px] text-sky-700 font-bold hover:underline"
+                        >
+                          + Normal
+                        </button>
+                      )}
                     </div>
-                  )}
-                </div>
-                <textarea
-                  rows={3}
-                  disabled={isSealed}
-                  value={examenRegionalMedicina || examenFisico}
-                  onChange={(e) => {
-                    setExamenRegionalMedicina(e.target.value);
-                    setExamenFisico(e.target.value);
-                  }}
-                  placeholder="Examen físico segmentario por aparatos y sistemas..."
-                  className="w-full p-2 border border-neutral-200 rounded-lg text-xs leading-relaxed"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================== */}
-          {/* CASO C: LABORATORIO CLÍNICO & TIRAS REACTIVAS              */}
-          {/* ========================================================== */}
-          {modalidadAtencion === "LABORATORIO" && (
-            <div className="space-y-3">
-              <div className="p-3 bg-neutral-50/80 rounded-lg border border-neutral-200 space-y-2.5">
-                <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
-                  <span className="font-bold text-[11px] text-neutral-800 flex items-center gap-1.5">
-                    <FlaskConical className="w-3.5 h-3.5 text-amber-700" />
-                    Tiras Reactivas de Orina (Multiparámetro)
-                  </span>
-                  <span className="text-[9px] font-mono text-neutral-500">Semáforos Reactivos</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5">Leucocitos Orina</label>
-                    <select
+                    <textarea
+                      rows={3}
                       disabled={isSealed}
-                      value={labOrinaLeucocitos}
-                      onChange={(e) => setLabOrinaLeucocitos(e.target.value)}
-                      className={`w-full px-2 py-1 border rounded text-xs font-bold ${
-                        labOrinaLeucocitos === "Negativo" ? "border-emerald-300 text-emerald-900 bg-emerald-50/50" : "border-rose-400 text-rose-900 bg-rose-50"
-                      }`}
-                    >
-                      <option value="Negativo">Negativo (Normal)</option>
-                      <option value="Trazas">Trazas (±)</option>
-                      <option value="Positivo (+)">Positivo (+)</option>
-                      <option value="Positivo (++)">Positivo (++)</option>
-                      <option value="Positivo (+++)">Positivo (+++)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5">Proteínas Orina</label>
-                    <select
-                      disabled={isSealed}
-                      value={labOrinaProteinas}
-                      onChange={(e) => setLabOrinaProteinas(e.target.value)}
-                      className={`w-full px-2 py-1 border rounded text-xs font-bold ${
-                        labOrinaProteinas === "Negativo" ? "border-emerald-300 text-emerald-900 bg-emerald-50/50" : "border-rose-400 text-rose-900 bg-rose-50"
-                      }`}
-                    >
-                      <option value="Negativo">Negativo (Normal)</option>
-                      <option value="Trazas">Trazas (±)</option>
-                      <option value="Positivo (+)">Positivo (+)</option>
-                      <option value="Positivo (++)">Positivo (++)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5">Nitritos</label>
-                    <select
-                      disabled={isSealed}
-                      value={labOrinaNitritos}
-                      onChange={(e) => setLabOrinaNitritos(e.target.value)}
-                      className={`w-full px-2 py-1 border rounded text-xs font-bold ${
-                        labOrinaNitritos === "Negativo" ? "border-emerald-300 text-emerald-900 bg-emerald-50/50" : "border-rose-400 text-rose-900 bg-rose-50"
-                      }`}
-                    >
-                      <option value="Negativo">Negativo (Normal)</option>
-                      <option value="Positivo (+)">Positivo (+) (Sugiere ITU)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-neutral-200">
-                  <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5">Hemoglobina (g/dL)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      disabled={isSealed}
-                      value={labHemoglobina}
-                      onChange={(e) => setLabHemoglobina(e.target.value)}
-                      placeholder="Ej. 12.4"
-                      className={`w-full px-2 py-1 border rounded font-mono font-bold text-xs ${
-                        parseFloat(labHemoglobina) > 0 && parseFloat(labHemoglobina) < 11
-                          ? "border-rose-400 bg-rose-50 text-rose-900"
-                          : "border-neutral-300"
-                      }`}
+                      value={conclusionEcografica}
+                      onChange={(e) => setConclusionEcografica(e.target.value)}
+                      placeholder="Conclusión diagnóstica del estudio ultrasonográfico..."
+                      className="w-full p-2.5 border border-sky-300 bg-sky-50/30 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-600"
                     />
-                    {parseFloat(labHemoglobina) > 0 && parseFloat(labHemoglobina) < 11 && (
-                      <span className="text-[9px] text-rose-700 font-bold block mt-0.5">⚠️ Anemia Significativa</span>
-                    )}
                   </div>
 
                   <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5">Glucosa Rápida (mg/dL)</label>
-                    <input
-                      type="number"
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
+                      Sugerencias & Recomendaciones Médicas
+                    </label>
+                    <textarea
+                      rows={3}
                       disabled={isSealed}
-                      value={labGlucosa}
-                      onChange={(e) => setLabGlucosa(e.target.value)}
-                      placeholder="Ej. 92"
-                      className={`w-full px-2 py-1 border rounded font-mono font-bold text-xs ${
-                        parseFloat(labGlucosa) >= 126
-                          ? "border-rose-400 bg-rose-50 text-rose-900"
-                          : "border-neutral-300"
-                      }`}
+                      value={sugerenciasEcograficas}
+                      onChange={(e) => setSugerenciasEcograficas(e.target.value)}
+                      placeholder="Controles de seguimiento, exámenes complementarios..."
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900"
                     />
-                    {parseFloat(labGlucosa) >= 126 && (
-                      <span className="text-[9px] text-rose-700 font-bold block mt-0.5">⚠️ Hiperglicemia (>126 mg/dL)</span>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-neutral-600 mb-0.5">Prueba Embarazo (GCH)</label>
-                    <select
-                      disabled={isSealed}
-                      value={labPruebaEmbarazo}
-                      onChange={(e) => setLabPruebaEmbarazo(e.target.value)}
-                      className={`w-full px-2 py-1 border rounded text-xs font-bold ${
-                        labPruebaEmbarazo === "Positiva (+)" ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-neutral-300"
-                      }`}
-                    >
-                      <option value="No realizada">No realizada</option>
-                      <option value="Negativa">Negativa (-)</option>
-                      <option value="Positiva (+)">Positiva (+) Reactiva</option>
-                    </select>
                   </div>
                 </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-                  Observaciones Analíticas / Control de Calidad
-                </label>
-                <textarea
-                  rows={2}
-                  disabled={isSealed}
-                  value={labObservaciones}
-                  onChange={(e) => setLabObservaciones(e.target.value)}
-                  placeholder="Detalles técnicos de la muestra o validación analítica..."
-                  className="w-full p-2 border border-neutral-200 rounded-lg text-xs leading-relaxed"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================== */}
-          {/* CASO D: GINECO-OBSTETRICIA (DEFECTO)                        */}
-          {/* ========================================================== */}
-          {modalidadAtencion === "GINECO_OBSTETRICIA" && (
-            <div className="space-y-3">
-              <div>
-                <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-                  3. Motivo de Consulta & Relato Cronológico
-                </label>
-                <textarea
-                  rows={2}
-                  disabled={isSealed}
-                  value={motivo}
-                  onChange={(e) => setMotivo(e.target.value)}
-                  className="w-full p-2 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-                  4. Antecedentes Gineco-Obstétricos & Quirúrgicos
-                </label>
-                <textarea
-                  rows={2}
-                  disabled={isSealed}
-                  value={antecedentes}
-                  onChange={(e) => setAntecedentes(e.target.value)}
-                  className="w-full p-2 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                />
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
-                  <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                    5. Examen Físico Preferencial / Especuloscopía
-                  </label>
-                  {!isSealed && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroExamen("Ecografía Obstétrica: Feto único activo, situación longitudinal, presentación cefálica. LCF presentes rítmicos. Placenta corporal posterior Grado I. Líquido amniótico en volumen normal.")}
-                        className="text-[9px] bg-brand-50 hover:bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded border border-brand-200 font-medium transition"
-                      >
-                        + Eco Obstétrica Normal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroExamen("Examen Ginecológico: Abdomen blando, depresible, no doloroso. Genitales externos conservados. Especuloscopía: Cérvix eutrófico, sin sangrado ni leucorrea.")}
-                        className="text-[9px] bg-brand-50 hover:bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded border border-brand-200 font-medium transition"
-                      >
-                        + Gineco Normal
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <textarea
-                  rows={2}
-                  disabled={isSealed}
-                  value={examenFisico}
-                  onChange={(e) => setExamenFisico(e.target.value)}
-                  className="w-full p-2 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================== */}
-          {/* DIAGNÓSTICOS CIE-10 CON CHIPS RÁPIDOS CONTEXTUALES        */}
-          {/* ========================================================== */}
-          <div className="space-y-1.5 pt-1 border-t border-neutral-100">
-            <div className="flex items-center justify-between">
-              <label className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                6. Diagnósticos CIE-10 *
-              </label>
-              <span className="text-[10px] text-neutral-400">Autocompletado predictivo</span>
-            </div>
-
-            {/* Quick Chips Contextuales según Modalidad Activa */}
-            {!isSealed && (
-              <div className="flex flex-wrap items-center gap-1 pb-1">
-                <span className="text-[9px] text-neutral-400 font-mono">Frecuentes (1 clic):</span>
-                {(modalidadAtencion === "ECOGRAFIA"
-                  ? [
-                      { codigo: "K76.0", descripcion: "Hígado graso (Esteatosis)" },
-                      { codigo: "K80.2", descripcion: "Cálculo de vesícula biliar" },
-                      { codigo: "N20.0", descripcion: "Cálculo del riñón (Litiasis)" },
-                      { codigo: "N40", descripcion: "Hiperplasia prostática (HBP)" },
-                      { codigo: "N41.0", descripcion: "Prostatitis aguda" },
-                      { codigo: "D17.9", descripcion: "Lipoma en TCSC" },
-                      { codigo: "K40.9", descripcion: "Hernia inguinal" },
-                      { codigo: "N60.2", descripcion: "Fibroadenoma de mama" },
-                    ]
-                  : modalidadAtencion === "MEDICINA_GENERAL"
-                  ? [
-                      { codigo: "J00", descripcion: "Resfriado común (Rinofaringitis)" },
-                      { codigo: "J02.9", descripcion: "Faringitis aguda" },
-                      { codigo: "K29.7", descripcion: "Gastritis no especificada" },
-                      { codigo: "A09", descripcion: "Gastroenteritis aguda (EDA)" },
-                      { codigo: "I10", descripcion: "Hipertensión esencial" },
-                      { codigo: "M54.5", descripcion: "Lumbalgia" },
-                      { codigo: "G44.2", descripcion: "Cefalea tensional" },
-                      { codigo: "E11.9", descripcion: "Diabetes mellitus tipo 2" },
-                    ]
-                  : modalidadAtencion === "LABORATORIO"
-                  ? [
-                      { codigo: "D50.9", descripcion: "Anemia por deficiencia de hierro" },
-                      { codigo: "N39.0", descripcion: "Infección urinaria (ITU)" },
-                      { codigo: "E11.9", descripcion: "Diabetes mellitus tipo 2" },
-                      { codigo: "Z01.7", descripcion: "Examen de laboratorio de rutina" },
-                    ]
-                  : [
-                      { codigo: "Z34.0", descripcion: "Supervisión primer embarazo normal" },
-                      { codigo: "Z34.8", descripcion: "Supervisión otros embarazos normales" },
-                      { codigo: "N76.0", descripcion: "Vaginitis aguda" },
-                      { codigo: "N86", descripcion: "Erosión de cuello uterino" },
-                      { codigo: "O26.8", descripcion: "Molestias del embarazo" },
-                      { codigo: "N91.2", descripcion: "Amenorrea no especificada" },
-                    ]
-                ).map((c) => (
-                  <button
-                    key={c.codigo}
-                    type="button"
-                    onClick={() => handleAgregarCie(c)}
-                    className="text-[9.5px] bg-neutral-100 hover:bg-neutral-200 text-neutral-800 px-1.5 py-0.5 rounded border border-neutral-200 font-medium transition"
-                  >
-                    + {c.codigo} ({c.descripcion.length > 18 ? c.descripcion.slice(0, 18) + "..." : c.descripcion})
-                  </button>
-                ))}
               </div>
             )}
 
-            {/* Lista de Diagnósticos Cargados */}
-            <div className="space-y-1">
-              {diagnosticos.map((dx) => (
-                <div
-                  key={dx.id}
-                  className="flex items-center justify-between p-1.5 px-2 bg-neutral-50 rounded border border-neutral-200 text-[11px]"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold bg-neutral-200 px-1 py-0.2 rounded text-[10px]">
-                      {dx.codigo}
-                    </span>
-                    <span className="font-medium text-neutral-900">{dx.descripcion}</span>
+            {/* ================================================================ */}
+            {/* 4. CASO: MEDICINA GENERAL (CMP • CONSULTA AMBULATORIA)            */}
+            {/* ================================================================ */}
+            {modalidadAtencion === "MEDICINA_GENERAL" && (
+              <div className="space-y-3">
+                <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-2">
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Tiempo de Enfermedad (TE)</label>
+                      <input
+                        type="text"
+                        disabled={isSealed}
+                        value={tiempoEnfermedad}
+                        onChange={(e) => setTiempoEnfermedad(e.target.value)}
+                        placeholder="Ej. 3 días, 1 semana..."
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono text-xs bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Descanso Médico Sugerido (Días)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="30"
+                        disabled={isSealed}
+                        value={descansoMedicoDias}
+                        onChange={(e) => setDescansoMedicoDias(e.target.value)}
+                        placeholder="0"
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono text-xs bg-white"
+                      />
+                    </div>
                   </div>
-                  {!isSealed && (
+
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Alertas / Comorbilidades:</span>
+                    <span className="text-[9.5px] bg-white border border-neutral-200 text-neutral-700 px-2 py-0.5 rounded font-medium">HTA</span>
+                    <span className="text-[9.5px] bg-white border border-neutral-200 text-neutral-700 px-2 py-0.5 rounded font-medium">DM2</span>
+                    <span className="text-[9.5px] bg-white border border-neutral-200 text-neutral-700 px-2 py-0.5 rounded font-medium">Asma</span>
+                    <span className="text-[9.5px] bg-white border border-neutral-200 text-neutral-700 px-2 py-0.5 rounded font-medium">Gastritis</span>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
+                      1. Motivo de Consulta & Relato Cronológico
+                    </label>
+                    <textarea
+                      rows={3}
+                      disabled={isSealed}
+                      value={motivo}
+                      onChange={(e) => setMotivo(e.target.value)}
+                      placeholder="Relato detallado de la sintomatología actual..."
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
+                      2. Antecedentes Mórbidos, Quirúrgicos & Alergias
+                    </label>
+                    <textarea
+                      rows={3}
+                      disabled={isSealed}
+                      value={antecedentes}
+                      onChange={(e) => setAntecedentes(e.target.value)}
+                      placeholder="Enfermedades crónicas, medicación habitual..."
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
+                      3. Examen Físico Regional Dirigido
+                    </label>
+                    {!isSealed && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroExamenRegional("Examen General: Paciente en buen estado general, hidratado, orientado en tiempo y espacio. Faringe congestiva, no exudados. Murmullo vesicular pasa bien en ambos campos pulmonares, no ruidos agregados. Abdomen blando, no doloroso.")}
+                          className="text-[9.5px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 font-medium transition"
+                        >
+                          + Normal General
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroExamenRegional("Columna lumbosacra con contractura paravertebral bilateral, dolor a la palpación y flexión anterior. Maniobra de Lasègue negativa. Sin déficit neurológico motor ni sensitivo.")}
+                          className="text-[9.5px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 font-medium transition"
+                        >
+                          + Lumbalgia
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <textarea
+                    rows={3}
+                    disabled={isSealed}
+                    value={examenRegionalMedicina}
+                    onChange={(e) => setExamenRegionalMedicina(e.target.value)}
+                    className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================ */}
+            {/* 5. CASO: EXÁMENES DE LABORATORIO & TIRAS (POCT RÁPIDO)            */}
+            {/* ================================================================ */}
+            {modalidadAtencion === "LABORATORIO" && (
+              <div className="space-y-3">
+                <div className="p-3.5 bg-amber-50/40 border border-amber-200 rounded-xl space-y-3">
+                  <span className="font-bold text-xs text-amber-950 block">Panel de Pruebas Rápidas & Tiras Reactivas POCT</span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Leucocitos en Orina</label>
+                      <select
+                        disabled={isSealed}
+                        value={labOrinaLeucocitos}
+                        onChange={(e) => setLabOrinaLeucocitos(e.target.value)}
+                        className={`w-full p-2 border rounded-lg text-xs font-bold ${
+                          labOrinaLeucocitos === "Negativo" ? "border-emerald-300 text-emerald-900 bg-emerald-50/50" : "border-rose-400 text-rose-900 bg-rose-50"
+                        }`}
+                      >
+                        <option value="Negativo">Negativo (Normal)</option>
+                        <option value="Trazas">Trazas (±)</option>
+                        <option value="Positivo (+)">Positivo (+)</option>
+                        <option value="Positivo (++)">Positivo (++)</option>
+                        <option value="Positivo (+++)">Positivo (+++)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Proteínas en Orina</label>
+                      <select
+                        disabled={isSealed}
+                        value={labOrinaProteinas}
+                        onChange={(e) => setLabOrinaProteinas(e.target.value)}
+                        className={`w-full p-2 border rounded-lg text-xs font-bold ${
+                          labOrinaProteinas === "Negativo" ? "border-emerald-300 text-emerald-900 bg-emerald-50/50" : "border-rose-400 text-rose-900 bg-rose-50"
+                        }`}
+                      >
+                        <option value="Negativo">Negativo (Normal)</option>
+                        <option value="Trazas">Trazas (±)</option>
+                        <option value="Positivo (+)">Positivo (+)</option>
+                        <option value="Positivo (++)">Positivo (++)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Nitritos en Orina</label>
+                      <select
+                        disabled={isSealed}
+                        value={labOrinaNitritos}
+                        onChange={(e) => setLabOrinaNitritos(e.target.value)}
+                        className={`w-full p-2 border rounded-lg text-xs font-bold ${
+                          labOrinaNitritos === "Negativo" ? "border-emerald-300 text-emerald-900 bg-emerald-50/50" : "border-rose-400 text-rose-900 bg-rose-50"
+                        }`}
+                      >
+                        <option value="Negativo">Negativo (Normal)</option>
+                        <option value="Positivo (+)">Positivo (+) (Sugiere ITU)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 border-t border-amber-200/60">
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Hemoglobina Capilar (g/dL)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        disabled={isSealed}
+                        value={labHemoglobina}
+                        onChange={(e) => setLabHemoglobina(e.target.value)}
+                        placeholder="Ej. 12.4"
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono font-bold text-xs bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Glucosa Rápida (mg/dL)</label>
+                      <input
+                        type="number"
+                        disabled={isSealed}
+                        value={labGlucosa}
+                        onChange={(e) => setLabGlucosa(e.target.value)}
+                        placeholder="Ej. 92"
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg font-mono font-bold text-xs bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Prueba de Embarazo (GCH)</label>
+                      <select
+                        disabled={isSealed}
+                        value={labPruebaEmbarazo}
+                        onChange={(e) => setLabPruebaEmbarazo(e.target.value)}
+                        className={`w-full p-2 border rounded-lg text-xs font-bold ${
+                          labPruebaEmbarazo === "Positiva (+)" ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-neutral-300 bg-white"
+                        }`}
+                      >
+                        <option value="No realizada">No realizada</option>
+                        <option value="Negativa">Negativa (-)</option>
+                        <option value="Positiva (+)">Positiva (+) Reactiva</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
+                    Observaciones Analíticas / Control de Calidad
+                  </label>
+                  <textarea
+                    rows={2}
+                    disabled={isSealed}
+                    value={labObservaciones}
+                    onChange={(e) => setLabObservaciones(e.target.value)}
+                    placeholder="Detalles de la muestra o validación técnica..."
+                    className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================ */}
+            {/* DIAGNÓSTICOS CIE-10 CONTEXTUALIZADOS Y FILTRADOS ESTRICTAMENTE    */}
+            {/* ================================================================ */}
+            <div className="space-y-2 pt-2 border-t border-neutral-100">
+              <div className="flex items-center justify-between">
+                <label className="font-bold text-[11px] text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5 text-brand-700" />
+                  <span>Diagnósticos CIE-10 *</span>
+                  <span className="font-mono text-[9.5px] font-bold text-brand-800 bg-brand-50 px-2 py-0.2 rounded border border-brand-200 ml-1">
+                    {modalidadAtencion === "ECOGRAFIA" ? tipoEcografia.replace("_", " ") : modalidadAtencion}
+                  </span>
+                </label>
+                <span className="text-[10px] text-neutral-400">Contextual Dinámico</span>
+              </div>
+
+              {/* Quick Chips Contextuales según modalidad y sub-estudio exacto */}
+              {!isSealed && (
+                <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                  <span className="text-[9px] text-neutral-400 font-mono">Sugerencias:</span>
+                  {getCie10Sugeridos(modalidadAtencion, tipoEcografia).map((c) => (
                     <button
-                      onClick={() => setDiagnosticos(diagnosticos.filter((d) => d.id !== dx.id))}
-                      className="text-neutral-400 hover:text-rose-600"
+                      key={c.codigo}
+                      type="button"
+                      onClick={() => handleAgregarCie(c)}
+                      className="text-[9.5px] bg-neutral-100 hover:bg-neutral-200 text-neutral-800 px-2 py-0.5 rounded-md border border-neutral-200 font-semibold transition"
                     >
-                      <X className="w-3 h-3" />
+                      + {c.codigo} ({c.descripcion.length > 22 ? c.descripcion.slice(0, 22) + "..." : c.descripcion})
                     </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Lista de Diagnósticos Seleccionados */}
+              <div className="space-y-1">
+                {diagnosticos.map((dx) => (
+                  <div
+                    key={dx.id}
+                    className="flex items-center justify-between p-2 px-2.5 bg-neutral-50 rounded-lg border border-neutral-200 text-xs shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold bg-neutral-200 text-neutral-800 px-1.5 py-0.5 rounded text-[10px]">
+                        {dx.codigo}
+                      </span>
+                      <span className="font-semibold text-neutral-900">{dx.descripcion}</span>
+                      <span className="text-[10px] font-mono text-neutral-400">({dx.tipo})</span>
+                    </div>
+                    {!isSealed && (
+                      <button
+                        type="button"
+                        onClick={() => setDiagnosticos(diagnosticos.filter((d) => d.id !== dx.id))}
+                        className="text-neutral-400 hover:text-rose-600 p-1 rounded hover:bg-white transition"
+                        title="Quitar diagnóstico"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Input de Búsqueda Predictiva con Filtrado Contextual Inteligente */}
+              {!isSealed && (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={busquedaCie}
+                    onChange={(e) => {
+                      setBusquedaCie(e.target.value);
+                      setMostrarSugerenciasCie(true);
+                    }}
+                    onFocus={() => setMostrarSugerenciasCie(true)}
+                    placeholder="Escriba código o patología (ej. Z34, gastritis, próstata, cálculo, lipoma)..."
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  />
+                  {mostrarSugerenciasCie && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
+                      {(() => {
+                        const listaAFiltrar =
+                          busquedaCie.trim().length === 0
+                            ? getCie10Sugeridos(modalidadAtencion, tipoEcografia)
+                            : CIE10_FRECUENTES.filter(
+                                (c) =>
+                                  c.codigo.toLowerCase().includes(busquedaCie.toLowerCase()) ||
+                                  c.descripcion.toLowerCase().includes(busquedaCie.toLowerCase())
+                              );
+
+                        return (
+                          <>
+                            {listaAFiltrar.map((item) => (
+                              <div
+                                key={item.codigo}
+                                onClick={() => handleAgregarCie(item)}
+                                className="p-2.5 hover:bg-neutral-50 cursor-pointer border-b border-neutral-100 last:border-0 flex items-center justify-between"
+                              >
+                                <span className="font-medium text-neutral-800 text-xs">{item.descripcion}</span>
+                                <span className="font-mono font-bold text-[10px] text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">
+                                  {item.codigo}
+                                </span>
+                              </div>
+                            ))}
+                            {busquedaCie.trim().length >= 2 && (
+                              <div
+                                onClick={() => {
+                                  const partes = busquedaCie.trim().split(" ");
+                                  const cod = /^[A-Za-z][0-9]/.test(partes[0]) ? partes[0].toUpperCase() : "CIE-ESP";
+                                  const desc =
+                                    /^[A-Za-z][0-9]/.test(partes[0]) && partes.length > 1
+                                      ? partes.slice(1).join(" ")
+                                      : busquedaCie.trim();
+                                  handleAgregarCie({
+                                    codigo: cod,
+                                    descripcion: desc,
+                                  });
+                                }}
+                                className="p-2.5 bg-brand-50 hover:bg-brand-100 text-brand-900 cursor-pointer border-t border-brand-200 font-bold text-xs flex items-center justify-between"
+                              >
+                                <span>+ Agregar diagnóstico libre: "{busquedaCie}"</span>
+                                <span className="font-mono text-[9px] bg-brand-200 px-1.5 py-0.5 rounded">Manual</span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
                   )}
                 </div>
-              ))}
+              )}
             </div>
 
-            {/* Input de Búsqueda Predictiva */}
-            {!isSealed && (
-              <div className="relative">
-                <input
-                  type="text"
-                  value={busquedaCie}
-                  onChange={(e) => {
-                    setBusquedaCie(e.target.value);
-                    setMostrarSugerenciasCie(true);
-                  }}
-                  onFocus={() => setMostrarSugerenciasCie(true)}
-                  placeholder="Escribe código o término (ej. Z34, embarazo, gastritis, próstata, cálculo)..."
-                  className="w-full px-2.5 py-1.5 border border-neutral-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                />
-                {mostrarSugerenciasCie && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg z-20 max-h-48 overflow-y-auto">
-                    {(() => {
-                      const filtrados = CIE10_FRECUENTES.filter(
-                        (c) =>
-                          c.codigo.toLowerCase().includes(busquedaCie.toLowerCase()) ||
-                          c.descripcion.toLowerCase().includes(busquedaCie.toLowerCase())
-                      );
-                      return (
-                        <>
-                          {filtrados.map((item) => (
-                            <div
-                              key={item.codigo}
-                              onClick={() => handleAgregarCie(item)}
-                              className="p-2 hover:bg-neutral-50 cursor-pointer border-b border-neutral-100 last:border-0 flex items-center justify-between"
-                            >
-                              <span className="font-medium text-neutral-800">{item.descripcion}</span>
-                              <span className="font-mono font-bold text-[10px] text-neutral-500">{item.codigo}</span>
-                            </div>
-                          ))}
-                          {busquedaCie.trim().length >= 2 && (
-                            <div
-                              onClick={() => {
-                                const partes = busquedaCie.trim().split(" ");
-                                const cod = /^[A-Za-z][0-9]/.test(partes[0]) ? partes[0].toUpperCase() : "CIE-ESP";
-                                const desc = /^[A-Za-z][0-9]/.test(partes[0]) && partes.length > 1 ? partes.slice(1).join(" ") : busquedaCie.trim();
-                                handleAgregarCie({
-                                  codigo: cod,
-                                  descripcion: desc,
-                                });
-                              }}
-                              className="p-2 bg-brand-50 hover:bg-brand-100 text-brand-900 cursor-pointer border-t border-brand-200 font-bold text-[11px] flex items-center justify-between"
-                            >
-                              <span>+ Agregar diagnóstico personalizado: "{busquedaCie}"</span>
-                              <span className="font-mono text-[9px] bg-brand-200 px-1 py-0.5 rounded">Manual</span>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
+            {/* ================================================================ */}
+            {/* PLAN DE TRABAJO & PRESCRIPCIÓN MÉDICA (DCI)                       */}
+            {/* ================================================================ */}
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
+                  Plan de Trabajo & Prescripción (DCI) *
+                </label>
+                {!isSealed && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
+                    {modalidadAtencion === "OBSTETRICIA" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroPlan("1. Sulfato Ferroso 300mg + Ácido Fólico 400mcg: 1 tab VO cada 24h con agua o cítricos.\n2. Calcio 500mg tab: 1 tab VO cada 12h.\n3. Ecografía morfológica de control a las 22 semanas.\n4. Signos de alarma explicados: cefalea intensa, zumbido de oídos, pérdidas vaginales de líquido o sangre.\n5. Próximo control prenatal programado en 4 semanas.")}
+                          className="text-[9.5px] bg-rose-50 hover:bg-rose-100 text-rose-800 px-2 py-0.5 rounded border border-rose-200 font-medium transition"
+                        >
+                          + Control Prenatal
+                        </button>
+                      </>
+                    ) : modalidadAtencion === "GINECOLOGIA" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroPlan("1. Clotrimazol 500mg óvulo vaginal: 1 óvulo dosis única al acostarse.\n2. Ketoconazol 2% crema: Aplicar en vulva cada 12h por 5 días.\n3. Ropa interior de algodón, evitar jabones perfumados y duchas vaginales.\n4. Reevaluación clínica en 10 días.")}
+                          className="text-[9.5px] bg-purple-50 hover:bg-purple-100 text-purple-800 px-2 py-0.5 rounded border border-purple-200 font-medium transition"
+                        >
+                          + Tto Vaginitis
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroPlan("1. Ácido Mefenámico 500mg tab: 1 tab VO cada 8h por 3 días durante el inicio del ciclo.\n2. Medidas higiénico-dietéticas y calor local.")}
+                          className="text-[9.5px] bg-purple-50 hover:bg-purple-100 text-purple-800 px-2 py-0.5 rounded border border-purple-200 font-medium transition"
+                        >
+                          + Dismenorrea
+                        </button>
+                      </>
+                    ) : modalidadAtencion === "ECOGRAFIA" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroPlan("1. Entrega de informe ecográfico e imágenes impresas/digitales al paciente.\n2. Llevar informe a médico tratante para correlato clínico integral.\n3. Cumplir con recomendaciones y controles ecográficos sugeridos.")}
+                          className="text-[9.5px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200 font-medium transition"
+                        >
+                          + Plan Ecográfico
+                        </button>
+                      </>
+                    ) : modalidadAtencion === "MEDICINA_GENERAL" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroPlan("1. Paracetamol 500mg tab: 1 tab VO c/8h por 3 días si hay fiebre o malestar.\n2. Abundante líquido oral tibio y reposo relativo.\n3. Signos de alarma explicados: dificultad respiratoria, fiebre persistente mayor a 38.5°C.")}
+                          className="text-[9.5px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 font-medium transition"
+                        >
+                          + Tto IRA
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroPlan("1. Omeprazol 20mg cap: 1 cap VO en ayunas por 14 días.\n2. Dieta fraccionada baja en grasas, condimentos, café y cítricos.")}
+                          className="text-[9.5px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 font-medium transition"
+                        >
+                          + Tto Gastritis
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => insertarMacroPlan("1. Lectura inmediata de resultados entregados al paciente.\n2. Interconsulta médica según hallazgos analíticos.")}
+                          className="text-[9.5px] bg-amber-50 hover:bg-amber-100 text-amber-800 px-2 py-0.5 rounded border border-amber-200 font-medium transition"
+                        >
+                          + Plan Laboratorio
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-
-          {/* ========================================================== */}
-          {/* PLAN DE TRABAJO & PRESCRIPCIÓN MÉDICA (DCI)                */}
-          {/* ========================================================== */}
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
-              <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                7. Plan de Trabajo & Prescripción (DCI)
-              </label>
-              {!isSealed && (
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
-                  {modalidadAtencion === "MEDICINA_GENERAL" ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroPlan("1. Paracetamol 500mg tab: 1 tab VO c/8h por 3 días si hay fiebre o dolor.\n2. Clorfenamina 4mg tab: 1 tab VO c/8h por 3 días.\n3. Abundante líquido oral tibio y reposo relativo.\n4. Signos de alarma explicados: dificultad para respirar, dolor torácico, fiebre alta persistente.")}
-                        className="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 font-medium transition"
-                      >
-                        + Tto IRA
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroPlan("1. Omeprazol 20mg cap: 1 cap VO en ayunas por 14 días.\n2. Dimeticona + Hidróxido de Aluminio/Magnesio susp: 1 cucharada VO 1h después de comidas.\n3. Dieta fraccionada, baja en grasas, condimentos, café y cítricos.")}
-                        className="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 font-medium transition"
-                      >
-                        + Tto Gastritis
-                      </button>
-                    </>
-                  ) : modalidadAtencion === "ECOGRAFIA" ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroPlan("1. Entrega de informe ecográfico e imágenes impresas/digitales.\n2. Acudir con médico tratante para lectura integral.\n3. Cumplir con recomendaciones y controles ecográficos sugeridos.")}
-                        className="text-[9px] bg-sky-50 hover:bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200 font-medium transition"
-                      >
-                        + Plan Ecográfico
-                      </button>
-                    </>
-                  ) : modalidadAtencion === "LABORATORIO" ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroPlan("1. Lectura inmediata de resultados entregados al paciente.\n2. Correlato con sintomatología urinaria o metabólica.\n3. Interconsulta médica en caso de valores críticos.")}
-                        className="text-[9px] bg-amber-50 hover:bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 font-medium transition"
-                      >
-                        + Plan Laboratorio
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroPlan("1. Sulfato ferroso + Ácido fólico 1 tab/día VO.\n2. Ecografía morfológica de control.\n3. Signos de alarma explicados: cefalea intensa, escotomas, pérdidas vaginales.\n4. Próximo control prenatal en 4 semanas.")}
-                        className="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 font-medium transition"
-                      >
-                        + Control Prenatal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertarMacroPlan("1. Reposo relativo por 48 horas.\n2. Medidas higiénico-dietéticas.\n3. Reevaluación ecográfica en caso de dolor o sangrado.")}
-                        className="text-[9px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200 font-medium transition"
-                      >
-                        + Plan Ambulatorio
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
+              <textarea
+                rows={3}
+                disabled={isSealed}
+                value={planTratamiento}
+                onChange={(e) => setPlanTratamiento(e.target.value)}
+                className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-900"
+              />
             </div>
-            <textarea
-              rows={3}
-              disabled={isSealed}
-              value={planTratamiento}
-              onChange={(e) => setPlanTratamiento(e.target.value)}
-              className="w-full p-2 border border-neutral-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-neutral-900"
-            />
           </div>
-        </div>
 
-        {/* ================================================================== */}
-        {/* COLUMNA 3: GALERÍA DE IMÁGENES & ADENDAS (3 columnas)               */}
-        {/* ================================================================== */}
-        <div className="lg:col-span-3 space-y-3">
-          {/* Imágenes Médicas Adjuntas */}
-          <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-1.5">
-              <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider flex items-center gap-1">
-                <ImageIcon className="w-3 h-3" />
-                Imágenes / Ecografías ({imagenes.length})
-              </span>
-              {!isSealed && (
+          {/* ================================================================ */}
+          {/* HERRAMIENTAS SECUNDARIAS INTEGRADAS EN PESTAÑAS INFERIORES         */}
+          {/* (IMÁGENES ADJUNTAS | PRÓXIMO CONTROL & WHATSAPP | ADENDAS)       */}
+          {/* ================================================================ */}
+          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-2xs">
+            {/* Header de Pestañas de Herramientas */}
+            <div className="bg-neutral-50/80 border-b border-neutral-200 px-3 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setHerramientaActiva("imagenes")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition ${
+                    herramientaActiva === "imagenes"
+                      ? "bg-white text-neutral-900 shadow-xs border border-neutral-200"
+                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/70"
+                  }`}
+                >
+                  <ImageIcon className="w-3.5 h-3.5 text-sky-700" />
+                  <span>Capturas & Ecografías ({imagenes.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setHerramientaActiva("reagendar")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition ${
+                    herramientaActiva === "reagendar"
+                      ? "bg-white text-neutral-900 shadow-xs border border-neutral-200"
+                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/70"
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Próximo Control & WhatsApp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setHerramientaActiva("adendas")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition ${
+                    herramientaActiva === "adendas"
+                      ? "bg-white text-neutral-900 shadow-xs border border-neutral-200"
+                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/70"
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Adendas Evolutivas ({adendas.length})</span>
+                </button>
+              </div>
+
+              {herramientaActiva === "imagenes" && !isSealed && (
                 <>
                   <input
                     type="file"
@@ -3629,199 +3956,188 @@ export default function HcePage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-[10px] font-bold text-brand-700 hover:text-brand-900 flex items-center gap-1 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded transition border border-brand-200"
+                    className="text-[10px] font-bold text-brand-700 hover:text-brand-900 flex items-center gap-1 bg-white hover:bg-neutral-100 px-2.5 py-1 rounded-lg transition border border-neutral-300 shadow-2xs"
                   >
-                    <Upload className="w-3 h-3" /> + Adjuntar Archivo
+                    <Upload className="w-3 h-3" /> + Adjuntar Captura
                   </button>
                 </>
               )}
-            </div>
 
-            <div className="space-y-1.5">
-              {imagenes.length === 0 ? (
-                <p className="text-[10px] text-neutral-400 text-center py-2">
-                  Sin imágenes adjuntas al encuentro.
-                </p>
-              ) : (
-                imagenes.map((img) => (
-                  <div
-                    key={img.id}
-                    className="flex items-center gap-2 p-1.5 bg-neutral-50 rounded border border-neutral-200 group"
-                  >
-                    <img src={img.url} alt={img.titulo} className="w-10 h-10 object-cover rounded border border-neutral-200 shrink-0" />
-                    <div className="flex-1 truncate">
-                      <span className="font-semibold text-neutral-900 block truncate leading-tight text-[11px]">
-                        {img.titulo}
-                      </span>
-                      <span className="text-[10px] text-neutral-400 font-mono">{img.hora}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setModalImagen(img)}
-                        className="p-1 text-neutral-400 hover:text-neutral-900"
-                        title="Ampliar imagen"
-                      >
-                        <Maximize2 className="w-3.5 h-3.5" />
-                      </button>
-                      {!isSealed && (
-                        <button
-                          onClick={() => setImagenes(imagenes.filter((i) => i.id !== img.id))}
-                          className="p-1 text-neutral-400 hover:text-rose-600"
-                          title="Eliminar imagen"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Reagendamiento Post-Consulta & Recordatorio por WhatsApp */}
-          <div className="bg-white border border-neutral-200 rounded-lg p-3 space-y-2.5">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-1.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-900">
-                <Calendar className="w-3.5 h-3.5 text-brand-700" />
-                <span className="uppercase text-[11px] tracking-wider">Próximo Control / Cita</span>
-              </div>
-              <span className="text-[10px] font-semibold text-neutral-500">Post-Consulta</span>
-            </div>
-
-            <form onSubmit={handleGuardarReagendamiento} className="space-y-2 text-xs">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Fecha Cita *</label>
-                  <input
-                    type="date"
-                    required
-                    value={reagendarFecha}
-                    onChange={(e) => setReagendarFecha(e.target.value)}
-                    className="w-full p-1.5 border border-neutral-300 rounded text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Hora *</label>
-                  <input
-                    type="time"
-                    required
-                    value={reagendarHora}
-                    onChange={(e) => setReagendarHora(e.target.value)}
-                    className="w-full p-1.5 border border-neutral-300 rounded text-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Sede</label>
-                <select
-                  value={reagendarSede}
-                  onChange={(e) => setReagendarSede(e.target.value)}
-                  className="w-full p-1.5 border border-neutral-300 rounded text-xs bg-white"
-                >
-                  <option value="Independencia">Sede Independencia</option>
-                  <option value="Vivanco">Sede Vivanco</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Motivo / Estudio</label>
-                <input
-                  type="text"
-                  value={reagendarMotivo}
-                  onChange={(e) => setReagendarMotivo(e.target.value)}
-                  placeholder="Ej: Control Prenatal 28 sem..."
-                  className="w-full p-1.5 border border-neutral-300 rounded text-xs"
-                />
-              </div>
-
-              <div className="pt-1 flex flex-col gap-1.5">
-                <button
-                  type="submit"
-                  className="w-full py-1.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded transition flex items-center justify-center gap-1"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Programar en Calendario</span>
-                </button>
-
-                <a
-                  href={generarEnlaceWhatsApp()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded transition flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Enviar Recordatorio por WhatsApp</span>
-                </a>
-              </div>
-
-              {reagendadaExito && (
-                <div className="p-1.5 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-800 text-center font-semibold">
-                  ✓ Cita registrada exitosamente.
-                </div>
-              )}
-            </form>
-          </div>
-
-          {/* BLOQUE DE ADENDAS EVOLUTIVAS POSTERIORES */}
-          {isSealed && (
-            <div className="bg-amber-50/60 border border-amber-200 rounded-lg p-3 space-y-2.5">
-              <div className="flex items-center justify-between border-b border-amber-200/70 pb-1.5">
-                <span className="font-bold text-[11px] text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-amber-700" />
-                  Bloque de Adendas Evolutivas ({adendas.length})
-                </span>
+              {herramientaActiva === "adendas" && isSealed && (
                 <button
                   type="button"
                   onClick={() => setShowAdendaModal(true)}
-                  className="text-[10px] px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded font-bold transition flex items-center gap-1 shadow-xs"
+                  className="text-[10px] font-bold text-white bg-amber-700 hover:bg-amber-800 px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-2xs"
                 >
-                  <PlusCircle className="w-3 h-3" />
-                  + Nueva Adenda
+                  <PlusCircle className="w-3 h-3" /> + Nueva Adenda
                 </button>
-              </div>
+              )}
+            </div>
 
-              {adendas.length === 0 ? (
-                <div className="py-3 text-center text-neutral-400 text-[11px]">
-                  <p className="italic">Sin adendas agregadas post-sellado.</p>
-                  <p className="text-[10px] text-neutral-400 mt-0.5">Use "+ Nueva Adenda" para aclaraciones o evolución clínica.</p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {adendas.map((a, i) => (
-                    <div key={i} className="p-2.5 bg-white rounded-md border border-amber-200/90 text-[11px] space-y-1 shadow-xs">
-                      <div className="flex items-center justify-between text-[10px] border-b border-neutral-100 pb-1 text-neutral-500">
-                        <span className="font-bold text-neutral-900">
-                          Adenda #{i + 1} &bull; {a.autor || "Profesional Responsable"}
-                        </span>
-                        <span className="font-mono text-[9px]">{a.fecha}</span>
-                      </div>
-                      <p className="text-neutral-800 leading-relaxed whitespace-pre-wrap">{a.texto}</p>
-                      {a.hash && (
-                        <div className="text-[9px] text-amber-800 font-mono break-all pt-0.5 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">
-                          Hash: {a.hash}
-                        </div>
-                      )}
+            {/* Contenido de la Pestaña Activa */}
+            <div className="p-3.5">
+              {/* PESTAÑA 1: IMÁGENES / ECOGRAFÍAS */}
+              {herramientaActiva === "imagenes" && (
+                <div>
+                  {imagenes.length === 0 ? (
+                    <div className="py-6 text-center text-neutral-400">
+                      <ImageIcon className="w-6 h-6 mx-auto mb-1 opacity-40 text-neutral-400" />
+                      <p className="font-semibold text-xs text-neutral-600">Sin imágenes adjuntas en este encuentro</p>
+                      <p className="text-[10px] text-neutral-400 mt-0.5">Adjunte capturas del ecógrafo o exámenes radiográficos para incorporarlos al informe.</p>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {imagenes.map((img) => (
+                        <div
+                          key={img.id}
+                          className="p-2 bg-neutral-50 rounded-xl border border-neutral-200 flex flex-col justify-between group hover:border-neutral-300 transition"
+                        >
+                          <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-black/5 flex items-center justify-center">
+                            <img src={img.url} alt={img.titulo} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setModalImagen(img)}
+                              className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition"
+                              title="Ampliar imagen"
+                            >
+                              <Maximize2 className="w-5 h-5" />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between mt-2 pt-1 border-t border-neutral-200/60">
+                            <div className="truncate pr-1">
+                              <span className="font-semibold text-neutral-900 block truncate text-[11px]">{img.titulo}</span>
+                              <span className="text-[9.5px] text-neutral-400 font-mono">{img.hora}</span>
+                            </div>
+                            {!isSealed && (
+                              <button
+                                type="button"
+                                onClick={() => setImagenes(imagenes.filter((i) => i.id !== img.id))}
+                                className="p-1 text-neutral-400 hover:text-rose-600 rounded"
+                                title="Eliminar imagen"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* PESTAÑA 2: PRÓXIMO CONTROL & WHATSAPP */}
+              {herramientaActiva === "reagendar" && (
+                <form onSubmit={handleGuardarReagendamiento} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Fecha de la Próxima Cita *</label>
+                      <input
+                        type="date"
+                        required
+                        value={reagendarFecha}
+                        onChange={(e) => setReagendarFecha(e.target.value)}
+                        className="w-full p-2 border border-neutral-300 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Hora Programada *</label>
+                      <input
+                        type="time"
+                        required
+                        value={reagendarHora}
+                        onChange={(e) => setReagendarHora(e.target.value)}
+                        className="w-full p-2 border border-neutral-300 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Sede</label>
+                      <select
+                        value={reagendarSede}
+                        onChange={(e) => setReagendarSede(e.target.value)}
+                        className="w-full p-2 border border-neutral-300 rounded-lg text-xs bg-white"
+                      >
+                        <option value="Independencia">Sede Independencia</option>
+                        <option value="Vivanco">Sede Vivanco</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Estudio / Motivo</label>
+                      <input
+                        type="text"
+                        value={reagendarMotivo}
+                        onChange={(e) => setReagendarMotivo(e.target.value)}
+                        placeholder="Ej. Control Prenatal 28 sem..."
+                        className="w-full p-2 border border-neutral-300 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded-lg transition flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Programar en Calendario</span>
+                    </button>
+
+                    <a
+                      href={generarEnlaceWhatsApp()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition flex items-center gap-1.5 shadow-xs"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Enviar Recordatorio por WhatsApp</span>
+                    </a>
+
+                    {reagendadaExito && (
+                      <span className="p-1.5 px-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-semibold">
+                        ✓ Cita registrada exitosamente.
+                      </span>
+                    )}
+                  </div>
+                </form>
+              )}
+
+              {/* PESTAÑA 3: ADENDAS EVOLUTIVAS */}
+              {herramientaActiva === "adendas" && (
+                <div className="space-y-2">
+                  {adendas.length === 0 ? (
+                    <div className="py-6 text-center text-neutral-400">
+                      <FileText className="w-6 h-6 mx-auto mb-1 opacity-40 text-neutral-400" />
+                      <p className="font-semibold text-xs text-neutral-600">Sin adendas clínicas agregadas</p>
+                      <p className="text-[10px] text-neutral-400 mt-0.5">
+                        {isSealed
+                          ? 'Use el botón "+ Nueva Adenda" para registrar notas de evolución o aclaraciones.'
+                          : 'Las adendas se habilitan tras sellar la historia clínica.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                      {adendas.map((a, i) => (
+                        <div key={i} className="p-3 bg-amber-50/40 rounded-xl border border-amber-200 text-xs space-y-1 shadow-2xs">
+                          <div className="flex items-center justify-between text-[10px] border-b border-amber-100 pb-1 text-neutral-500">
+                            <span className="font-bold text-neutral-900">
+                              Adenda #{i + 1} &bull; {a.autor || "Profesional Responsable"}
+                            </span>
+                            <span className="font-mono text-[9px]">{a.fecha}</span>
+                          </div>
+                          <p className="text-neutral-800 leading-relaxed whitespace-pre-wrap">{a.texto}</p>
+                          {a.hash && (
+                            <div className="text-[9px] text-amber-900 font-mono break-all pt-0.5 bg-white p-1 rounded border border-amber-200">
+                              Hash SHA-256: {a.hash}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-
-          {/* Certificado de Integridad / Sello */}
-          {isSealed && sealedHash && (
-            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl shadow-2xs space-y-1">
-              <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-xs">
-                <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
-                <span>Historia Clínica Sellada e Inalterable</span>
-              </div>
-              <p className="text-[10px] font-mono text-emerald-800 break-all select-all bg-white p-1.5 rounded-lg border border-emerald-200">
-                SHA-256: {sealedHash}
-              </p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
