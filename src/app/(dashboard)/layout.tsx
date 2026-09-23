@@ -21,6 +21,7 @@ import {
   Layers,
   FlaskConical,
   Check,
+  CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { HceSpecialtyProvider, useHceSpecialty } from "@/context/HceSpecialtyContext";
@@ -44,7 +45,20 @@ function DashboardLayoutContent({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { modalidadAtencion, setModalidadAtencion, tipoEcografia, setTipoEcografia } = useHceSpecialty();
+  const {
+    modalidadAtencion,
+    setModalidadAtencion,
+    tipoEcografia,
+    setTipoEcografia,
+    pacientesEspera,
+    pacientesAtendidos,
+    selectedPatientId,
+    vistaCola,
+    setVistaCola,
+    sedeCola,
+    onSelectPatient,
+    onReopenPatient,
+  } = useHceSpecialty();
 
   const [rol, setRol] = useState<string | null>(null);
   const [user, setUser] = useState<string>("");
@@ -533,6 +547,109 @@ function DashboardLayoutContent({
                           <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                         )}
                       </button>
+
+                      {/* ========================================================== */}
+                      {/* CAJA 2: COLA DE PACIENTES EN LA COLUMNA COLOR VINO         */}
+                      {/* ========================================================== */}
+                      <div className="mt-2.5 p-2 rounded-xl bg-black/40 border border-[#380c1b] space-y-1.5 shadow-inner">
+                        <div className="flex items-center justify-between border-b border-[#300a16] pb-1 px-0.5">
+                          <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded-lg text-[9px] font-bold">
+                            <button
+                              type="button"
+                              onClick={() => setVistaCola("espera")}
+                              className={`px-1.5 py-0.5 rounded transition ${
+                                vistaCola === "espera"
+                                  ? "bg-brand-700 text-white shadow-xs"
+                                  : "text-neutral-400 hover:text-white"
+                              }`}
+                            >
+                              Espera ({pacientesEspera.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setVistaCola("atendidos")}
+                              className={`px-1.5 py-0.5 rounded transition ${
+                                vistaCola === "atendidos"
+                                  ? "bg-brand-700 text-white shadow-xs"
+                                  : "text-neutral-400 hover:text-white"
+                              }`}
+                            >
+                              Atendidos ({pacientesAtendidos.length})
+                            </button>
+                          </div>
+                          <span className="text-[8.5px] font-mono text-neutral-400 truncate max-w-[65px]">
+                            {sedeCola}
+                          </span>
+                        </div>
+
+                        {/* Lista de Pacientes con Clic Directo */}
+                        <div className="space-y-1 max-h-52 overflow-y-auto pr-0.5">
+                          {vistaCola === "espera" ? (
+                            pacientesEspera.length === 0 ? (
+                              <div className="py-4 text-center text-neutral-400">
+                                <Clock className="w-4 h-4 mx-auto mb-1 opacity-40 text-neutral-400" />
+                                <p className="font-bold text-[10px] text-neutral-300">Sin pacientes en espera</p>
+                                <p className="text-[8.5px] text-neutral-500">Tiempo real activo</p>
+                              </div>
+                            ) : (
+                              pacientesEspera.map((p) => {
+                                const isSelected = selectedPatientId === p.id;
+                                return (
+                                  <div
+                                    key={p.id}
+                                    onClick={() => onSelectPatient && onSelectPatient(p)}
+                                    className={`p-1.5 rounded-lg border text-left cursor-pointer transition ${
+                                      isSelected
+                                        ? "border-brand-500 bg-brand-950/90 text-white font-bold shadow-xs ring-1 ring-brand-500/40"
+                                        : "border-[#300a16] bg-black/25 hover:bg-white/5 text-neutral-300 hover:text-white"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="truncate text-[11px] font-semibold">{p.paciente}</span>
+                                      <span className="text-[8px] px-1 py-0.2 rounded font-mono font-bold bg-black/60 text-brand-200 border border-brand-800/40 shrink-0">
+                                        {p.estado === "EN_ATENCION" ? "ATENCIÓN" : "ESPERA"}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[9px] text-neutral-400 mt-0.5">
+                                      <span className="truncate max-w-[125px]">{p.servicio}</span>
+                                      <span className="font-mono text-neutral-400 shrink-0">{p.horaLlegada || p.edad}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )
+                          ) : (
+                            pacientesAtendidos.length === 0 ? (
+                              <div className="py-4 text-center text-neutral-400">
+                                <CheckCircle2 className="w-4 h-4 mx-auto mb-1 opacity-40 text-emerald-400" />
+                                <p className="font-bold text-[10px] text-neutral-300">Sin atenciones hoy</p>
+                              </div>
+                            ) : (
+                              pacientesAtendidos.map((p) => (
+                                <div
+                                  key={p.id}
+                                  className="p-1.5 rounded-lg border border-[#300a16] bg-black/25 text-left transition flex items-center justify-between gap-1"
+                                >
+                                  <div className="truncate min-w-0">
+                                    <span className="font-semibold text-neutral-200 text-[10.5px] block truncate">{p.paciente}</span>
+                                    <span className="text-[8.5px] text-neutral-400 block truncate">{p.servicio}</span>
+                                  </div>
+                                  {onReopenPatient && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onReopenPatient(p)}
+                                      title="Reabrir caso clínico"
+                                      className="px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-[8.5px] rounded border border-neutral-700 transition shrink-0"
+                                    >
+                                      Reabrir
+                                    </button>
+                                  )}
+                                </div>
+                              ))
+                            )
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -541,26 +658,8 @@ function DashboardLayoutContent({
           </nav>
         </div>
 
-        {/* Footer del Sidebar: Identidad & Cierre */}
-        <div className="p-2 border-t border-[#300a16] shrink-0 bg-black/25">
-          {!isCollapsed && (
-            <div className="px-2 py-1.5 mb-1.5">
-              <span className="text-xs font-bold text-white block truncate leading-tight">
-                {nombre || user.split("@")[0]}
-              </span>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                {colegiatura && (
-                  <span className="text-[9px] font-mono text-brand-200 bg-brand-950/90 px-1 py-0.2 rounded border border-brand-800">
-                    {colegiatura.split("/")[0]}
-                  </span>
-                )}
-                <span className="text-[10px] font-mono text-neutral-400 uppercase">
-                  {rol}
-                </span>
-              </div>
-            </div>
-          )}
-
+        {/* Footer del Sidebar: Solo Acción de Cierre Minimalista */}
+        <div className="p-2 border-t border-[#300a16] shrink-0 bg-black/30">
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-neutral-400 hover:text-rose-400 hover:bg-rose-950/20 transition"

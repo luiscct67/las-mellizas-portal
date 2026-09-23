@@ -356,7 +356,6 @@ export default function HcePage() {
   // Pacientes en cola del consultorio (Cargados desde Supabase en Tiempo Real)
   const [pacientesCola, setPacientesCola] = useState<PacienteEnConsulta[]>([]);
   const [atendidosHoy, setAtendidosHoy] = useState<PacienteEnConsulta[]>([]);
-  const [vistaCola, setVistaCola] = useState<"espera" | "atendidos">("espera");
   const [isLoadingCola, setIsLoadingCola] = useState<boolean>(true);
   const [selectedPatient, setSelectedPatient] = useState<PacienteEnConsulta | null>(null);
 
@@ -428,9 +427,21 @@ export default function HcePage() {
 
   // ============================================================================
   // ESPECIALIZACIÓN DE FORMATOS Y MODALIDAD ASISTENCIAL (NTS N.° 139-MINSA)
-  // Sincronizado globalmente con el Sidebar (Espacio de Color Vino)
-  // ============================================================================
-  const { modalidadAtencion, setModalidadAtencion, tipoEcografia, setTipoEcografia } = useHceSpecialty();
+  const {
+    modalidadAtencion,
+    setModalidadAtencion,
+    tipoEcografia,
+    setTipoEcografia,
+    setPacientesEspera,
+    setPacientesAtendidos,
+    selectedPatientId,
+    setSelectedPatientId,
+    vistaCola,
+    setVistaCola,
+    setSedeCola,
+    setOnSelectPatient,
+    setOnReopenPatient,
+  } = useHceSpecialty();
 
   // Pestaña activa de herramientas secundarias inferiores (Solución A)
   const [herramientaActiva, setHerramientaActiva] = useState<"imagenes" | "reagendar" | "adendas">("imagenes");
@@ -2103,6 +2114,25 @@ export default function HcePage() {
     (p) => sede === "Todas las Sedes" || normalizarSede(p.sede) === normalizarSede(sede)
   );
 
+  // Sincronización en tiempo real de la cola de pacientes con el Sidebar Color Vino
+  useEffect(() => {
+    setPacientesEspera(pacientesFiltrados);
+    setPacientesAtendidos(atendidosFiltrados);
+    setSedeCola(sede);
+  }, [pacientesFiltrados, atendidosFiltrados, sede, setPacientesEspera, setPacientesAtendidos, setSedeCola]);
+
+  useEffect(() => {
+    setSelectedPatientId(selectedPatient ? selectedPatient.id : null);
+  }, [selectedPatient, setSelectedPatientId]);
+
+  useEffect(() => {
+    setOnSelectPatient(() => (p: PacienteEnConsulta) => handleSeleccionarPaciente(p));
+    setOnReopenPatient(() => (p: PacienteEnConsulta) => {
+      setEncuentroAReabrir(p);
+      setShowReabrirModal(true);
+    });
+  }, [handleSeleccionarPaciente, setOnSelectPatient, setOnReopenPatient]);
+
   return (
     <div className="space-y-3 max-w-[1600px] mx-auto text-xs">
       {/* Barra de Control Clínico Superior */}
@@ -2184,214 +2214,9 @@ export default function HcePage() {
       </div>
 
       {/* ========================================================================= */}
-      {/* ARQUITECTURA MASTER-DETAIL (SOLUCIÓN A): 2 COLUMNAS (3 COLS | 9 COLS)     */}
+      {/* WORKSTATION CLÍNICO UNIFICADO (100% ANCHO EXPANDIDO)                      */}
       {/* ========================================================================= */}
-      <div className="grid lg:grid-cols-12 gap-3.5">
-        {/* ======================================================================= */}
-        {/* COLUMNA IZQUIERDA (MASTER): COLA, PERFIL, SUB-ESTUDIO & TRIAJE (3 COLS) */}
-        {/* ======================================================================= */}
-        <div className="lg:col-span-3 space-y-3">
-          {/* 1. Cola de Pacientes de la Sede */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-3 space-y-2 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-1.5">
-              <div className="flex items-center gap-1 bg-neutral-100 p-0.5 rounded-lg text-[10px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => setVistaCola("espera")}
-                  className={`px-2 py-0.5 rounded-md transition ${
-                    vistaCola === "espera"
-                      ? "bg-white text-neutral-900 shadow-xs"
-                      : "text-neutral-500 hover:text-neutral-900"
-                  }`}
-                >
-                  En Espera ({pacientesFiltrados.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVistaCola("atendidos")}
-                  className={`px-2 py-0.5 rounded-md transition ${
-                    vistaCola === "atendidos"
-                      ? "bg-white text-neutral-900 shadow-xs"
-                      : "text-neutral-500 hover:text-neutral-900"
-                  }`}
-                >
-                  Atendidos ({atendidosFiltrados.length})
-                </button>
-              </div>
-              <span className="text-[10px] text-neutral-400 font-mono">
-                {sede}
-              </span>
-            </div>
-
-            <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
-              {vistaCola === "espera" ? (
-                pacientesFiltrados.length === 0 ? (
-                  <div className="py-6 text-center text-neutral-400">
-                    <Clock className="w-5 h-5 mx-auto mb-1 opacity-40" />
-                    <p className="font-bold text-[11px] text-neutral-600">No hay pacientes en espera</p>
-                    <p className="text-[10px] text-neutral-400">Las admisiones aparecerán en tiempo real.</p>
-                  </div>
-                ) : (
-                  pacientesFiltrados.map((p) => {
-                    const isSelected = selectedPatient?.id === p.id;
-                    return (
-                      <div
-                        key={p.id}
-                        onClick={() => handleSeleccionarPaciente(p)}
-                        className={`p-2 rounded-lg border text-left cursor-pointer transition ${
-                          isSelected
-                            ? "border-neutral-900 bg-neutral-50 font-bold"
-                            : "border-neutral-100 hover:border-neutral-200"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-neutral-900 truncate font-semibold">{p.paciente}</span>
-                          <span className="text-[9px] px-1 py-0.2 rounded font-mono font-bold bg-neutral-100 text-neutral-600 shrink-0">
-                            {p.estado === "EN_ATENCION" ? "EN ATENCIÓN" : "EN ESPERA"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px] text-neutral-500 mt-0.5">
-                          <span className="truncate">{p.servicio}</span>
-                          <span className="font-mono text-neutral-400 shrink-0">{p.horaLlegada || p.edad}</span>
-                        </div>
-                      </div>
-                    );
-                  })
-                )
-              ) : (
-                atendidosFiltrados.length === 0 ? (
-                  <div className="py-6 text-center text-neutral-400">
-                    <CheckCircle2 className="w-5 h-5 mx-auto mb-1 opacity-40 text-emerald-500" />
-                    <p className="font-bold text-[11px] text-neutral-600">No hay atenciones finalizadas hoy</p>
-                  </div>
-                ) : (
-                  atendidosFiltrados.map((p) => (
-                    <div
-                      key={p.id}
-                      className="p-2 rounded-lg border border-emerald-100 bg-emerald-50/30 text-left transition flex items-center justify-between gap-2"
-                    >
-                      <div className="truncate">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-neutral-900 truncate">{p.paciente}</span>
-                          <span className="text-[9px] text-neutral-400 font-mono">({p.dni})</span>
-                        </div>
-                        <span className="text-[10px] text-neutral-500 block truncate">{p.servicio}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEncuentroAReabrir(p);
-                          setShowReabrirModal(true);
-                        }}
-                        title="Reabrir caso clínico por error material u omisión"
-                        className="px-2 py-1 bg-white hover:bg-neutral-100 text-neutral-800 font-bold text-[10px] rounded border border-neutral-200 transition shrink-0"
-                      >
-                        Reabrir
-                      </button>
-                    </div>
-                  ))
-                )
-              )}
-            </div>
-          </div>
-
-          {/* 2. Triaje Vital & Funciones Antropométricas */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-3 space-y-2.5 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
-              <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider flex items-center gap-1">
-                <HeartPulse className="w-3.5 h-3.5 text-rose-600" />
-                Triaje Vital
-              </span>
-              <span className="font-mono text-[10px] text-neutral-500">
-                IMC: <strong className="text-neutral-900">{imc}</strong>
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[10px] text-neutral-500 mb-0.5">P.A. (mmHg)</label>
-                <input
-                  type="text"
-                  disabled={isSealed}
-                  value={pa}
-                  onChange={(e) => setPa(e.target.value)}
-                  placeholder="120/80"
-                  className={`w-full px-2 py-1 border rounded font-mono font-semibold text-xs ${
-                    isHipertension ? "border-rose-400 bg-rose-50 text-rose-900" : "border-neutral-200"
-                  }`}
-                />
-                {isHipertension && (
-                  <span className="text-[9px] font-bold text-rose-700 bg-rose-100/80 px-1 py-0.5 rounded block mt-0.5 leading-tight">
-                    ⚠️ Alerta: PA Elevada
-                  </span>
-                )}
-              </div>
-              <div>
-                <label className="block text-[10px] text-neutral-500 mb-0.5">F.C. (lpm)</label>
-                <input
-                  type="text"
-                  disabled={isSealed}
-                  value={fc}
-                  onChange={(e) => setFc(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono font-semibold text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] text-neutral-500 mb-0.5">Temp (°C)</label>
-                <input
-                  type="text"
-                  disabled={isSealed}
-                  value={temp}
-                  onChange={(e) => setTemp(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] text-neutral-500 mb-0.5">SatO2 (%)</label>
-                <input
-                  type="text"
-                  disabled={isSealed}
-                  value={satO2}
-                  onChange={(e) => setSatO2(e.target.value)}
-                  className={`w-full px-2 py-1 border rounded font-mono text-xs ${
-                    isHipoxia ? "border-amber-400 bg-amber-50 text-amber-900 font-bold" : "border-neutral-200"
-                  }`}
-                />
-                {isHipoxia && (
-                  <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1 py-0.5 rounded block mt-0.5 leading-tight">
-                    ⚠️ SatO2 &lt; 95%
-                  </span>
-                )}
-              </div>
-              <div>
-                <label className="block text-[10px] text-neutral-500 mb-0.5">Peso (kg)</label>
-                <input
-                  type="text"
-                  disabled={isSealed}
-                  value={peso}
-                  onChange={(e) => setPeso(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] text-neutral-500 mb-0.5">Talla (m)</label>
-                <input
-                  type="text"
-                  disabled={isSealed}
-                  value={talla}
-                  onChange={(e) => setTalla(e.target.value)}
-                  className="w-full px-2 py-1 border border-neutral-200 rounded font-mono text-xs"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ======================================================================= */}
-        {/* COLUMNA DERECHA (CANVAS CLÍNICO AMPLIO): CONSULTA, CIE-10, TRATAMIENTO   */}
-        {/* Y HERRAMIENTAS INTEGRADAS EN PESTAÑAS INFERIORES (9 COLS)              */}
-        {/* ======================================================================= */}
-        <div className="lg:col-span-9 space-y-3">
+      <div className="space-y-3">
           {/* Banner de Bloqueo Inmutable Post-Atención */}
           {(isSealed || selectedPatient?.estado === "ATENDIDO") && selectedPatient && (
             <div className="bg-emerald-50 border border-emerald-300 text-emerald-950 p-3 rounded-xl flex items-start gap-2.5 shadow-xs">
@@ -2479,6 +2304,132 @@ export default function HcePage() {
                     : "Exámenes de Laboratorio (POCT)"}
                 </span>
               </span>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* CINTA HORIZONTAL DE TRIAJE VITAL & EVALUACIÓN ANTROPOMÉTRICA (NTS 139)   */}
+          {/* ========================================================================= */}
+          <div className="bg-white border border-neutral-200 rounded-xl p-3 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-2 mb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                  <HeartPulse className="w-3.5 h-3.5" />
+                </div>
+                <span className="font-bold text-xs text-neutral-800 uppercase tracking-wider">
+                  Triaje Vital & Funciones Antropométricas
+                </span>
+                <span className="text-[10px] text-neutral-400 font-mono">
+                  NTS N.° 139-MINSA
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isHipertension && (
+                  <span className="text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                    ⚠️ Alerta: Presión Arterial Elevada
+                  </span>
+                )}
+                {isHipoxia && (
+                  <span className="text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    ⚠️ Alerta: SatO2 &lt; 95%
+                  </span>
+                )}
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 border border-neutral-200 text-xs">
+                  <span className="text-neutral-500 font-medium">IMC:</span>
+                  <strong className="text-neutral-900 font-mono">{imc}</strong>
+                  <span className="text-[10px] text-neutral-500 font-sans">
+                    {parseFloat(imc) < 18.5
+                      ? "(Bajo peso)"
+                      : parseFloat(imc) < 25
+                      ? "(Normal)"
+                      : parseFloat(imc) < 30
+                      ? "(Sobrepeso)"
+                      : parseFloat(imc) >= 30
+                      ? "(Obesidad)"
+                      : ""}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Grid de 6 Controles Vitales Horizontales */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+              <div>
+                <label className="block text-[10px] text-neutral-500 font-bold mb-1">P.A. (mmHg)</label>
+                <input
+                  type="text"
+                  disabled={isSealed}
+                  value={pa}
+                  onChange={(e) => setPa(e.target.value)}
+                  placeholder="120/80"
+                  className={`w-full px-2.5 py-1.5 border rounded-lg font-mono font-bold text-xs ${
+                    isHipertension ? "border-rose-400 bg-rose-50 text-rose-900" : "border-neutral-200"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-neutral-500 font-bold mb-1">F.C. (lpm)</label>
+                <input
+                  type="text"
+                  disabled={isSealed}
+                  value={fc}
+                  onChange={(e) => setFc(e.target.value)}
+                  placeholder="76"
+                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-neutral-500 font-bold mb-1">Temp (°C)</label>
+                <input
+                  type="text"
+                  disabled={isSealed}
+                  value={temp}
+                  onChange={(e) => setTemp(e.target.value)}
+                  placeholder="36.5"
+                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-neutral-500 font-bold mb-1">SatO2 (%)</label>
+                <input
+                  type="text"
+                  disabled={isSealed}
+                  value={satO2}
+                  onChange={(e) => setSatO2(e.target.value)}
+                  placeholder="98"
+                  className={`w-full px-2.5 py-1.5 border rounded-lg font-mono font-bold text-xs ${
+                    isHipoxia ? "border-amber-400 bg-amber-50 text-amber-900" : "border-neutral-200"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-neutral-500 font-bold mb-1">Peso (kg)</label>
+                <input
+                  type="text"
+                  disabled={isSealed}
+                  value={peso}
+                  onChange={(e) => setPeso(e.target.value)}
+                  placeholder="62.5"
+                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-neutral-500 font-bold mb-1">Talla (m)</label>
+                <input
+                  type="text"
+                  disabled={isSealed}
+                  value={talla}
+                  onChange={(e) => setTalla(e.target.value)}
+                  placeholder="1.60"
+                  className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg font-mono font-bold text-xs"
+                />
+              </div>
             </div>
           </div>
 
@@ -3946,7 +3897,6 @@ export default function HcePage() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* Modal Visor de Imagen */}
       {modalImagen && (
