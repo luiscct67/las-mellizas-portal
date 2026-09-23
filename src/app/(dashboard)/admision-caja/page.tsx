@@ -3102,7 +3102,7 @@ export default function AdmisionCajaPage() {
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center font-black text-xs">
-                  1
+                  <UserPlus className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
