@@ -419,6 +419,7 @@ export default function HcePage() {
   const [sede, setSede] = useState<string>("Independencia");
   const [profesionalNombre, setProfesionalNombre] = useState<string>("Profesional de Turno");
   const [colegiatura, setColegiatura] = useState<string>("");
+  const [especialidadRegistro, setEspecialidadRegistro] = useState<string>("");
 
   // Pacientes en cola del consultorio (Cargados desde Supabase en Tiempo Real)
   const [pacientesCola, setPacientesCola] = useState<PacienteEnConsulta[]>([]);
@@ -547,44 +548,104 @@ export default function HcePage() {
     return `${prefijoEsperado} ${sinPrefijos || "Colegiado"}`;
   };
 
-  // Identificación regulatoria oficial según Ley N.° 23346 (Obstetras) vs Ley N.° 15125 (Médicos)
+  // Detección estricta de la profesión del usuario (Obstetra vs Médico) respetando Ley N.° 23346 y Ley N.° 15125
+  const esObstetra = colegiatura
+    ? /COP/i.test(colegiatura)
+    : !/CMP|Médic|Dr\./i.test(profesionalNombre);
+
+  // Formateo minimalista del Registro Profesional: incorpora Especialidad (RNE / Esp.) SOLO si la posee
+  const getRegistroConEspecialidad = (prefijo: "COP" | "CMP") => {
+    const regBase = normalizarRegistroProfesional(colegiatura, prefijo);
+    if (!especialidadRegistro || !especialidadRegistro.trim()) {
+      return regBase;
+    }
+    const espLimpia = especialidadRegistro.trim();
+    // Si ya incluye prefijo regulatorio tipo RNE, RNEO o Esp., se usa directo, de lo contrario se estiliza
+    const espFmt = /^(RNE|RNEO|Esp\.)/i.test(espLimpia)
+      ? espLimpia
+      : `${prefijo === "COP" ? "Esp." : "RNE"} ${espLimpia}`;
+    return `${regBase} • ${espFmt}`;
+  };
+
+  // Identificación regulatoria oficial: jamás desfigura el título de la Obstetra al realizar Ecografías
   const getCargoProfesional = () => {
-    switch (modalidadAtencion) {
-      case "OBSTETRICIA":
-        return {
-          cargo: "Obstetra (Salud Materno-Perinatal)",
-          registro: normalizarRegistroProfesional(colegiatura, "COP"),
-          badgeColor: "bg-rose-50 text-rose-800 border-rose-200",
-          leyRef: "Ley N.° 23346 (Acto Obstétrico)",
-        };
-      case "GINECOLOGIA":
-        return {
-          cargo: "Médico Ginecólogo-Obstetra",
-          registro: normalizarRegistroProfesional(colegiatura, "CMP"),
-          badgeColor: "bg-purple-50 text-purple-800 border-purple-200",
-          leyRef: "Ley N.° 15125 (Acto Médico Especializado)",
-        };
-      case "ECOGRAFIA":
-        return {
-          cargo: "Médico Ecografista",
-          registro: normalizarRegistroProfesional(colegiatura, "CMP"),
-          badgeColor: "bg-sky-50 text-sky-800 border-sky-200",
-          leyRef: "Diagnóstico por Imágenes",
-        };
-      case "MEDICINA_GENERAL":
-        return {
-          cargo: "Médico Cirujano",
-          registro: normalizarRegistroProfesional(colegiatura, "CMP"),
-          badgeColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
-          leyRef: "Ley N.° 15125 (Medicina General)",
-        };
-      case "LABORATORIO":
-        return {
-          cargo: "Responsable de Laboratorio POCT",
-          registro: colegiatura ? normalizarRegistroProfesional(colegiatura, colegiatura.toUpperCase().includes("CMP") ? "CMP" : "COP") : "POCT Certificado",
-          badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
-          leyRef: "Tamizaje Clínico & Pruebas Rápidas",
-        };
+    if (esObstetra) {
+      switch (modalidadAtencion) {
+        case "ECOGRAFIA":
+          return {
+            cargo: "Obstetra • Apoyo Diagnóstico",
+            registro: getRegistroConEspecialidad("COP"),
+            badgeColor: "bg-sky-50 text-sky-800 border-sky-200",
+            leyRef: "Ley N.° 23346 (Apoyo Diagnóstico)",
+          };
+        case "OBSTETRICIA":
+          return {
+            cargo: "Obstetra (Salud Materno-Perinatal)",
+            registro: getRegistroConEspecialidad("COP"),
+            badgeColor: "bg-rose-50 text-rose-800 border-rose-200",
+            leyRef: "Ley N.° 23346 (Acto Obstétrico)",
+          };
+        case "GINECOLOGIA":
+          return {
+            cargo: "Obstetra (Salud Reproductiva)",
+            registro: getRegistroConEspecialidad("COP"),
+            badgeColor: "bg-purple-50 text-purple-800 border-purple-200",
+            leyRef: "Ley N.° 23346 (Salud Reproductiva)",
+          };
+        case "MEDICINA_GENERAL":
+          return {
+            cargo: "Obstetra (Interconsulta)",
+            registro: getRegistroConEspecialidad("COP"),
+            badgeColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
+            leyRef: "Ley N.° 23346 (Evaluación Asistencial)",
+          };
+        case "LABORATORIO":
+          return {
+            cargo: "Obstetra • Tamizaje POCT",
+            registro: getRegistroConEspecialidad("COP"),
+            badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
+            leyRef: "Tamizaje Clínico & POCT",
+          };
+      }
+    } else {
+      // Profesional Médico Colegiado
+      switch (modalidadAtencion) {
+        case "ECOGRAFIA":
+          return {
+            cargo: "Médico • Apoyo Diagnóstico",
+            registro: getRegistroConEspecialidad("CMP"),
+            badgeColor: "bg-sky-50 text-sky-800 border-sky-200",
+            leyRef: "Ley N.° 15125 (Diagnóstico por Imágenes)",
+          };
+        case "GINECOLOGIA":
+          return {
+            cargo: "Médico Gineco-Obstetra",
+            registro: getRegistroConEspecialidad("CMP"),
+            badgeColor: "bg-purple-50 text-purple-800 border-purple-200",
+            leyRef: "Ley N.° 15125 (Acto Médico Especializado)",
+          };
+        case "OBSTETRICIA":
+          return {
+            cargo: "Médico Gineco-Obstetra",
+            registro: getRegistroConEspecialidad("CMP"),
+            badgeColor: "bg-rose-50 text-rose-800 border-rose-200",
+            leyRef: "Ley N.° 15125 (Control Médico)",
+          };
+        case "MEDICINA_GENERAL":
+          return {
+            cargo: "Médico Cirujano",
+            registro: getRegistroConEspecialidad("CMP"),
+            badgeColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
+            leyRef: "Ley N.° 15125 (Medicina General)",
+          };
+        case "LABORATORIO":
+          return {
+            cargo: "Médico • Responsable POCT",
+            registro: getRegistroConEspecialidad("CMP"),
+            badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
+            leyRef: "Tamizaje Clínico & POCT",
+          };
+      }
     }
   };
 
@@ -1321,9 +1382,11 @@ export default function HcePage() {
     const s = sessionStorage.getItem("lm_sede") || "Independencia";
     const nom = sessionStorage.getItem("lm_nombre") || "Profesional de Turno";
     const col = sessionStorage.getItem("lm_colegiatura") || "";
+    const esp = sessionStorage.getItem("lm_especialidad") || sessionStorage.getItem("lm_rne") || "";
     setSede(s);
     setProfesionalNombre(nom);
     setColegiatura(col);
+    setEspecialidadRegistro(esp);
 
     cargarColaEncuentros(s);
 
@@ -1573,14 +1636,14 @@ export default function HcePage() {
           <div class="badge-hce">
             <div><strong>${
               modalidadAtencion === "ECOGRAFIA"
-                ? `INFORME ECOGRÁFICO (${tipoEcografia.replace('_', ' ')})`
+                ? `INFORME DE ECOGRAFÍA DE APOYO DIAGNÓSTICO (${tipoEcografia.replace('_', ' ')})`
                 : modalidadAtencion === "OBSTETRICIA"
                 ? "HISTORIA CLÍNICA MATERNO-PERINATAL (COP)"
                 : modalidadAtencion === "GINECOLOGIA"
-                ? "HISTORIA CLÍNICA GINECOLÓGICA (CMP/RNE)"
+                ? "HISTORIA CLÍNICA GINECOLÓGICA"
                 : modalidadAtencion === "MEDICINA_GENERAL"
-                ? "HISTORIA CLÍNICA - MEDICINA GENERAL (CMP)"
-                : "REPORTE DE LABORATORIO & POCT"
+                ? "HISTORIA CLÍNICA - MEDICINA GENERAL"
+                : "REPORTE DE PRUEBAS RÁPIDAS & POCT"
             }</strong></div>
             <div>Encuentro ID: ${selectedPatient.id.slice(0, 8)}</div>
             <div>Emisión: ${fechaHoy}</div>
@@ -1881,15 +1944,21 @@ export default function HcePage() {
           <div class="signature-line">
             ${profesionalNombre}<br>
             ${
-              modalidadAtencion === "OBSTETRICIA"
-                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Lic. en Obstetricia &bull; ${normalizarRegistroProfesional(colegiatura, "COP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Salud Materno-Perinatal &bull; Ley N.° 23346</span>`
-                : modalidadAtencion === "GINECOLOGIA"
-                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Gineco-Obstetra &bull; ${normalizarRegistroProfesional(colegiatura, "CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Especialista RNE &bull; Ley N.° 15125</span>`
-                : modalidadAtencion === "ECOGRAFIA"
-                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Ecografista &bull; ${normalizarRegistroProfesional(colegiatura, "CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Diagnóstico por Imágenes & Ultrasonografía</span>`
-                : modalidadAtencion === "MEDICINA_GENERAL"
-                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Cirujano &bull; ${normalizarRegistroProfesional(colegiatura, "CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Atención Médica Primaria &bull; Ley N.° 15125</span>`
-                : `<span style="font-size:9.5px; color:#334155; font-weight:700;">Responsable de Laboratorio POCT</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Reg. Profesional: ${colegiatura ? normalizarRegistroProfesional(colegiatura, colegiatura.toUpperCase().includes("CMP") ? "CMP" : "COP") : "Certificado"}</span>`
+              esObstetra
+                ? (modalidadAtencion === "ECOGRAFIA"
+                    ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Lic. en Obstetricia &bull; ${getRegistroConEspecialidad("COP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Ecografías de Apoyo Diagnóstico &bull; Ley N.° 23346</span>`
+                    : modalidadAtencion === "LABORATORIO"
+                    ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Lic. en Obstetricia &bull; ${getRegistroConEspecialidad("COP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Pruebas Rápidas & Tamizaje &bull; Ley N.° 23346</span>`
+                    : `<span style="font-size:9.5px; color:#334155; font-weight:700;">Lic. en Obstetricia &bull; ${getRegistroConEspecialidad("COP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Salud Materno-Perinatal &bull; Ley N.° 23346</span>`
+                  )
+                : (modalidadAtencion === "ECOGRAFIA"
+                    ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Cirujano &bull; ${getRegistroConEspecialidad("CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Ecografías de Apoyo Diagnóstico &bull; Ley N.° 15125</span>`
+                    : modalidadAtencion === "GINECOLOGIA"
+                    ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Gineco-Obstetra &bull; ${getRegistroConEspecialidad("CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Especialista &bull; Ley N.° 15125</span>`
+                    : modalidadAtencion === "MEDICINA_GENERAL"
+                    ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Cirujano &bull; ${getRegistroConEspecialidad("CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Atención Médica Primaria &bull; Ley N.° 15125</span>`
+                    : `<span style="font-size:9.5px; color:#334155; font-weight:700;">Responsable Clínico &bull; ${getRegistroConEspecialidad("CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Pruebas Rápidas & POCT</span>`
+                  )
             }
           </div>
         </div>
@@ -2676,14 +2745,14 @@ export default function HcePage() {
                 {modalidadAtencion === "LABORATORIO" && <FlaskConical className="w-3.5 h-3.5" />}
                 <span>
                   {modalidadAtencion === "OBSTETRICIA"
-                    ? "Control Obstétrico & Prenatal (COP 13102)"
+                    ? `Control Obstétrico & Prenatal (${getCargoProfesional().registro})`
                     : modalidadAtencion === "GINECOLOGIA"
-                    ? "Ginecología Especializada (CMP 72450)"
+                    ? `Ginecología Especializada (${getCargoProfesional().registro})`
                     : modalidadAtencion === "ECOGRAFIA"
-                    ? `Informe Ecográfico: ${tipoEcografia.replace("_", " ")}`
+                    ? `Ecografía de Apoyo Diagnóstico: ${tipoEcografia.replace("_", " ")}`
                     : modalidadAtencion === "MEDICINA_GENERAL"
-                    ? "Medicina General Ambulatoria (CMP)"
-                    : "Exámenes de Laboratorio (POCT)"}
+                    ? `Medicina General Ambulatoria (${getCargoProfesional().registro})`
+                    : "Pruebas Rápidas & Tamizaje POCT"}
                 </span>
               </span>
             </div>

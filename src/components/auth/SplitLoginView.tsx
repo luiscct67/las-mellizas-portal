@@ -155,6 +155,7 @@ export default function SplitLoginView() {
       sessionStorage.setItem("lm_sede", sedeNombre);
       sessionStorage.setItem("lm_nombre", nombreCompleto);
       if (colegiatura) sessionStorage.setItem("lm_colegiatura", colegiatura);
+      if ((profile as any)?.especialidad) sessionStorage.setItem("lm_especialidad", (profile as any).especialidad);
 
       // Redirección por rol
       if (userRole === "RECEPCION_CAJA") {

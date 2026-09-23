@@ -129,6 +129,7 @@ function DashboardLayoutContent({
       const rawSede = (profile as any)?.sede?.nombre || sessionStorage.getItem("lm_sede") || "Independencia";
       const detectedSede = rawSede.replace(/^Sede\s+/i, "").trim();
       const detectedCol = profile?.colegiatura || sessionStorage.getItem("lm_colegiatura") || "";
+      const detectedEsp = (profile as any)?.especialidad || sessionStorage.getItem("lm_especialidad") || "";
 
       setRol(detectedRole);
       setUser(email);
@@ -141,6 +142,7 @@ function DashboardLayoutContent({
       sessionStorage.setItem("lm_nombre", detectedNombre);
       sessionStorage.setItem("lm_sede", detectedSede);
       if (detectedCol) sessionStorage.setItem("lm_colegiatura", detectedCol);
+      if (detectedEsp) sessionStorage.setItem("lm_especialidad", detectedEsp);
 
       setMounted(true);
     }
@@ -403,12 +405,49 @@ function DashboardLayoutContent({
                         )}
                       </button>
 
-                      {/* 3. Ecografía Especializada (8 Modalidades) */}
+                      {/* 3. Medicina General */}
+                      <button
+                        type="button"
+                        onClick={() => setModalidadAtencion("MEDICINA_GENERAL")}
+                        title={isCollapsed ? "Medicina General (CMP)" : undefined}
+                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
+                          modalidadAtencion === "MEDICINA_GENERAL"
+                            ? "bg-emerald-950/80 border-emerald-500 text-white shadow-xs ring-1 ring-emerald-500/40"
+                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              modalidadAtencion === "MEDICINA_GENERAL"
+                                ? "bg-emerald-600 text-white"
+                                : "bg-neutral-900 text-neutral-400"
+                            }`}
+                          >
+                            <Stethoscope className="w-3.5 h-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="truncate">
+                              <span className="text-[11px] font-bold block leading-tight truncate">
+                                Medicina General
+                              </span>
+                              <span className="text-[9px] font-mono text-emerald-300 block">
+                                CMP • Consulta Adulto
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {!isCollapsed && modalidadAtencion === "MEDICINA_GENERAL" && (
+                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        )}
+                      </button>
+
+                      {/* 4. Ecografías de Apoyo Diagnóstico (8 Modalidades) */}
                       <div className="space-y-1">
                         <button
                           type="button"
                           onClick={() => setModalidadAtencion("ECOGRAFIA")}
-                          title={isCollapsed ? "Ecografía Especializada (8 modalidades)" : undefined}
+                          title={isCollapsed ? "Ecografías de Apoyo Diagnóstico (8 modalidades)" : undefined}
                           className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
                             modalidadAtencion === "ECOGRAFIA"
                               ? "bg-sky-950/80 border-sky-500 text-white shadow-xs ring-1 ring-sky-500/40"
@@ -428,10 +467,10 @@ function DashboardLayoutContent({
                             {!isCollapsed && (
                               <div className="truncate">
                                 <span className="text-[11px] font-bold block leading-tight truncate">
-                                  Ecografía Especializada
+                                  Ecografías de Apoyo Diagnóstico
                                 </span>
                                 <span className="text-[9px] font-mono text-sky-300 block">
-                                  8 Modalidades Clínicas
+                                  Apoyo Diagnóstico • 8 Mod.
                                 </span>
                               </div>
                             )}
@@ -474,48 +513,11 @@ function DashboardLayoutContent({
                         )}
                       </div>
 
-                      {/* 4. Medicina General */}
-                      <button
-                        type="button"
-                        onClick={() => setModalidadAtencion("MEDICINA_GENERAL")}
-                        title={isCollapsed ? "Medicina General (CMP)" : undefined}
-                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
-                          modalidadAtencion === "MEDICINA_GENERAL"
-                            ? "bg-emerald-950/80 border-emerald-500 text-white shadow-xs ring-1 ring-emerald-500/40"
-                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
-                              modalidadAtencion === "MEDICINA_GENERAL"
-                                ? "bg-emerald-600 text-white"
-                                : "bg-neutral-900 text-neutral-400"
-                            }`}
-                          >
-                            <Stethoscope className="w-3.5 h-3.5" />
-                          </div>
-                          {!isCollapsed && (
-                            <div className="truncate">
-                              <span className="text-[11px] font-bold block leading-tight truncate">
-                                Medicina General
-                              </span>
-                              <span className="text-[9px] font-mono text-emerald-300 block">
-                                CMP • Consulta Adulto
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        {!isCollapsed && modalidadAtencion === "MEDICINA_GENERAL" && (
-                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        )}
-                      </button>
-
-                      {/* 5. Exámenes de Laboratorio */}
+                      {/* 5. Pruebas Rápidas & Tamizaje POCT */}
                       <button
                         type="button"
                         onClick={() => setModalidadAtencion("LABORATORIO")}
-                        title={isCollapsed ? "Laboratorio POCT (Tiras & Pruebas)" : undefined}
+                        title={isCollapsed ? "Pruebas Rápidas (POCT & Tiras)" : undefined}
                         className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
                           modalidadAtencion === "LABORATORIO"
                             ? "bg-amber-950/80 border-amber-500 text-white shadow-xs ring-1 ring-amber-500/40"
@@ -535,10 +537,10 @@ function DashboardLayoutContent({
                           {!isCollapsed && (
                             <div className="truncate">
                               <span className="text-[11px] font-bold block leading-tight truncate">
-                                Laboratorio POCT
+                                Pruebas Rápidas
                               </span>
                               <span className="text-[9px] font-mono text-amber-300 block">
-                                POCT • Tiras & Pruebas
+                                POCT • Tiras & Tamizaje
                               </span>
                             </div>
                           )}
