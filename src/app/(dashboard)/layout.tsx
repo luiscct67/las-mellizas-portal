@@ -366,14 +366,20 @@ function DashboardLayoutContent({
                       <Icon className="w-4 h-4 shrink-0" />
                       {!isCollapsed && <span className="truncate">{item.label}</span>}
                     </div>
-                    {!isCollapsed && hasSubmenu && isActive && (
+                    {!isCollapsed && hasSubmenu && (
                       <span
                         onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleSubmenu(item.href);
+                          if (isActive) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSubmenu(item.href);
+                          }
                         }}
-                        className="p-0.5 rounded hover:bg-neutral-200 text-neutral-500 hover:text-neutral-900 transition shrink-0"
+                        className={`p-0.5 rounded transition shrink-0 ${
+                          isActive
+                            ? "hover:bg-neutral-200 text-neutral-500 hover:text-neutral-900"
+                            : "text-neutral-500 hover:text-white"
+                        }`}
                         title={isSubmenuOpen ? "Plegar menú" : "Desplegar menú"}
                       >
                         {isSubmenuOpen ? (

@@ -38,23 +38,44 @@ export async function middleware(request: NextRequest) {
 
   // Si hay usuario autenticado, verificar su rol real en la base de datos
   if (user) {
+    const emailNorm = (user.email || "").toLowerCase().trim();
+    const cookieRole = (request.cookies.get("lm_auth_role")?.value || "").toUpperCase().trim();
+
     let userRole = "RECEPCION_CAJA";
     let isActive = true;
 
-    try {
-      const { data: profile } = await supabase
-        .from("perfil_usuario")
-        .select("rol, activo")
-        .eq("id", user.id)
-        .single();
+    // 1. REGLA SOBERANA: Cuenta Institucional de Dirección Médica / Admin General
+    if (emailNorm === "admin@lasmellizasperu.com" || emailNorm.startsWith("admin@") || cookieRole === "ADMIN") {
+      userRole = "ADMIN";
+      isActive = true;
+    } else {
+      try {
+        const { data: profile } = await supabase
+          .from("perfil_usuario")
+          .select("rol, activo")
+          .eq("id", user.id)
+          .maybeSingle();
 
-      if (profile) {
-        userRole = profile.rol;
-        isActive = profile.activo;
+        if (profile) {
+          const rawRol = (profile.rol || "").toUpperCase().trim();
+          isActive = profile.activo ?? true;
+
+          if (rawRol === "ADMIN" || rawRol === "ADMINISTRADOR" || rawRol === "DIRECTOR_MEDICO" || rawRol === "SUPERADMIN") {
+            userRole = "ADMIN";
+          } else if (rawRol === "SUPERVISION" || rawRol === "AUDITOR") {
+            userRole = "SUPERVISION";
+          } else if (rawRol === "PROFESIONAL" || rawRol === "OBSTETRA" || rawRol === "MEDICO" || rawRol.startsWith("PROFESIONAL_")) {
+            userRole = "PROFESIONAL";
+          } else {
+            userRole = "RECEPCION_CAJA";
+          }
+        } else if (cookieRole) {
+          userRole = cookieRole;
+        }
+      } catch {
+        // Fallback al rol del cookie si la consulta falla
+        userRole = cookieRole || "RECEPCION_CAJA";
       }
-    } catch {
-      // Fallback seguro en caso de latencia de red
-      userRole = "RECEPCION_CAJA";
     }
 
     // Cuenta inactiva o revocada
@@ -76,19 +97,24 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // 2. CONTROL DE ACCESO BASADO EN ROL (ANTI-ACCESO CRUZADO / CERO CURIOSIDAD)
-    // Aislamiento de HCE: Solo Médicos, Obstetras, Auditores y Admin
+    // 2. ACCESO IRRESTRICTO PARA ADMINISTRACIÓN GENERAL (ADMIN)
+    if (userRole === "ADMIN") {
+      return supabaseResponse;
+    }
+
+    // 3. CONTROL DE ACCESO BASADO EN ROL (ANTI-ACCESO CRUZADO / CERO CURIOSIDAD)
+    // Aislamiento de HCE: Solo Médicos, Obstetras y Auditores
     if (pathname.startsWith("/hce")) {
-      if (userRole !== "PROFESIONAL" && userRole !== "SUPERVISION" && userRole !== "ADMIN") {
+      if (userRole !== "PROFESIONAL" && userRole !== "SUPERVISION") {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = "/admision-caja";
         return NextResponse.redirect(redirectUrl);
       }
     }
 
-    // Aislamiento de Supervisión y Auditoría: Solo Auditores y Admin General
+    // Aislamiento de Supervisión y Auditoría: Solo Auditores y Supervisores
     if (pathname.startsWith("/supervision")) {
-      if (userRole !== "SUPERVISION" && userRole !== "ADMIN") {
+      if (userRole !== "SUPERVISION") {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = userRole === "PROFESIONAL" ? "/hce" : "/admision-caja";
         return NextResponse.redirect(redirectUrl);
