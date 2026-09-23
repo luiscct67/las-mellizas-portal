@@ -29,6 +29,8 @@ import {
   Sparkles,
   Calculator,
   HeartPulse,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useHceSpecialty } from "@/context/HceSpecialtyContext";
@@ -403,6 +405,7 @@ export default function HcePage() {
   const [diagnosticos, setDiagnosticos] = useState<DiagnosticoItem[]>([]);
   const [busquedaCie, setBusquedaCie] = useState("");
   const [mostrarSugerenciasCie, setMostrarSugerenciasCie] = useState(false);
+  const cieContainerRef = useRef<HTMLDivElement>(null);
 
   // Imágenes / Ecografías (Archivos Reales Base64)
   const [imagenes, setImagenes] = useState<ImagenAdjunta[]>([]);
@@ -442,6 +445,23 @@ export default function HcePage() {
     setOnSelectPatient,
     setOnReopenPatient,
   } = useHceSpecialty();
+
+  // Retracción automática del desplegable CIE-10 al alternar de especialidad o modalidad
+  useEffect(() => {
+    setMostrarSugerenciasCie(false);
+    setBusquedaCie("");
+  }, [modalidadAtencion, tipoEcografia]);
+
+  // Cierre del desplegable CIE-10 al hacer clic fuera del componente
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (cieContainerRef.current && !cieContainerRef.current.contains(event.target as Node)) {
+        setMostrarSugerenciasCie(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Pestaña activa de herramientas secundarias inferiores (Solución A)
   const [herramientaActiva, setHerramientaActiva] = useState<"imagenes" | "reagendar" | "adendas">("imagenes");
@@ -3506,22 +3526,71 @@ export default function HcePage() {
                 ))}
               </div>
 
-              {/* Input de Búsqueda Predictiva con Filtrado Contextual Inteligente */}
+              {/* Input de Búsqueda Predictiva con Filtrado Contextual Inteligente & Retracción */}
               {!isSealed && (
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={busquedaCie}
-                    onChange={(e) => {
-                      setBusquedaCie(e.target.value);
-                      setMostrarSugerenciasCie(true);
-                    }}
-                    onFocus={() => setMostrarSugerenciasCie(true)}
-                    placeholder="Escriba código o patología (ej. Z34, gastritis, próstata, cálculo, lipoma)..."
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                  />
+                <div ref={cieContainerRef} className="relative">
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={busquedaCie}
+                      onChange={(e) => {
+                        setBusquedaCie(e.target.value);
+                        setMostrarSugerenciasCie(true);
+                      }}
+                      onFocus={() => setMostrarSugerenciasCie(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setMostrarSugerenciasCie(false);
+                      }}
+                      placeholder="Escriba código o patología (ej. Z34, gastritis, próstata, cálculo, lipoma)..."
+                      className="w-full pl-3 pr-20 py-2 border border-neutral-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-white"
+                    />
+                    <div className="absolute right-2 flex items-center gap-1">
+                      {busquedaCie.trim().length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setBusquedaCie("")}
+                          title="Limpiar búsqueda"
+                          className="p-1 hover:bg-neutral-100 rounded text-neutral-400 hover:text-neutral-700 transition"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setMostrarSugerenciasCie(!mostrarSugerenciasCie)}
+                        title={mostrarSugerenciasCie ? "Retraer sugerencias CIE-10 (Escape)" : "Desplegar sugerencias CIE-10"}
+                        className={`p-1 rounded transition flex items-center gap-0.5 ${
+                          mostrarSugerenciasCie
+                            ? "bg-brand-50 text-brand-700 hover:bg-brand-100"
+                            : "hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900"
+                        }`}
+                      >
+                        {mostrarSugerenciasCie ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
                   {mostrarSugerenciasCie && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-xl z-30 max-h-56 overflow-y-auto animate-in fade-in duration-150">
+                      {/* Cabecera del Desplegable con Acción de Retracción Explícita */}
+                      <div className="sticky top-0 bg-neutral-50 px-3 py-1.5 border-b border-neutral-200 flex items-center justify-between text-[10px] font-bold text-neutral-600 z-10">
+                        <span className="font-mono text-neutral-500 uppercase tracking-wider">
+                          Sugerencias CIE-10 Contextuales
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMostrarSugerenciasCie(false)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-white hover:bg-neutral-200 text-neutral-700 font-bold rounded border border-neutral-300 transition text-[9.5px]"
+                          title="Retraer / Cerrar desplegable"
+                        >
+                          <span>Retraer / Cerrar</span>
+                          <ChevronUp className="w-3 h-3 text-neutral-500" />
+                        </button>
+                      </div>
                       {(() => {
                         const listaAFiltrar =
                           busquedaCie.trim().length === 0
