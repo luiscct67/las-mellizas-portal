@@ -416,6 +416,19 @@ async function generarHashCanonico(payload: string): Promise<string> {
     .join("");
 }
 
+// ============================================================================
+// RESOLUTOR DE TIEMPO CONFIABLE (NTP / POSTGRESQL TIME vs OFFLINE LOCAL)
+// ============================================================================
+async function obtenerTimestampServidorConfiable(): Promise<{ iso: string; fuente: "SERVIDOR" | "LOCAL_OFFLINE" }> {
+  try {
+    const { data, error } = await supabase.rpc("fn_obtener_tiempo_servidor");
+    if (!error && data) {
+      return { iso: new Date(data).toISOString(), fuente: "SERVIDOR" };
+    }
+  } catch {}
+  return { iso: new Date().toISOString(), fuente: "LOCAL_OFFLINE" };
+}
+
 export default function HcePage() {
   const [sede, setSede] = useState<string>("Independencia");
   const [profesionalNombre, setProfesionalNombre] = useState<string>("Profesional de Turno");
@@ -1244,10 +1257,22 @@ export default function HcePage() {
 
     if (p.estado === "EN_ESPERA") {
       try {
-        await supabase
+        const { data: updateData, error: updateErr } = await supabase
           .from("encuentro")
           .update({ estado: "EN_ATENCION", updated_at: new Date().toISOString() })
-          .eq("id", p.id);
+          .eq("id", p.id)
+          .eq("estado", "EN_ESPERA")
+          .select("id");
+
+        if (!updateErr && updateData && updateData.length === 0) {
+          // Otro consultorio tomó al paciente milisegundos antes
+          const { data: currentEnc } = await supabase.from("encuentro").select("estado").eq("id", p.id).maybeSingle();
+          if (currentEnc && currentEnc.estado !== "EN_ESPERA") {
+            alert("Aviso asistencial: Este paciente ya fue admitido a consulta en otro consultorio.");
+            cargarColaEncuentros();
+            return;
+          }
+        }
 
         setPacientesCola((prev) =>
           prev.map((item) => (item.id === p.id ? { ...item, estado: "EN_ATENCION" } : item))
@@ -2236,7 +2261,9 @@ export default function HcePage() {
       return;
     }
 
-    const fechaCierreIso = new Date().toISOString();
+    // Marca temporal de alta fidelidad: Servidor NTP / Postgres con fallback local seguro
+    const tiempoInfo = await obtenerTimestampServidorConfiable();
+    const fechaCierreIso = tiempoInfo.iso;
     const efPayload = buildExamenFisicoJson();
 
     // Construcción del Payload Canónico Determinista para el Acto Médico (NTS N.° 139-MINSA)
@@ -2246,6 +2273,7 @@ export default function HcePage() {
       `DNI:${selectedPatient.dni}`,
       `ENCUENTRO_ID:${selectedPatient.id}`,
       `FECHA_HORA_UTC:${fechaCierreIso}`,
+      `FUENTE_TIEMPO:${tiempoInfo.fuente}`,
       `PROFESIONAL:${profesionalNombre}`,
       `COLEGIATURA:${colegiatura || "S/C"}`,
       `SEDE:${selectedPatient.sede || sede}`,
@@ -2277,7 +2305,7 @@ export default function HcePage() {
           imagenes: JSON.stringify(imagenes),
           adendas: JSON.stringify(adendas),
           cerrada: true,
-          fecha_cierre: new Date().toISOString(),
+          fecha_cierre: fechaCierreIso,
           hash_firma: hash,
         },
         { onConflict: "encuentro_id" }
@@ -2290,7 +2318,7 @@ export default function HcePage() {
       // 2. Marcar encuentro como ATENDIDO
       const { error: encErr } = await supabase
         .from("encuentro")
-        .update({ estado: "ATENDIDO", updated_at: new Date().toISOString() })
+        .update({ estado: "ATENDIDO", updated_at: fechaCierreIso })
         .eq("id", selectedPatient.id);
 
       if (encErr) {
@@ -2309,12 +2337,14 @@ export default function HcePage() {
             paciente: selectedPatient.paciente,
             dni: selectedPatient.dni,
             hash_firma: hash,
+            fuente_tiempo: tiempoInfo.fuente,
+            timestamp_servidor: fechaCierreIso,
           },
         });
       }
 
       setSealedHash(hash);
-      setFechaSellado(new Date().toISOString());
+      setFechaSellado(fechaCierreIso);
       setIsSealed(true);
       if (autosaveTimeoutRef.current) {
         clearTimeout(autosaveTimeoutRef.current);
@@ -2453,14 +2483,40 @@ export default function HcePage() {
             // Compresión de alto rendimiento: reduce 5MB a ~80-120KB preservando resolución diagnóstica
             const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
             const nombreLimpio = file.name.replace(/\.[^/.]+$/, "");
-            const nueva: ImagenAdjunta = {
-              id: `img-${Date.now()}`,
-              titulo: nombreLimpio.length > 30 ? nombreLimpio.slice(0, 30) + "..." : nombreLimpio,
-              tipo: "Ecografía / Captura",
-              url: compressedDataUrl,
-              hora: new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
-            };
-            setImagenes((prev) => [...prev, nueva]);
+
+            // Resiliencia híbrida: Intentar subir a Supabase Storage bucket 'ecografias'
+            // Si el bucket no existe o falla la red, el fallback mantiene Base64 en buffer local (Zero Data Loss)
+            canvas.toBlob(async (blob) => {
+              let finalUrl = compressedDataUrl;
+              if (blob) {
+                try {
+                  const safeName = `${selectedPatient?.id || "consulta"}_${Date.now()}.jpg`;
+                  const { data: uploadData, error: uploadErr } = await supabase.storage
+                    .from("ecografias")
+                    .upload(safeName, blob, { contentType: "image/jpeg", upsert: true });
+
+                  if (!uploadErr && uploadData?.path) {
+                    const { data: pubData } = supabase.storage
+                      .from("ecografias")
+                      .getPublicUrl(uploadData.path);
+                    if (pubData?.publicUrl) {
+                      finalUrl = pubData.publicUrl;
+                    }
+                  }
+                } catch (stErr) {
+                  console.warn("Storage Supabase contingente, preservando imagen en buffer Base64:", stErr);
+                }
+              }
+
+              const nueva: ImagenAdjunta = {
+                id: `img-${Date.now()}`,
+                titulo: nombreLimpio.length > 30 ? nombreLimpio.slice(0, 30) + "..." : nombreLimpio,
+                tipo: "Ecografía / Captura",
+                url: finalUrl,
+                hora: new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
+              };
+              setImagenes((prev) => [...prev, nueva]);
+            }, "image/jpeg", 0.82);
             return;
           }
         } catch (canvasErr) {
@@ -2494,13 +2550,15 @@ export default function HcePage() {
     try {
       const { data: userAuth } = await supabase.auth.getUser();
       const autorNombre = profesionalNombre || "Profesional Responsable";
-      const fechaIso = new Date().toISOString();
+      const tiempoInfo = await obtenerTimestampServidorConfiable();
+      const fechaIso = tiempoInfo.iso;
 
       // Cálculo de Hash Canónico SHA-256 para Adenda Clínica
       const adendaPayload = [
         `ENCUENTRO_ID:${selectedPatient.id}`,
         `AUTOR:${autorNombre}`,
         `FECHA_HORA:${fechaIso}`,
+        `FUENTE_TIEMPO:${tiempoInfo.fuente}`,
         `TEXTO:${textoAdenda.trim()}`,
       ].join("|");
       const hashAdenda = await generarHashCanonico(adendaPayload);
@@ -2516,10 +2574,11 @@ export default function HcePage() {
       if (rpcErr) {
         console.warn("Advertencia al incorporar adenda por RPC, aplicando fallback con hash canónico:", rpcErr.message);
         const nuevaAdenda = {
-          fecha: new Date().toLocaleString("es-PE"),
+          fecha: new Date(fechaIso).toLocaleString("es-PE"),
           autor: autorNombre,
           texto: textoAdenda.trim(),
           hash: hashAdenda,
+          fuente_tiempo: tiempoInfo.fuente,
         };
         const nuevasAdendas = [...adendas, nuevaAdenda];
         setAdendas(nuevasAdendas);
@@ -2527,7 +2586,7 @@ export default function HcePage() {
           .from("nota_clinica")
           .update({
             adendas: JSON.stringify(nuevasAdendas),
-            updated_at: new Date().toISOString(),
+            updated_at: fechaIso,
           })
           .eq("encuentro_id", selectedPatient.id);
       } else if (rpcRes && rpcRes.adenda) {
