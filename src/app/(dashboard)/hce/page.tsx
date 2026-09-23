@@ -1035,10 +1035,14 @@ export default function HcePage() {
           }
           if (!activeEncuentroIdRef.current && mapeados.length > 0) {
             const sedeNorm = normalizarSede(sedeActual || sessionStorage.getItem("lm_sede") || "Independencia");
-            const delaSede = mapeados.filter((p) => normalizarSede(p.sede) === sedeNorm);
-            const candidato = delaSede.length > 0 ? delaSede[0] : mapeados[0];
-            setTimeout(() => handleSeleccionarPaciente(candidato), 0);
-            return candidato;
+            const delaSede = mapeados.filter((p) => sedeNorm === "Todas las Sedes" || normalizarSede(p.sede) === sedeNorm);
+            if (delaSede.length > 0) {
+              const candidato = delaSede[0];
+              setTimeout(() => handleSeleccionarPaciente(candidato), 0);
+              return candidato;
+            }
+            // Si la sede actual no tiene pacientes en espera, no forzar pacientes de otras sedes
+            return null;
           }
           return prev;
         });
@@ -2269,8 +2273,14 @@ export default function HcePage() {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-neutral-500 mt-0.5">
                   <span>Servicio: <strong className="text-neutral-800">{selectedPatient?.servicio || "--"}</strong></span>
-                  <span>&bull;</span>
-                  <span>Sede: <strong className="text-neutral-800">{selectedPatient?.sede || sede}</strong></span>
+                  <span>
+                    Sede: <strong className="text-neutral-800">{selectedPatient?.sede || sede}</strong>
+                    {selectedPatient && normalizarSede(selectedPatient.sede) !== normalizarSede(sede) && sede !== "Todas las Sedes" && (
+                      <span className="ml-1.5 text-[9px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-300 px-1.5 py-0.2 rounded inline-flex items-center gap-1">
+                        ⚠️ Admisión en Sede {selectedPatient.sede}
+                      </span>
+                    )}
+                  </span>
                   {selectedPatient?.alergias && selectedPatient.alergias !== "Ninguna" && (
                     <>
                       <span>&bull;</span>
