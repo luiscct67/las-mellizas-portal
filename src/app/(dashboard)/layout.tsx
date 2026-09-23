@@ -163,6 +163,17 @@ function DashboardLayoutContent({
     }
 
     syncUserSession();
+
+    const handleStorageSync = () => {
+      const currentSede = sessionStorage.getItem("lm_sede");
+      if (currentSede) {
+        setSede(currentSede.replace(/^Sede\s+/i, "").trim());
+      }
+    };
+    window.addEventListener("storage", handleStorageSync);
+    return () => {
+      window.removeEventListener("storage", handleStorageSync);
+    };
   }, [pathname]);
 
   const handleLogout = async () => {
@@ -926,18 +937,6 @@ function DashboardLayoutContent({
               );
             })}
           </nav>
-        </div>
-
-        {/* Footer del Sidebar: Solo Acción de Cierre Minimalista */}
-        <div className="p-2 border-t border-[#300a16] shrink-0 bg-black/30">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-neutral-400 hover:text-rose-400 hover:bg-rose-950/20 transition"
-            title="Cerrar sesión"
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            {!isCollapsed && <span>Cerrar Sesión</span>}
-          </button>
         </div>
       </aside>
 

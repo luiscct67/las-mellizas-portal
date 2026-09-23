@@ -2859,20 +2859,8 @@ export default function AdmisionCajaPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {turnoActivo && turnoActivo.estado === "ABIERTA" ? (
-            <button
-              type="button"
-              onClick={() => setSubModuloActivo("CAJA_ARQUEO")}
-              className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 px-3.5 py-1.5 rounded-2xl transition cursor-pointer shadow-xs"
-              title="Ir a Sub-módulo Caja & Arqueo"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-bold text-emerald-900">
-                Caja Activa (Fondo: {formatCurrency(fondoApertura)})
-              </span>
-            </button>
-          ) : (
+        {!turnoActivo || turnoActivo.estado !== "ABIERTA" ? (
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setShowAperturaModal(true)}
@@ -2881,8 +2869,8 @@ export default function AdmisionCajaPage() {
               <Unlock className="w-4 h-4" />
               <span>Abrir Turno de Caja</span>
             </button>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       {/* 2. Barra de Navegación Rápida de Sub-Módulos (Sincronizada con Columna Vino) */}
