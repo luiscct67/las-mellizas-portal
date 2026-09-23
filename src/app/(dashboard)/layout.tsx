@@ -349,10 +349,14 @@ function DashboardLayoutContent({
                 <div key={item.href} className="space-y-1">
                   <Link
                     href={item.href}
+                    prefetch={false}
                     onClick={(e) => {
                       if (isActive && hasSubmenu) {
                         e.preventDefault();
                         toggleSubmenu(item.href);
+                      } else if (!isActive) {
+                        e.preventDefault();
+                        router.push(item.href);
                       }
                     }}
                     className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition ${
@@ -397,7 +401,7 @@ function DashboardLayoutContent({
                   {/* ========================================================== */}
                   {isHceItem && isSubmenuOpen && (
                     <div
-                      className={`mt-1.5 space-y-1 animate-in fade-in duration-200 ${
+                      className={`mt-1.5 space-y-1 animate-in fade-in duration-200 max-h-[calc(100vh-270px)] overflow-y-auto pr-1 ${
                         isCollapsed
                           ? "px-0.5"
                           : "pl-2 pr-0.5 border-l-2 border-brand-700/60 ml-2"
@@ -746,7 +750,7 @@ function DashboardLayoutContent({
                   {/* ========================================================== */}
                   {isAdmisionItem && isSubmenuOpen && (
                     <div
-                      className={`mt-1.5 space-y-1 animate-in fade-in duration-200 ${
+                      className={`mt-1.5 space-y-1 animate-in fade-in duration-200 max-h-[calc(100vh-270px)] overflow-y-auto pr-1 ${
                         isCollapsed
                           ? "px-0.5"
                           : "pl-2 pr-0.5 border-l-2 border-brand-700/60 ml-2"
@@ -1006,6 +1010,50 @@ function DashboardLayoutContent({
               <div className="flex items-center gap-1.5 font-mono text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/80 text-[11px]">
                 <Clock className="w-3 h-3 text-neutral-500" />
                 <span>{horaActual} PET</span>
+              </div>
+            )}
+
+            {/* Accesos Rápidos Directos a Módulos para Dirección y Supervisión */}
+            {(rol === "ADMIN" || rol === "SUPERVISION") && (
+              <div className="hidden sm:flex items-center gap-1 pl-2 border-l border-neutral-200">
+                <Link
+                  href="/admision-caja"
+                  prefetch={false}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition flex items-center gap-1 ${
+                    pathname.startsWith("/admision-caja")
+                      ? "bg-brand-900 text-white shadow-xs"
+                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+                  }`}
+                >
+                  <UserCheck className="w-3 h-3" />
+                  <span>Administración</span>
+                </Link>
+
+                <Link
+                  href="/hce"
+                  prefetch={false}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition flex items-center gap-1 ${
+                    pathname.startsWith("/hce")
+                      ? "bg-brand-900 text-white shadow-xs"
+                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+                  }`}
+                >
+                  <Stethoscope className="w-3 h-3" />
+                  <span>Consultorio HCE</span>
+                </Link>
+
+                <Link
+                  href="/supervision"
+                  prefetch={false}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition flex items-center gap-1 ${
+                    pathname.startsWith("/supervision")
+                      ? "bg-brand-900 text-white shadow-xs"
+                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+                  }`}
+                >
+                  <ShieldCheck className="w-3 h-3" />
+                  <span>Supervisión & Auditoría</span>
+                </Link>
               </div>
             )}
           </div>
