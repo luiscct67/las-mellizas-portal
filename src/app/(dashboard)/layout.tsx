@@ -22,9 +22,14 @@ import {
   FlaskConical,
   Check,
   CheckCircle2,
+  Calendar,
+  Coins,
+  Package,
+  UserPlus,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { HceSpecialtyProvider, useHceSpecialty } from "@/context/HceSpecialtyContext";
+import { AdmisionProvider, useAdmision } from "@/context/AdmisionContext";
 
 export default function DashboardLayout({
   children,
@@ -33,7 +38,9 @@ export default function DashboardLayout({
 }) {
   return (
     <HceSpecialtyProvider>
-      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+      <AdmisionProvider>
+        <DashboardLayoutContent>{children}</DashboardLayoutContent>
+      </AdmisionProvider>
     </HceSpecialtyProvider>
   );
 }
@@ -59,6 +66,14 @@ function DashboardLayoutContent({
     onSelectPatient,
     onReopenPatient,
   } = useHceSpecialty();
+
+  const {
+    subModuloActivo,
+    setSubModuloActivo,
+    pacientesTurno,
+    vistaColaAdmision,
+    setVistaColaAdmision,
+  } = useAdmision();
 
   const [rol, setRol] = useState<string | null>(null);
   const [user, setUser] = useState<string>("");
@@ -174,12 +189,12 @@ function DashboardLayoutContent({
   const getAuthorizedNavItems = (): NavItem[] => {
     const items: NavItem[] = [];
 
-    // Admisión y Caja Unificada
+    // Módulo de Administración
     if (rol === "RECEPCION_CAJA" || rol === "ADMIN") {
       items.push({
         href: "/admision-caja",
-        label: "Admisión & Caja",
-        icon: DollarSign,
+        label: "Módulo de Administración",
+        icon: UserCheck,
       });
     }
 
@@ -296,6 +311,7 @@ function DashboardLayoutContent({
               const Icon = item.icon;
               const isActive = pathname.startsWith(item.href);
               const isHceItem = item.href === "/hce";
+              const isAdmisionItem = item.href === "/admision-caja";
 
               return (
                 <div key={item.href} className="space-y-1">
@@ -652,6 +668,255 @@ function DashboardLayoutContent({
                           )}
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* ========================================================== */}
+                  {/* SUB-MÓDULOS DE ADMINISTRACIÓN EN EL ESPACIO COLOR VINO     */}
+                  {/* (UBICADO DEBAJO DE "MÓDULO DE ADMINISTRACIÓN")             */}
+                  {/* ========================================================== */}
+                  {isAdmisionItem && isActive && (
+                    <div
+                      className={`mt-1.5 space-y-1 animate-in fade-in duration-200 ${
+                        isCollapsed
+                          ? "px-0.5"
+                          : "pl-2 pr-0.5 border-l-2 border-brand-700/60 ml-2"
+                      }`}
+                    >
+                      {!isCollapsed && (
+                        <div className="flex items-center justify-between px-1 py-0.5 text-[9px] font-mono uppercase tracking-wider text-brand-300/80 font-bold">
+                          <span>Sub-Módulos</span>
+                          <span className="text-neutral-500">Ventanilla</span>
+                        </div>
+                      )}
+
+                      {/* 1. Admisión & Venta Rápida */}
+                      <button
+                        type="button"
+                        onClick={() => setSubModuloActivo("ADMISION_VENTA")}
+                        title={isCollapsed ? "Admisión & Venta Rápida" : undefined}
+                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
+                          subModuloActivo === "ADMISION_VENTA"
+                            ? "bg-brand-900/90 border-brand-400 text-white shadow-xs ring-1 ring-brand-400/40"
+                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              subModuloActivo === "ADMISION_VENTA"
+                                ? "bg-brand-600 text-white"
+                                : "bg-neutral-900 text-neutral-400"
+                            }`}
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="truncate">
+                              <span className="text-[11px] font-bold block leading-tight truncate">
+                                Admisión & Venta
+                              </span>
+                              <span className="text-[9px] font-mono text-brand-300 block">
+                                Filiación • Carrito • Cobro
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {!isCollapsed && subModuloActivo === "ADMISION_VENTA" && (
+                          <Check className="w-3.5 h-3.5 text-brand-300 shrink-0" />
+                        )}
+                      </button>
+
+                      {/* 2. Citas & Reagendamientos */}
+                      <button
+                        type="button"
+                        onClick={() => setSubModuloActivo("CITAS_REAGENDAMIENTOS")}
+                        title={isCollapsed ? "Citas & Reagendamientos" : undefined}
+                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
+                          subModuloActivo === "CITAS_REAGENDAMIENTOS"
+                            ? "bg-purple-950/80 border-purple-500 text-white shadow-xs ring-1 ring-purple-500/40"
+                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              subModuloActivo === "CITAS_REAGENDAMIENTOS"
+                                ? "bg-purple-600 text-white"
+                                : "bg-neutral-900 text-neutral-400"
+                            }`}
+                          >
+                            <Calendar className="w-3.5 h-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="truncate">
+                              <span className="text-[11px] font-bold block leading-tight truncate">
+                                Citas & Agenda
+                              </span>
+                              <span className="text-[9px] font-mono text-purple-300 block">
+                                Bandeja Hoy & Próximas
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {!isCollapsed && subModuloActivo === "CITAS_REAGENDAMIENTOS" && (
+                          <Check className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                        )}
+                      </button>
+
+                      {/* 3. Caja, Egresos & Arqueo */}
+                      <button
+                        type="button"
+                        onClick={() => setSubModuloActivo("CAJA_ARQUEO")}
+                        title={isCollapsed ? "Caja, Egresos & Arqueo" : undefined}
+                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
+                          subModuloActivo === "CAJA_ARQUEO"
+                            ? "bg-emerald-950/80 border-emerald-500 text-white shadow-xs ring-1 ring-emerald-500/40"
+                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              subModuloActivo === "CAJA_ARQUEO"
+                                ? "bg-emerald-600 text-white"
+                                : "bg-neutral-900 text-neutral-400"
+                            }`}
+                          >
+                            <Coins className="w-3.5 h-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="truncate">
+                              <span className="text-[11px] font-bold block leading-tight truncate">
+                                Caja & Arqueo
+                              </span>
+                              <span className="text-[9px] font-mono text-emerald-300 block">
+                                Balanza • Egresos • Cierre
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {!isCollapsed && subModuloActivo === "CAJA_ARQUEO" && (
+                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        )}
+                      </button>
+
+                      {/* 4. Dispensación de Insumos */}
+                      <button
+                        type="button"
+                        onClick={() => setSubModuloActivo("DISPENSACION")}
+                        title={isCollapsed ? "Dispensación de Insumos & Farmacia" : undefined}
+                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
+                          subModuloActivo === "DISPENSACION"
+                            ? "bg-blue-950/80 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/40"
+                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              subModuloActivo === "DISPENSACION"
+                                ? "bg-blue-600 text-white"
+                                : "bg-neutral-900 text-neutral-400"
+                            }`}
+                          >
+                            <Package className="w-3.5 h-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="truncate">
+                              <span className="text-[11px] font-bold block leading-tight truncate">
+                                Dispensación Insumos
+                              </span>
+                              <span className="text-[9px] font-mono text-blue-300 block">
+                                Salidas & Farmacia
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {!isCollapsed && subModuloActivo === "DISPENSACION" && (
+                          <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        )}
+                      </button>
+
+                      {/* ========================================================== */}
+                      {/* CAJA 2: MONITOR DE PACIENTES DE VENTANILLA EN COLOR VINO   */}
+                      {/* ========================================================== */}
+                      {!isCollapsed && (
+                        <div className="mt-2.5 p-2 rounded-xl bg-black/40 border border-[#380c1b] space-y-1.5 shadow-inner">
+                          <div className="flex items-center justify-between border-b border-[#300a16] pb-1 px-0.5">
+                            <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded-lg text-[9px] font-bold">
+                              <button
+                                type="button"
+                                onClick={() => setVistaColaAdmision("espera")}
+                                className={`px-1.5 py-0.5 rounded transition ${
+                                  vistaColaAdmision === "espera"
+                                    ? "bg-amber-600 text-white shadow-xs"
+                                    : "text-neutral-400 hover:text-white"
+                                }`}
+                              >
+                                En Espera ({pacientesTurno.filter((p) => p.estadoConsultorio === "EN_ESPERA").length})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setVistaColaAdmision("atendidos")}
+                                className={`px-1.5 py-0.5 rounded transition ${
+                                  vistaColaAdmision === "atendidos"
+                                    ? "bg-emerald-700 text-white shadow-xs"
+                                    : "text-neutral-400 hover:text-white"
+                                }`}
+                              >
+                                Atendidos ({pacientesTurno.filter((p) => p.estadoConsultorio === "ATENDIDO").length})
+                              </button>
+                            </div>
+                            <span className="text-[8.5px] font-mono text-brand-300/80 px-1 py-0.5 bg-brand-950/60 rounded border border-brand-800/40">
+                              Sede {sede}
+                            </span>
+                          </div>
+
+                          {/* Lista compacta scrolleable */}
+                          <div className="max-h-56 overflow-y-auto space-y-1 pr-0.5 scrollbar-thin">
+                            {(() => {
+                              const filtrados = pacientesTurno.filter((p) =>
+                                vistaColaAdmision === "espera"
+                                  ? p.estadoConsultorio === "EN_ESPERA"
+                                  : p.estadoConsultorio === "ATENDIDO"
+                              );
+
+                              if (filtrados.length === 0) {
+                                return (
+                                  <div className="py-3 text-center text-[10px] text-neutral-500 font-mono">
+                                    {vistaColaAdmision === "espera"
+                                      ? "Sin pacientes en sala"
+                                      : "Sin atenciones finalizadas"}
+                                  </div>
+                                );
+                              }
+
+                              return filtrados.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="w-full text-left p-1.5 rounded-lg border transition text-[10.5px] bg-black/25 border-[#300a16] text-neutral-200 hover:bg-white/5"
+                                >
+                                  <div className="flex items-center justify-between gap-1 leading-tight">
+                                    <span className="font-bold truncate text-white">
+                                      {item.paciente}
+                                    </span>
+                                    <span className="font-mono text-[9px] text-neutral-400 shrink-0">
+                                      {item.hora}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[9px] text-neutral-400 mt-0.5">
+                                    <span className="truncate max-w-[120px] text-brand-200/90">{item.servicio}</span>
+                                    <span className="font-mono text-emerald-400 font-bold shrink-0">
+                                      S/ {item.monto.toFixed(2)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

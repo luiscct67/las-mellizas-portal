@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
+import { useAdmision, PacienteTurnoAdmision } from "@/context/AdmisionContext";
 
 export interface ProductoDispensable {
   id: string;
@@ -300,6 +301,14 @@ const PRODUCTOS_INVENTARIO_INICIALES: ProductoDispensable[] = [
 ];
 
 export default function AdmisionCajaPage() {
+  const {
+    subModuloActivo,
+    setSubModuloActivo,
+    setPacientesTurno,
+    setCajaAbierta,
+    setFondoApertura: setFondoAperturaContext,
+  } = useAdmision();
+
   const [sede, setSede] = useState<string>("Independencia");
   const [cajeroNombre, setCajeroNombre] = useState<string>("Operador de Ventanilla");
   const [cargandoTurno, setCargandoTurno] = useState<boolean>(true);
@@ -1044,7 +1053,8 @@ export default function AdmisionCajaPage() {
       ]);
     }
 
-    // Abrir acordeón 1 (Admisión)
+    // Abrir sub-módulo de Admisión & Venta
+    setSubModuloActivo("ADMISION_VENTA");
     setOpenSection((prev) => ({ ...prev, admision: true, pago: true }));
 
     // Scroll suave hacia el formulario de admisión
@@ -2498,6 +2508,7 @@ export default function AdmisionCajaPage() {
     setReagendarMotivo(`Control de Seguimiento - ${atencion.servicio}`);
     setReagendarSede(normalizarSede(atencion.sede || sede));
     setReagendarEncuentroId(atencion.encuentroId || (atencion.id.startsWith("OP-") ? null : atencion.id));
+    setSubModuloActivo("CITAS_REAGENDAMIENTOS");
     setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
     const el = document.getElementById("seccion-reagendamiento");
     if (el) {
@@ -2515,6 +2526,7 @@ export default function AdmisionCajaPage() {
     setReagendarMotivo(cita.motivo);
     setReagendarSede(normalizarSede(sede));
     setReagendarEncuentroId(null);
+    setSubModuloActivo("CITAS_REAGENDAMIENTOS");
     setOpenSection((prev) => ({ ...prev, reagendamiento: true }));
     const el = document.getElementById("seccion-reagendamiento");
     if (el) {
@@ -2594,6 +2606,25 @@ export default function AdmisionCajaPage() {
   );
   const efectivoNetoEsperado = fondoApertura + totalEfectivoCobros - totalEgresos;
   const totalFacturadoBruto = totalEfectivoCobros + totalDigitalCobros;
+
+  // Sincronización en tiempo real del monitor de pacientes del turno con la columna vino
+  useEffect(() => {
+    const mapeados: PacienteTurnoAdmision[] = transacciones.map((t) => ({
+      id: t.id,
+      encuentroId: t.encuentroId,
+      paciente: t.paciente,
+      dni: t.dni,
+      servicio: t.servicio,
+      monto: t.monto,
+      medioPago: t.medioPago,
+      hora: t.hora,
+      estadoConsultorio: t.estadoConsultorio,
+      sede: t.sede,
+    }));
+    setPacientesTurno(mapeados);
+    setCajaAbierta(turnoActivo?.estado === "ABIERTA");
+    setFondoAperturaContext(fondoApertura);
+  }, [transacciones, turnoActivo, fondoApertura, setPacientesTurno, setCajaAbierta, setFondoAperturaContext]);
 
   // Apertura de Turno Persistida en Base de Datos (con persistencia de fondo_inicial)
   const handleAbrirTurno = async () => {
@@ -2785,6 +2816,7 @@ export default function AdmisionCajaPage() {
 
   return (
     <div className="space-y-6">
+
       {/* 1. Header de Estado del Módulo & Barra de Turno */}
       <div className="bg-white rounded-3xl p-5 border border-brand-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -2793,7 +2825,7 @@ export default function AdmisionCajaPage() {
           </div>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl font-black text-brand-900">Admisión & Caja Unificada</h1>
+              <h1 className="text-xl font-black text-brand-900">Módulo de Administración</h1>
               <div className="inline-flex items-center bg-neutral-100 p-0.5 rounded-xl border border-neutral-200">
                 <button
                   type="button"
@@ -2822,35 +2854,29 @@ export default function AdmisionCajaPage() {
               </div>
             </div>
             <p className="text-xs text-neutral-500">
-              Operador: <strong>{cajeroNombre}</strong> &bull; Flujo asistencial continuo sin fricción
+              Operador: <strong>{cajeroNombre}</strong> &bull; Recepción y Caja Asistencial en Ventanilla
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           {turnoActivo && turnoActivo.estado === "ABIERTA" ? (
-            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-2xl">
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
-                <Unlock className="w-4 h-4 text-emerald-600" />
-                <span>Caja Abierta (Fondo: {formatCurrency(fondoApertura)})</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEfectivoContado(efectivoNetoEsperado);
-                  setShowCierreModal(true);
-                }}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow transition flex items-center gap-1"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Arqueo & Cierre</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setSubModuloActivo("CAJA_ARQUEO")}
+              className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 px-3.5 py-1.5 rounded-2xl transition cursor-pointer shadow-xs"
+              title="Ir a Sub-módulo Caja & Arqueo"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-bold text-emerald-900">
+                Caja Activa (Fondo: {formatCurrency(fondoApertura)})
+              </span>
+            </button>
           ) : (
             <button
               type="button"
               onClick={() => setShowAperturaModal(true)}
-              className="bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-2xl shadow transition flex items-center gap-1.5"
+              className="bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2 rounded-2xl shadow transition flex items-center gap-1.5 cursor-pointer"
             >
               <Unlock className="w-4 h-4" />
               <span>Abrir Turno de Caja</span>
@@ -2859,245 +2885,74 @@ export default function AdmisionCajaPage() {
         </div>
       </div>
 
-      {/* 2. Bandeja Minimalista de Citas Programadas del Día & Próximas */}
-      <div className="bg-white rounded-3xl p-5 border border-brand-100 shadow-sm space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-neutral-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xs shadow-xs">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                  Bandeja de Citas & Reagendamientos
-                </h2>
-                <span className="text-[10px] bg-purple-100 text-purple-900 font-extrabold px-2 py-0.5 rounded-full">
-                  {citasDelDia.length + proximasCitas.length} {citasDelDia.length + proximasCitas.length === 1 ? "registro" : "registros"}
-                </span>
-              </div>
-              <p className="text-[11px] text-neutral-500">
-                Sede {normalizarSede(sede)} &bull; Agendadas previamente &bull; Recepción rápida en ventanilla
-              </p>
-            </div>
-          </div>
+      {/* 2. Barra de Navegación Rápida de Sub-Módulos (Sincronizada con Columna Vino) */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+        <button
+          type="button"
+          onClick={() => setSubModuloActivo("ADMISION_VENTA")}
+          className={`px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
+            subModuloActivo === "ADMISION_VENTA"
+              ? "bg-brand-900 text-white shadow-md ring-2 ring-brand-700"
+              : "bg-white text-neutral-600 hover:bg-neutral-50 border border-neutral-200/80"
+          }`}
+        >
+          <UserCheck className="w-4 h-4 text-brand-300" />
+          <span>1. Admisión & Venta</span>
+        </button>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Tabs de Selección entre Citas de Hoy y Próximas Reagendadas */}
-            <div className="flex items-center bg-neutral-100 p-1 rounded-xl gap-1">
-              <button
-                type="button"
-                onClick={() => setTabBandejaCitas("HOY")}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  tabBandejaCitas === "HOY"
-                    ? "bg-white text-purple-950 shadow-xs border border-purple-200/60"
-                    : "text-neutral-600 hover:text-neutral-900"
-                }`}
-              >
-                <span>Citas de Hoy</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                    tabBandejaCitas === "HOY" ? "bg-purple-100 text-purple-900" : "bg-neutral-200 text-neutral-600"
-                  }`}
-                >
-                  {citasDelDia.length}
-                </span>
-              </button>
+        <button
+          type="button"
+          onClick={() => setSubModuloActivo("CITAS_REAGENDAMIENTOS")}
+          className={`px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
+            subModuloActivo === "CITAS_REAGENDAMIENTOS"
+              ? "bg-purple-950 text-white shadow-md ring-2 ring-purple-700"
+              : "bg-white text-neutral-600 hover:bg-neutral-50 border border-neutral-200/80"
+          }`}
+        >
+          <Calendar className="w-4 h-4 text-purple-400" />
+          <span>2. Citas & Reagendamientos</span>
+          <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-purple-100 text-purple-900 font-extrabold rounded-full">
+            {citasDelDia.length + proximasCitas.length}
+          </span>
+        </button>
 
-              <button
-                type="button"
-                onClick={() => setTabBandejaCitas("PROXIMAS")}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  tabBandejaCitas === "PROXIMAS"
-                    ? "bg-white text-purple-950 shadow-xs border border-purple-200/60"
-                    : "text-neutral-600 hover:text-neutral-900"
-                }`}
-              >
-                <span>Próximas Reagendadas</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                    tabBandejaCitas === "PROXIMAS" ? "bg-purple-100 text-purple-900" : "bg-neutral-200 text-neutral-600"
-                  }`}
-                >
-                  {proximasCitas.length}
-                </span>
-              </button>
-            </div>
+        <button
+          type="button"
+          onClick={() => setSubModuloActivo("CAJA_ARQUEO")}
+          className={`px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
+            subModuloActivo === "CAJA_ARQUEO"
+              ? "bg-emerald-950 text-white shadow-md ring-2 ring-emerald-700"
+              : "bg-white text-neutral-600 hover:bg-neutral-50 border border-neutral-200/80"
+          }`}
+        >
+          <Coins className="w-4 h-4 text-emerald-400" />
+          <span>3. Caja & Arqueo</span>
+          {turnoActivo?.estado === "ABIERTA" && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          )}
+        </button>
 
-            <button
-              type="button"
-              onClick={() => cargarCitasDelDia(sede)}
-              title="Refrescar lista de citas"
-              className="p-1.5 text-neutral-500 hover:text-brand-800 hover:bg-neutral-100 rounded-xl transition flex items-center gap-1 text-[11px] font-bold"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${cargandoCitasDelDia ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Actualizar</span>
-            </button>
-          </div>
-        </div>
-
-        {(() => {
-          const listaActual = tabBandejaCitas === "HOY" ? citasDelDia : proximasCitas;
-          if (listaActual.length === 0) {
-            return (
-              <div className="py-4 px-3 bg-neutral-50/70 border border-neutral-200/70 rounded-2xl text-center text-xs text-neutral-500 flex items-center justify-center gap-2">
-                <Clock className="w-4 h-4 text-neutral-400" />
-                <span>
-                  {tabBandejaCitas === "HOY"
-                    ? `No hay citas programadas para hoy en Sede ${normalizarSede(sede)}. Las citas agendadas aparecerán aquí en tiempo real.`
-                    : `No hay próximas citas reagendadas registradas en Sede ${normalizarSede(sede)}.`}
-                </span>
-              </div>
-            );
-          }
-
-          return (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {listaActual.map((cita) => {
-                const estaEnEspera =
-                  cita.encuentro?.estado === "EN_ESPERA" ||
-                  transacciones.some(
-                    (t) =>
-                      t.estadoConsultorio === "EN_ESPERA" &&
-                      ((cita.encuentro_id && t.encuentroId === cita.encuentro_id) ||
-                        t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
-                        cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
-                  );
-                const estaAtendida =
-                  cita.estado === "ATENDIDA" ||
-                  cita.encuentro?.estado === "ATENDIDO" ||
-                  transacciones.some(
-                    (t) =>
-                      t.estadoConsultorio === "ATENDIDO" &&
-                      ((cita.encuentro_id && t.encuentroId === cita.encuentro_id) ||
-                        t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
-                        cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
-                  );
-
-                const horaLimpia = cita.hora ? cita.hora.slice(0, 5) : "--:--";
-
-                return (
-                  <div
-                    key={cita.id}
-                    className="p-3.5 rounded-2xl border border-neutral-200 bg-white hover:border-brand-300 hover:shadow-xs transition flex flex-col justify-between space-y-2.5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {tabBandejaCitas === "PROXIMAS" ? (
-                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200">
-                            📅 {cita.fecha}
-                          </span>
-                        ) : (
-                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            📅 Hoy ({cita.fecha})
-                          </span>
-                        )}
-                        <span className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-neutral-100 text-neutral-900 border border-neutral-200">
-                          {horaLimpia}
-                        </span>
-                        {estaEnEspera ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800">
-                            En Sala de Espera
-                          </span>
-                        ) : estaAtendida ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800">
-                            Atendida
-                          </span>
-                        ) : cita.estado === "CANCELADA" ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800">
-                            Cancelada
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700">
-                            {tabBandejaCitas === "PROXIMAS" ? "Reagendada" : "Pendiente de Llegada"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-xs font-black text-neutral-900 leading-tight">
-                        {cita.paciente_nombre}
-                      </h4>
-                      <p className="text-[11px] text-neutral-500 mt-0.5 line-clamp-1" title={cita.motivo}>
-                        {cita.motivo}
-                      </p>
-                      {cita.telefono && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
-                            <Phone className="w-3.5 h-3.5 text-neutral-400" />
-                            {cita.telefono}
-                          </span>
-                          <a
-                            href={`https://wa.me/51${cita.telefono.replace(/\D/g, "")}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Contactar por WhatsApp"
-                            className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-0.5"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>WhatsApp</span>
-                          </a>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="pt-1.5 border-t border-neutral-100 flex items-center gap-1.5 flex-wrap">
-                      {estaEnEspera ? (
-                        <div className="flex-1 py-1.5 px-2 bg-amber-50 text-amber-800 font-extrabold text-[11px] rounded-xl border border-amber-200 text-center flex items-center justify-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
-                          <span>En Espera de Atención</span>
-                        </div>
-                      ) : estaAtendida ? (
-                        <div className="flex-1 py-1.5 px-2 bg-emerald-50 text-emerald-800 font-extrabold text-[11px] rounded-xl border border-emerald-200 text-center flex items-center justify-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Atención Concluida</span>
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleIngresarDirectoASala(cita)}
-                            title="Ingresar directamente a la pantalla del médico sin cobro (Control de seguimiento o atención ya pagada previamente)"
-                            className="flex-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition flex items-center justify-center gap-1"
-                          >
-                            <Stethoscope className="w-3.5 h-3.5 text-white" />
-                            <span>Pase a Sala (S/ 0)</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAdmitirCita(cita)}
-                            title="Cargar en caja para cobrar (si es una reserva telefónica que recién pagará en ventanilla)"
-                            className="py-1.5 px-2 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-[11px] rounded-xl border border-brand-200 transition flex items-center justify-center gap-1"
-                          >
-                            <DollarSign className="w-3.5 h-3.5 text-brand-700" />
-                            <span>Cobrar</span>
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => prepararModificacionCita(cita)}
-                        title={tabBandejaCitas === "PROXIMAS" ? "Cambiar fecha u hora de esta cita reagendada" : "Reprogramar o postergar cita de hoy"}
-                        className="py-1.5 px-2 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] rounded-xl border border-purple-200 transition flex items-center justify-center gap-1"
-                      >
-                        <Calendar className="w-3.5 h-3.5 text-purple-700" />
-                        <span>Modificar</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
+        <button
+          type="button"
+          onClick={() => setSubModuloActivo("DISPENSACION")}
+          className={`px-4 py-2 rounded-2xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
+            subModuloActivo === "DISPENSACION"
+              ? "bg-blue-950 text-white shadow-md ring-2 ring-blue-700"
+              : "bg-white text-neutral-600 hover:bg-neutral-50 border border-neutral-200/80"
+          }`}
+        >
+          <Package className="w-4 h-4 text-blue-400" />
+          <span>4. Dispensación Insumos</span>
+        </button>
       </div>
 
-      {/* 3. Layout Principal de Dos Columnas Fluidas */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* COLUMNA IZQUIERDA: Formulario Desplegable en Acordeones */}
-        <div className="lg:col-span-7 space-y-4">
-          
+      {/* ========================================================== */}
+      {/* SUB-MÓDULO 1: ADMISIÓN & VENTA (MINIMALISTA, 0 SCROLL)   */}
+      {/* ========================================================== */}
+      {subModuloActivo === "ADMISION_VENTA" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Columna Izquierda: Admisión del Paciente & Carrito Multiservicios */}
+          <div className="lg:col-span-7 space-y-4">
           {/* ACORDEÓN 1: Admisión & Paciente */}
           <div id="seccion-formulario-admision" className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
             <button
@@ -3652,7 +3507,10 @@ export default function AdmisionCajaPage() {
               </div>
             )}
           </div>
+          </div>
 
+          {/* Columna Derecha: Cobranza, Pagos Mixtos & Ticket */}
+          <div className="lg:col-span-5 space-y-4">
           {/* ACORDEÓN 3: Pagos Mixtos (Split Payment) & Emisión */}
           <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm relative z-20">
             <button
@@ -3981,6 +3839,895 @@ export default function AdmisionCajaPage() {
             )}
           </div>
 
+          {/* Ticket emitido de última atención */}
+          {ticketEmitido && (
+            <div className="bg-white rounded-3xl border border-emerald-200 p-5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between text-emerald-800">
+                <div className="flex items-center gap-1.5 text-xs font-black">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Ticket Emitido ({ticketEmitido.id})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => imprimirTicketTermico(ticketEmitido)}
+                  className="text-xs text-brand-700 hover:text-brand-900 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir 80mm</span>
+                </button>
+              </div>
+
+              <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200 text-xs font-mono space-y-1 text-neutral-700">
+                <p className="font-bold text-neutral-900">LAS MELLIZAS PERÚ S.A.C.</p>
+                <p className="text-[10px] text-neutral-500">RUC: 20611827335 &bull; Sede {ticketEmitido.sede}</p>
+                <div className="border-t border-dashed border-neutral-300 my-1 pt-1">
+                  <p>PACIENTE: {ticketEmitido.paciente}</p>
+                  <p>DNI: {ticketEmitido.dni}</p>
+                  <p>SERVICIO: {ticketEmitido.servicio}</p>
+                  <p>IMPORTE: {formatCurrency(ticketEmitido.monto)}</p>
+                  <p>MEDIO: {ticketEmitido.medioPago}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+
+            {/* Resumen Compacto de Caja con Enlace Directo a Arqueo */}
+            <div className="bg-white rounded-3xl border border-neutral-200/80 p-4 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-[10.5px] font-bold text-neutral-500 uppercase tracking-wider">Caja del Turno</p>
+                <p className="text-xs font-mono font-bold text-neutral-800">
+                  Neto a Rendir: <span className="text-emerald-700">{formatCurrency(efectivoNetoEsperado)}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubModuloActivo("CAJA_ARQUEO")}
+                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200 transition flex items-center gap-1 cursor-pointer"
+              >
+                <Coins className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Ver Caja & Arqueo</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================== */}
+      {/* SUB-MÓDULO 2: BANDEJA DE CITAS & REAGENDAMIENTOS          */}
+      {/* ========================================================== */}
+      {subModuloActivo === "CITAS_REAGENDAMIENTOS" && (
+        <div className="space-y-6">
+      {/* 2. Bandeja Minimalista de Citas Programadas del Día & Próximas */}
+      <div className="bg-white rounded-3xl p-5 border border-brand-100 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-neutral-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xs shadow-xs">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                  Bandeja de Citas & Reagendamientos
+                </h2>
+                <span className="text-[10px] bg-purple-100 text-purple-900 font-extrabold px-2 py-0.5 rounded-full">
+                  {citasDelDia.length + proximasCitas.length} {citasDelDia.length + proximasCitas.length === 1 ? "registro" : "registros"}
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500">
+                Sede {normalizarSede(sede)} &bull; Agendadas previamente &bull; Recepción rápida en ventanilla
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Tabs de Selección entre Citas de Hoy y Próximas Reagendadas */}
+            <div className="flex items-center bg-neutral-100 p-1 rounded-xl gap-1">
+              <button
+                type="button"
+                onClick={() => setTabBandejaCitas("HOY")}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  tabBandejaCitas === "HOY"
+                    ? "bg-white text-purple-950 shadow-xs border border-purple-200/60"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
+              >
+                <span>Citas de Hoy</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    tabBandejaCitas === "HOY" ? "bg-purple-100 text-purple-900" : "bg-neutral-200 text-neutral-600"
+                  }`}
+                >
+                  {citasDelDia.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTabBandejaCitas("PROXIMAS")}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  tabBandejaCitas === "PROXIMAS"
+                    ? "bg-white text-purple-950 shadow-xs border border-purple-200/60"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
+              >
+                <span>Próximas Reagendadas</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    tabBandejaCitas === "PROXIMAS" ? "bg-purple-100 text-purple-900" : "bg-neutral-200 text-neutral-600"
+                  }`}
+                >
+                  {proximasCitas.length}
+                </span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => cargarCitasDelDia(sede)}
+              title="Refrescar lista de citas"
+              className="p-1.5 text-neutral-500 hover:text-brand-800 hover:bg-neutral-100 rounded-xl transition flex items-center gap-1 text-[11px] font-bold"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${cargandoCitasDelDia ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Actualizar</span>
+            </button>
+          </div>
+        </div>
+
+        {(() => {
+          const listaActual = tabBandejaCitas === "HOY" ? citasDelDia : proximasCitas;
+          if (listaActual.length === 0) {
+            return (
+              <div className="py-4 px-3 bg-neutral-50/70 border border-neutral-200/70 rounded-2xl text-center text-xs text-neutral-500 flex items-center justify-center gap-2">
+                <Clock className="w-4 h-4 text-neutral-400" />
+                <span>
+                  {tabBandejaCitas === "HOY"
+                    ? `No hay citas programadas para hoy en Sede ${normalizarSede(sede)}. Las citas agendadas aparecerán aquí en tiempo real.`
+                    : `No hay próximas citas reagendadas registradas en Sede ${normalizarSede(sede)}.`}
+                </span>
+              </div>
+            );
+          }
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {listaActual.map((cita) => {
+                const estaEnEspera =
+                  cita.encuentro?.estado === "EN_ESPERA" ||
+                  transacciones.some(
+                    (t) =>
+                      t.estadoConsultorio === "EN_ESPERA" &&
+                      ((cita.encuentro_id && t.encuentroId === cita.encuentro_id) ||
+                        t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+                        cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
+                  );
+                const estaAtendida =
+                  cita.estado === "ATENDIDA" ||
+                  cita.encuentro?.estado === "ATENDIDO" ||
+                  transacciones.some(
+                    (t) =>
+                      t.estadoConsultorio === "ATENDIDO" &&
+                      ((cita.encuentro_id && t.encuentroId === cita.encuentro_id) ||
+                        t.paciente.toLowerCase().includes(cita.paciente_nombre.toLowerCase()) ||
+                        cita.paciente_nombre.toLowerCase().includes(t.paciente.toLowerCase()))
+                  );
+
+                const horaLimpia = cita.hora ? cita.hora.slice(0, 5) : "--:--";
+
+                return (
+                  <div
+                    key={cita.id}
+                    className="p-3.5 rounded-2xl border border-neutral-200 bg-white hover:border-brand-300 hover:shadow-xs transition flex flex-col justify-between space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {tabBandejaCitas === "PROXIMAS" ? (
+                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200">
+                            📅 {cita.fecha}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            📅 Hoy ({cita.fecha})
+                          </span>
+                        )}
+                        <span className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-neutral-100 text-neutral-900 border border-neutral-200">
+                          {horaLimpia}
+                        </span>
+                        {estaEnEspera ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800">
+                            En Sala de Espera
+                          </span>
+                        ) : estaAtendida ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800">
+                            Atendida
+                          </span>
+                        ) : cita.estado === "CANCELADA" ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-100 text-rose-800">
+                            Cancelada
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700">
+                            {tabBandejaCitas === "PROXIMAS" ? "Reagendada" : "Pendiente de Llegada"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-black text-neutral-900 leading-tight">
+                        {cita.paciente_nombre}
+                      </h4>
+                      <p className="text-[11px] text-neutral-500 mt-0.5 line-clamp-1" title={cita.motivo}>
+                        {cita.motivo}
+                      </p>
+                      {cita.telefono && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
+                            <Phone className="w-3.5 h-3.5 text-neutral-400" />
+                            {cita.telefono}
+                          </span>
+                          <a
+                            href={`https://wa.me/51${cita.telefono.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Contactar por WhatsApp"
+                            className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-0.5"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>WhatsApp</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-1.5 border-t border-neutral-100 flex items-center gap-1.5 flex-wrap">
+                      {estaEnEspera ? (
+                        <div className="flex-1 py-1.5 px-2 bg-amber-50 text-amber-800 font-extrabold text-[11px] rounded-xl border border-amber-200 text-center flex items-center justify-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
+                          <span>En Espera de Atención</span>
+                        </div>
+                      ) : estaAtendida ? (
+                        <div className="flex-1 py-1.5 px-2 bg-emerald-50 text-emerald-800 font-extrabold text-[11px] rounded-xl border border-emerald-200 text-center flex items-center justify-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Atención Concluida</span>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleIngresarDirectoASala(cita)}
+                            title="Ingresar directamente a la pantalla del médico sin cobro (Control de seguimiento o atención ya pagada previamente)"
+                            className="flex-1 py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[11px] rounded-xl shadow-xs transition flex items-center justify-center gap-1"
+                          >
+                            <Stethoscope className="w-3.5 h-3.5 text-white" />
+                            <span>Pase a Sala (S/ 0)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAdmitirCita(cita)}
+                            title="Cargar en caja para cobrar (si es una reserva telefónica que recién pagará en ventanilla)"
+                            className="py-1.5 px-2 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-[11px] rounded-xl border border-brand-200 transition flex items-center justify-center gap-1"
+                          >
+                            <DollarSign className="w-3.5 h-3.5 text-brand-700" />
+                            <span>Cobrar</span>
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => prepararModificacionCita(cita)}
+                        title={tabBandejaCitas === "PROXIMAS" ? "Cambiar fecha u hora de esta cita reagendada" : "Reprogramar o postergar cita de hoy"}
+                        className="py-1.5 px-2 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] rounded-xl border border-purple-200 transition flex items-center justify-center gap-1"
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-purple-700" />
+                        <span>Modificar</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </div>
+
+          {/* ACORDEÓN 5: Reagendamiento de Citas & WhatsApp Institucional */}
+          <div id="seccion-reagendamiento" className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleSection("reagendamiento")}
+              className="w-full p-4 bg-emerald-50/60 border-b border-emerald-100 flex items-center justify-between text-left transition hover:bg-emerald-100/50"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                      Reagendamiento de Citas & WhatsApp
+                    </h3>
+                    <span className="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                      <MessageSquare className="w-2.5 h-2.5" /> Directo
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700">
+                    {reagendarPaciente ? `Cita para: ${reagendarPaciente}` : "Programar citas telefónicas o de seguimiento"}
+                  </p>
+                </div>
+              </div>
+              {openSection.reagendamiento ? (
+                <ChevronUp className="w-4 h-4 text-emerald-700" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-emerald-700" />
+              )}
+            </button>
+
+            {openSection.reagendamiento && (
+              <div className="p-5 space-y-4">
+                {/* Alerta de vinculación con paciente en espera */}
+                {reagendarEncuentroId && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>
+                        Reagendando paciente en espera: <strong>{reagendarPaciente}</strong>. Al confirmar, se retirará automáticamente de la cola del consultorio.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReagendarEncuentroId(null)}
+                      className="text-amber-700 hover:text-amber-900 text-[10px] font-bold underline"
+                    >
+                      Cancelar vinculación
+                    </button>
+                  </div>
+                )}
+                {/* Botón rápido si hay paciente en admisión */}
+                {nombres && (
+                  <div className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-2xl border border-neutral-200 text-xs">
+                    <span className="text-neutral-600">
+                      Paciente en ventanilla: <strong>{nombres} {apellidos}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReagendarPaciente(`${nombres} ${apellidos}`.trim());
+                        setReagendarTelefono(telefono);
+                      }}
+                      className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold rounded-lg border border-brand-200 text-[11px] transition"
+                    >
+                      Copiar datos a la cita
+                    </button>
+                  </div>
+                )}
+
+                <form onSubmit={handleGuardarReagendamientoAdmision} className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Nombre de la Paciente *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={reagendarPaciente}
+                        onChange={(e) => setReagendarPaciente(e.target.value)}
+                        placeholder="Ej. Carmen Quispe..."
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Teléfono / WhatsApp (9 Dígitos) *
+                      </label>
+                      <input
+                        type="tel"
+                        maxLength={9}
+                        value={reagendarTelefono}
+                        onChange={(e) => setReagendarTelefono(e.target.value)}
+                        placeholder="987654321"
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Fecha Programada *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={reagendarFecha}
+                        onChange={(e) => setReagendarFecha(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Hora *
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={reagendarHora}
+                        onChange={(e) => setReagendarHora(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Sede de Atención *
+                      </label>
+                      <select
+                        value={reagendarSede}
+                        onChange={(e) => setReagendarSede(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      >
+                        <option value="Independencia">Sede Independencia</option>
+                        <option value="Vivanco">Sede Vivanco</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Profesional Asignado
+                      </label>
+                      <input
+                        type="text"
+                        value={reagendarProfesional}
+                        onChange={(e) => setReagendarProfesional(e.target.value)}
+                        placeholder="Ej. Dra. Carmen / Obstetra de Turno"
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Motivo / Procedimiento Clínico
+                      </label>
+                      <input
+                        type="text"
+                        value={reagendarMotivo}
+                        onChange={(e) => setReagendarMotivo(e.target.value)}
+                        placeholder="Ej. Control Prenatal, Eco 5D..."
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {reagendadaExitoMsg && (
+                    <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{reagendadaExitoMsg}</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                    <button
+                      type="submit"
+                      disabled={reagendandoLoading}
+                      className="flex-1 py-2.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{reagendandoLoading ? "Guardando Cita..." : "Registrar Cita en Sistema"}</span>
+                    </button>
+
+                    <a
+                      href={generarEnlaceWhatsAppAdmision()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Enviar Confirmación por WhatsApp</span>
+                    </a>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================== */}
+      {/* SUB-MÓDULO 3: CAJA & ARQUEO (BALANZA, EGRESOS & AUDITORÍA) */}
+      {/* ========================================================== */}
+      {subModuloActivo === "CAJA_ARQUEO" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Columna Izquierda: Balanza Financiera & Egresos */}
+          <div className="lg:col-span-6 space-y-5">
+          {/* Tarjeta 1: Balanza Financiera del Turno */}
+          <div className="bg-gradient-to-br from-brand-900 to-brand-950 text-white rounded-3xl p-5 shadow-xl border border-brand-800">
+            <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-brand-300">
+                  Balanza de Caja del Turno
+                </p>
+                <p className="text-xs text-white/70">
+                  {turnoActivo?.estado === "ABIERTA" ? "Turno Activo en Ventanilla" : "Caja Cerrada"}
+                </p>
+              </div>
+              <span className="text-xs font-mono px-2 py-1 rounded-lg bg-white/10 text-brand-200">
+                Sede {normalizarSede(sede)}
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between py-1 text-white/80">
+                <span>(+) Fondo Inicial de Apertura:</span>
+                <span className="font-mono font-bold">{formatCurrency(fondoApertura)}</span>
+              </div>
+              <div className="flex justify-between py-1 text-emerald-300">
+                <span>(+) Cobros en Efectivo:</span>
+                <span className="font-mono font-bold">+{formatCurrency(totalEfectivoCobros)}</span>
+              </div>
+              <div className="flex justify-between py-1 text-rose-300">
+                <span>(-) Egresos / Pagos Realizados:</span>
+                <span className="font-mono font-bold">-{formatCurrency(totalEgresos)}</span>
+              </div>
+              
+              <div className="pt-2 border-t border-white/10 flex justify-between items-center text-sm font-black text-white">
+                <span>(=) Efectivo Neto a Rendir:</span>
+                <span className="font-mono text-base text-emerald-400">{formatCurrency(efectivoNetoEsperado)}</span>
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex justify-between py-1 text-purple-300 text-[11px]">
+                <span>Cobros Digitales (Yape / POS):</span>
+                <span className="font-mono font-bold">{formatCurrency(totalDigitalCobros)}</span>
+              </div>
+
+              <div className="flex justify-between py-1 text-brand-300 text-[11px] font-bold">
+                <span>Facturación Bruta de la Jornada:</span>
+                <span className="font-mono">{formatCurrency(totalFacturadoBruto)}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-white/10 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEfectivoContado(efectivoNetoEsperado);
+                  setShowCierreModal(true);
+                }}
+                className="w-full py-2.5 bg-white hover:bg-brand-50 text-brand-900 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Ejecutar Arqueo de Caja</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ACORDEÓN: Salidas de Dinero / Gastos & Pagos a Colaboradores */}
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleSection("egresos")}
+              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-black text-xs">
+                  <TrendingDown className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                    Egresos & Pagos a Colaboradores
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Salidas de caja autorizadas &bull; Total egresos: {formatCurrency(totalEgresos)}
+                  </p>
+                </div>
+              </div>
+              {openSection.egresos ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
+            </button>
+
+            {openSection.egresos && (
+              <div className="p-5 space-y-4">
+                <form onSubmit={handleRegistrarEgreso} className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Tipo de Salida *
+                      </label>
+                      <select
+                        value={egresoTipo}
+                        onChange={(e) => setEgresoTipo(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                      >
+                        <option value="PAGO_COLABORADOR">Pago Directo a Colaborador</option>
+                        <option value="GASTO_MENOR">Gasto Menor / Mantenimiento</option>
+                        <option value="VIATICO">Viáticos / Movilidad</option>
+                        <option value="INSUMOS_MEDICOS">Insumos Médicos Urgentes</option>
+                        <option value="OTRO">Otro Egreso</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Monto a Entregar (S/) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        value={egresoMonto === 0 ? "" : egresoMonto}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setEgresoMonto(e.target.value === "" ? 0 : Number(e.target.value))}
+                        placeholder="Monto en efectivo..."
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Destinatario / Colaborador *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={egresoDestinatario}
+                        onChange={(e) => setEgresoDestinatario(e.target.value)}
+                        placeholder="Nombre de quien recibe el dinero..."
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                        Aprobado por *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={egresoAprobadoPor}
+                        onChange={(e) => setEgresoAprobadoPor(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
+                      Concepto / Justificación *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={egresoConcepto}
+                      onChange={(e) => setEgresoConcepto(e.target.value)}
+                      placeholder="Motivo del pago o compra..."
+                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
+                  >
+                    <TrendingDown className="w-4 h-4" />
+                    <span>Registrar Salida de Efectivo</span>
+                  </button>
+                </form>
+
+                {/* Historial de egresos del turno */}
+                {egresos.length === 0 ? (
+                  <div className="p-4 bg-neutral-50 border border-neutral-200/80 rounded-2xl text-center text-xs text-neutral-400">
+                    Sin egresos registrados en este turno activo.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                      Egresos Registrados en este Turno ({egresos.length})
+                    </p>
+                    <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white text-xs">
+                      {egresos.map((eg) => (
+                        <div key={eg.id} className="p-3 flex items-center justify-between hover:bg-neutral-50/50 transition">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-neutral-900">{eg.destinatario}</span>
+                              <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono">
+                                {eg.tipo}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-neutral-500">{eg.concepto}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <span className="font-mono font-black text-rose-700">
+                                -{formatCurrency(eg.monto)}
+                              </span>
+                              <span className="text-[10px] text-neutral-400 block">{eg.hora}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAnularEgreso(eg.id)}
+                              title="Anular egreso y restituir efectivo"
+                              className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          </div>
+
+          {/* Columna Derecha: Monitor en Tiempo Real & Auditoría Google Drive */}
+          <div className="lg:col-span-6 space-y-5">
+          {/* Tarjeta 2: Monitor de Pacientes en Turno */}
+          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-brand-700" />
+                <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
+                  Pacientes del Turno ({transacciones.length})
+                </h3>
+                <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-full">
+                  {transacciones.filter((t) => t.estadoConsultorio === "EN_ESPERA").length} en sala
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {esAdminOSupervisor && (
+                  <button
+                    type="button"
+                    onClick={handleExportarLibroCaja}
+                    title="Exportar Registro de Atenciones a CSV para Google Drive (Exclusivo Dirección y Supervisión)"
+                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-xl border border-emerald-200 transition flex items-center gap-1 shadow-sm"
+                  >
+                    <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+                    <span>Exportar Google Drive</span>
+                  </button>
+                )}
+                <span className="text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-bold">
+                  Tiempo Real
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {transacciones.length === 0 ? (
+                <div className="py-8 text-center text-neutral-400">
+                  <Clock className="w-6 h-6 mx-auto mb-1.5 opacity-50" />
+                  <p className="font-bold text-xs text-neutral-600">No hay atenciones registradas hoy</p>
+                  <p className="text-[10px]">Las pacientes admitidas en ventanilla aparecerán aquí en tiempo real.</p>
+                </div>
+              ) : (
+                transacciones.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="p-3 rounded-2xl border border-neutral-200/80 bg-neutral-50/50 hover:bg-white hover:border-neutral-300 transition flex items-center justify-between text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-neutral-900">{tx.paciente}</span>
+                      <span className="text-[10px] font-mono text-neutral-400">DNI: {tx.dni}</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">{tx.servicio}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] font-mono font-bold text-brand-700">
+                        {formatCurrency(tx.monto)} ({tx.medioPago})
+                      </span>
+                      <span className="text-[10px] text-neutral-400">&bull; {tx.hora}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg border shadow-2xs ${
+                        tx.estadoConsultorio === "EN_ESPERA"
+                          ? "bg-amber-50 text-amber-900 border-amber-200/90"
+                          : tx.estadoConsultorio === "EN_ATENCION"
+                          ? "bg-blue-50 text-blue-900 border-blue-200/90"
+                          : tx.estadoConsultorio === "CANCELADO" || (tx.estadoConsultorio as string) === "REPROGRAMADO"
+                          ? "bg-purple-50 text-purple-900 border-purple-200/90"
+                          : "bg-emerald-50 text-emerald-900 border-emerald-200/90"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          tx.estadoConsultorio === "EN_ESPERA"
+                            ? "bg-amber-500 animate-pulse"
+                            : tx.estadoConsultorio === "EN_ATENCION"
+                            ? "bg-blue-500 animate-pulse"
+                            : tx.estadoConsultorio === "CANCELADO" || (tx.estadoConsultorio as string) === "REPROGRAMADO"
+                            ? "bg-purple-500"
+                            : "bg-emerald-500"
+                        }`}
+                      />
+                      <span>{tx.estadoConsultorio === "CANCELADO" ? "REPROGRAMADO" : tx.estadoConsultorio.replace("_", " ")}</span>
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => imprimirTicketTermico(tx)}
+                        title="Reimprimir ticket térmico POS (80mm)"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-neutral-700 hover:text-neutral-950 bg-white hover:bg-neutral-100 border border-neutral-300 px-2 py-1 rounded-lg shadow-xs transition"
+                      >
+                        <Printer className="w-3 h-3 text-neutral-600" />
+                        <span>Ticket</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => prepararReagendamientoPara(tx)}
+                        title="Reagendar cita para esta paciente"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition"
+                      >
+                        <Calendar className="w-3 h-3 text-emerald-700" />
+                        <span>Reagendar</span>
+                      </button>
+                      {tx.estadoConsultorio === "EN_ESPERA" && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelarEncuentroDirecto(tx)}
+                          title="Retirar paciente de la cola de espera"
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-1.5 py-1 rounded-lg transition"
+                        >
+                          <X className="w-3 h-3 text-rose-600" />
+                          <span>Retirar</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )))}
+            </div>
+          </div>
+
+          {/* Ticket emitido de última atención */}
+          {ticketEmitido && (
+            <div className="bg-white rounded-3xl border border-emerald-200 p-5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between text-emerald-800">
+                <div className="flex items-center gap-1.5 text-xs font-black">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Ticket Emitido ({ticketEmitido.id})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => imprimirTicketTermico(ticketEmitido)}
+                  className="text-xs text-brand-700 hover:text-brand-900 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir 80mm</span>
+                </button>
+              </div>
+
+              <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200 text-xs font-mono space-y-1 text-neutral-700">
+                <p className="font-bold text-neutral-900">LAS MELLIZAS PERÚ S.A.C.</p>
+                <p className="text-[10px] text-neutral-500">RUC: 20611827335 &bull; Sede {ticketEmitido.sede}</p>
+                <div className="border-t border-dashed border-neutral-300 my-1 pt-1">
+                  <p>PACIENTE: {ticketEmitido.paciente}</p>
+                  <p>DNI: {ticketEmitido.dni}</p>
+                  <p>SERVICIO: {ticketEmitido.servicio}</p>
+                  <p>IMPORTE: {formatCurrency(ticketEmitido.monto)}</p>
+                  <p>MEDIO: {ticketEmitido.medioPago}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================== */}
+      {/* SUB-MÓDULO 4: DISPENSACIÓN DE INSUMOS & FARMACIA (KÁRDEX) */}
+      {/* ========================================================== */}
+      {subModuloActivo === "DISPENSACION" && (
+        <div className="max-w-5xl mx-auto space-y-5">
           {/* ACORDEÓN: Dispensación de Insumos Clínicos & Farmacia (Sub-carrito por Lote) */}
           <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm relative z-10">
             <button
@@ -4242,589 +4989,8 @@ export default function AdmisionCajaPage() {
               </div>
             )}
           </div>
-
-          {/* ACORDEÓN: Salidas de Dinero / Gastos & Pagos a Colaboradores */}
-          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleSection("egresos")}
-              className="w-full p-4 bg-neutral-50/70 border-b border-neutral-100 flex items-center justify-between text-left transition hover:bg-neutral-100/50"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-black text-xs">
-                  <TrendingDown className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                    Egresos & Pagos a Colaboradores
-                  </h3>
-                  <p className="text-[11px] text-neutral-500">
-                    Salidas de caja autorizadas &bull; Total egresos: {formatCurrency(totalEgresos)}
-                  </p>
-                </div>
-              </div>
-              {openSection.egresos ? <ChevronUp className="w-4 h-4 text-neutral-400" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
-            </button>
-
-            {openSection.egresos && (
-              <div className="p-5 space-y-4">
-                <form onSubmit={handleRegistrarEgreso} className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Tipo de Salida *
-                      </label>
-                      <select
-                        value={egresoTipo}
-                        onChange={(e) => setEgresoTipo(e.target.value as any)}
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
-                      >
-                        <option value="PAGO_COLABORADOR">Pago Directo a Colaborador</option>
-                        <option value="GASTO_MENOR">Gasto Menor / Mantenimiento</option>
-                        <option value="VIATICO">Viáticos / Movilidad</option>
-                        <option value="INSUMOS_MEDICOS">Insumos Médicos Urgentes</option>
-                        <option value="OTRO">Otro Egreso</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Monto a Entregar (S/) *
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min={1}
-                        value={egresoMonto === 0 ? "" : egresoMonto}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => setEgresoMonto(e.target.value === "" ? 0 : Number(e.target.value))}
-                        placeholder="Monto en efectivo..."
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Destinatario / Colaborador *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={egresoDestinatario}
-                        onChange={(e) => setEgresoDestinatario(e.target.value)}
-                        placeholder="Nombre de quien recibe el dinero..."
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Aprobado por *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={egresoAprobadoPor}
-                        onChange={(e) => setEgresoAprobadoPor(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                      Concepto / Justificación *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={egresoConcepto}
-                      onChange={(e) => setEgresoConcepto(e.target.value)}
-                      placeholder="Motivo del pago o compra..."
-                      className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
-                  >
-                    <TrendingDown className="w-4 h-4" />
-                    <span>Registrar Salida de Efectivo</span>
-                  </button>
-                </form>
-
-                {/* Historial de egresos del turno */}
-                {egresos.length === 0 ? (
-                  <div className="p-4 bg-neutral-50 border border-neutral-200/80 rounded-2xl text-center text-xs text-neutral-400">
-                    Sin egresos registrados en este turno activo.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
-                      Egresos Registrados en este Turno ({egresos.length})
-                    </p>
-                    <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-2xl overflow-hidden bg-white text-xs">
-                      {egresos.map((eg) => (
-                        <div key={eg.id} className="p-3 flex items-center justify-between hover:bg-neutral-50/50 transition">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-neutral-900">{eg.destinatario}</span>
-                              <span className="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded font-mono">
-                                {eg.tipo}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-neutral-500">{eg.concepto}</p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <span className="font-mono font-black text-rose-700">
-                                -{formatCurrency(eg.monto)}
-                              </span>
-                              <span className="text-[10px] text-neutral-400 block">{eg.hora}</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleAnularEgreso(eg.id)}
-                              title="Anular egreso y restituir efectivo"
-                              className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ACORDEÓN 5: Reagendamiento de Citas & WhatsApp Institucional */}
-          <div id="seccion-reagendamiento" className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleSection("reagendamiento")}
-              className="w-full p-4 bg-emerald-50/60 border-b border-emerald-100 flex items-center justify-between text-left transition hover:bg-emerald-100/50"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs shadow-sm">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
-                      Reagendamiento de Citas & WhatsApp
-                    </h3>
-                    <span className="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                      <MessageSquare className="w-2.5 h-2.5" /> Directo
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-emerald-700">
-                    {reagendarPaciente ? `Cita para: ${reagendarPaciente}` : "Programar citas telefónicas o de seguimiento"}
-                  </p>
-                </div>
-              </div>
-              {openSection.reagendamiento ? (
-                <ChevronUp className="w-4 h-4 text-emerald-700" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-emerald-700" />
-              )}
-            </button>
-
-            {openSection.reagendamiento && (
-              <div className="p-5 space-y-4">
-                {/* Alerta de vinculación con paciente en espera */}
-                {reagendarEncuentroId && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>
-                        Reagendando paciente en espera: <strong>{reagendarPaciente}</strong>. Al confirmar, se retirará automáticamente de la cola del consultorio.
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setReagendarEncuentroId(null)}
-                      className="text-amber-700 hover:text-amber-900 text-[10px] font-bold underline"
-                    >
-                      Cancelar vinculación
-                    </button>
-                  </div>
-                )}
-                {/* Botón rápido si hay paciente en admisión */}
-                {nombres && (
-                  <div className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-2xl border border-neutral-200 text-xs">
-                    <span className="text-neutral-600">
-                      Paciente en ventanilla: <strong>{nombres} {apellidos}</strong>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReagendarPaciente(`${nombres} ${apellidos}`.trim());
-                        setReagendarTelefono(telefono);
-                      }}
-                      className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold rounded-lg border border-brand-200 text-[11px] transition"
-                    >
-                      Copiar datos a la cita
-                    </button>
-                  </div>
-                )}
-
-                <form onSubmit={handleGuardarReagendamientoAdmision} className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Nombre de la Paciente *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={reagendarPaciente}
-                        onChange={(e) => setReagendarPaciente(e.target.value)}
-                        placeholder="Ej. Carmen Quispe..."
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Teléfono / WhatsApp (9 Dígitos) *
-                      </label>
-                      <input
-                        type="tel"
-                        maxLength={9}
-                        value={reagendarTelefono}
-                        onChange={(e) => setReagendarTelefono(e.target.value)}
-                        placeholder="987654321"
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-600 bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Fecha Programada *
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={reagendarFecha}
-                        onChange={(e) => setReagendarFecha(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Hora *
-                      </label>
-                      <input
-                        type="time"
-                        required
-                        value={reagendarHora}
-                        onChange={(e) => setReagendarHora(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Sede de Atención *
-                      </label>
-                      <select
-                        value={reagendarSede}
-                        onChange={(e) => setReagendarSede(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
-                      >
-                        <option value="Independencia">Sede Independencia</option>
-                        <option value="Vivanco">Sede Vivanco</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Profesional Asignado
-                      </label>
-                      <input
-                        type="text"
-                        value={reagendarProfesional}
-                        onChange={(e) => setReagendarProfesional(e.target.value)}
-                        placeholder="Ej. Dra. Carmen / Obstetra de Turno"
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Motivo / Procedimiento Clínico
-                      </label>
-                      <input
-                        type="text"
-                        value={reagendarMotivo}
-                        onChange={(e) => setReagendarMotivo(e.target.value)}
-                        placeholder="Ej. Control Prenatal, Eco 5D..."
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-emerald-600 bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  {reagendadaExitoMsg && (
-                    <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>{reagendadaExitoMsg}</span>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                    <button
-                      type="submit"
-                      disabled={reagendandoLoading}
-                      className="flex-1 py-2.5 bg-neutral-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>{reagendandoLoading ? "Guardando Cita..." : "Registrar Cita en Sistema"}</span>
-                    </button>
-
-                    <a
-                      href={generarEnlaceWhatsAppAdmision()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      <span>Enviar Confirmación por WhatsApp</span>
-                    </a>
-                  </div>
-                </form>
-              </div>
-            )}
-          </div>
         </div>
-
-        {/* COLUMNA DERECHA: Balanza Financiera & Monitor en Tiempo Real */}
-        <div className="lg:col-span-5 space-y-5">
-          
-          {/* Tarjeta 1: Balanza Financiera del Turno */}
-          <div className="bg-gradient-to-br from-brand-900 to-brand-950 text-white rounded-3xl p-5 shadow-xl border border-brand-800">
-            <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-brand-300">
-                  Balanza de Caja del Turno
-                </p>
-                <p className="text-xs text-white/70">
-                  {turnoActivo?.estado === "ABIERTA" ? "Turno Activo en Ventanilla" : "Caja Cerrada"}
-                </p>
-              </div>
-              <span className="text-xs font-mono px-2 py-1 rounded-lg bg-white/10 text-brand-200">
-                Sede {normalizarSede(sede)}
-              </span>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1 text-white/80">
-                <span>(+) Fondo Inicial de Apertura:</span>
-                <span className="font-mono font-bold">{formatCurrency(fondoApertura)}</span>
-              </div>
-              <div className="flex justify-between py-1 text-emerald-300">
-                <span>(+) Cobros en Efectivo:</span>
-                <span className="font-mono font-bold">+{formatCurrency(totalEfectivoCobros)}</span>
-              </div>
-              <div className="flex justify-between py-1 text-rose-300">
-                <span>(-) Egresos / Pagos Realizados:</span>
-                <span className="font-mono font-bold">-{formatCurrency(totalEgresos)}</span>
-              </div>
-              
-              <div className="pt-2 border-t border-white/10 flex justify-between items-center text-sm font-black text-white">
-                <span>(=) Efectivo Neto a Rendir:</span>
-                <span className="font-mono text-base text-emerald-400">{formatCurrency(efectivoNetoEsperado)}</span>
-              </div>
-
-              <div className="pt-2 border-t border-white/10 flex justify-between py-1 text-purple-300 text-[11px]">
-                <span>Cobros Digitales (Yape / POS):</span>
-                <span className="font-mono font-bold">{formatCurrency(totalDigitalCobros)}</span>
-              </div>
-
-              <div className="flex justify-between py-1 text-brand-300 text-[11px] font-bold">
-                <span>Facturación Bruta de la Jornada:</span>
-                <span className="font-mono">{formatCurrency(totalFacturadoBruto)}</span>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-white/10 flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setEfectivoContado(efectivoNetoEsperado);
-                  setShowCierreModal(true);
-                }}
-                className="w-full py-2.5 bg-white hover:bg-brand-50 text-brand-900 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Ejecutar Arqueo de Caja</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Tarjeta 2: Monitor de Pacientes en Turno */}
-          <div className="bg-white rounded-3xl border border-neutral-200/80 shadow-sm p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-brand-700" />
-                <h3 className="text-xs font-black text-neutral-900 uppercase tracking-wider">
-                  Pacientes del Turno ({transacciones.length})
-                </h3>
-                <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-full">
-                  {transacciones.filter((t) => t.estadoConsultorio === "EN_ESPERA").length} en sala
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {esAdminOSupervisor && (
-                  <button
-                    type="button"
-                    onClick={handleExportarLibroCaja}
-                    title="Exportar Registro de Atenciones a CSV para Google Drive (Exclusivo Dirección y Supervisión)"
-                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-xl border border-emerald-200 transition flex items-center gap-1 shadow-sm"
-                  >
-                    <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
-                    <span>Exportar Google Drive</span>
-                  </button>
-                )}
-                <span className="text-[10px] bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-bold">
-                  Tiempo Real
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {transacciones.length === 0 ? (
-                <div className="py-8 text-center text-neutral-400">
-                  <Clock className="w-6 h-6 mx-auto mb-1.5 opacity-50" />
-                  <p className="font-bold text-xs text-neutral-600">No hay atenciones registradas hoy</p>
-                  <p className="text-[10px]">Las pacientes admitidas en ventanilla aparecerán aquí en tiempo real.</p>
-                </div>
-              ) : (
-                transacciones.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="p-3 rounded-2xl border border-neutral-200/80 bg-neutral-50/50 hover:bg-white hover:border-neutral-300 transition flex items-center justify-between text-xs"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-neutral-900">{tx.paciente}</span>
-                      <span className="text-[10px] font-mono text-neutral-400">DNI: {tx.dni}</span>
-                    </div>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">{tx.servicio}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-mono font-bold text-brand-700">
-                        {formatCurrency(tx.monto)} ({tx.medioPago})
-                      </span>
-                      <span className="text-[10px] text-neutral-400">&bull; {tx.hora}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg border shadow-2xs ${
-                        tx.estadoConsultorio === "EN_ESPERA"
-                          ? "bg-amber-50 text-amber-900 border-amber-200/90"
-                          : tx.estadoConsultorio === "EN_ATENCION"
-                          ? "bg-blue-50 text-blue-900 border-blue-200/90"
-                          : tx.estadoConsultorio === "CANCELADO" || (tx.estadoConsultorio as string) === "REPROGRAMADO"
-                          ? "bg-purple-50 text-purple-900 border-purple-200/90"
-                          : "bg-emerald-50 text-emerald-900 border-emerald-200/90"
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          tx.estadoConsultorio === "EN_ESPERA"
-                            ? "bg-amber-500 animate-pulse"
-                            : tx.estadoConsultorio === "EN_ATENCION"
-                            ? "bg-blue-500 animate-pulse"
-                            : tx.estadoConsultorio === "CANCELADO" || (tx.estadoConsultorio as string) === "REPROGRAMADO"
-                            ? "bg-purple-500"
-                            : "bg-emerald-500"
-                        }`}
-                      />
-                      <span>{tx.estadoConsultorio === "CANCELADO" ? "REPROGRAMADO" : tx.estadoConsultorio.replace("_", " ")}</span>
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => imprimirTicketTermico(tx)}
-                        title="Reimprimir ticket térmico POS (80mm)"
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-neutral-700 hover:text-neutral-950 bg-white hover:bg-neutral-100 border border-neutral-300 px-2 py-1 rounded-lg shadow-xs transition"
-                      >
-                        <Printer className="w-3 h-3 text-neutral-600" />
-                        <span>Ticket</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => prepararReagendamientoPara(tx)}
-                        title="Reagendar cita para esta paciente"
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition"
-                      >
-                        <Calendar className="w-3 h-3 text-emerald-700" />
-                        <span>Reagendar</span>
-                      </button>
-                      {tx.estadoConsultorio === "EN_ESPERA" && (
-                        <button
-                          type="button"
-                          onClick={() => handleCancelarEncuentroDirecto(tx)}
-                          title="Retirar paciente de la cola de espera"
-                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-1.5 py-1 rounded-lg transition"
-                        >
-                          <X className="w-3 h-3 text-rose-600" />
-                          <span>Retirar</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )))}
-            </div>
-          </div>
-
-          {/* Ticket emitido de última atención */}
-          {ticketEmitido && (
-            <div className="bg-white rounded-3xl border border-emerald-200 p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between text-emerald-800">
-                <div className="flex items-center gap-1.5 text-xs font-black">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Ticket Emitido ({ticketEmitido.id})</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => imprimirTicketTermico(ticketEmitido)}
-                  className="text-xs text-brand-700 hover:text-brand-900 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Imprimir 80mm</span>
-                </button>
-              </div>
-
-              <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200 text-xs font-mono space-y-1 text-neutral-700">
-                <p className="font-bold text-neutral-900">LAS MELLIZAS PERÚ S.A.C.</p>
-                <p className="text-[10px] text-neutral-500">RUC: 20611827335 &bull; Sede {ticketEmitido.sede}</p>
-                <div className="border-t border-dashed border-neutral-300 my-1 pt-1">
-                  <p>PACIENTE: {ticketEmitido.paciente}</p>
-                  <p>DNI: {ticketEmitido.dni}</p>
-                  <p>SERVICIO: {ticketEmitido.servicio}</p>
-                  <p>IMPORTE: {formatCurrency(ticketEmitido.monto)}</p>
-                  <p>MEDIO: {ticketEmitido.medioPago}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </div>
-      </div>
+      )}
 
       {/* Modal Apertura de Turno */}
       {showAperturaModal && (
