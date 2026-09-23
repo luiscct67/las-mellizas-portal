@@ -31,6 +31,7 @@ import {
   HeartPulse,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
+import { useHceSpecialty } from "@/context/HceSpecialtyContext";
 
 interface PacienteEnConsulta {
   id: string;
@@ -427,10 +428,9 @@ export default function HcePage() {
 
   // ============================================================================
   // ESPECIALIZACIÓN DE FORMATOS Y MODALIDAD ASISTENCIAL (NTS N.° 139-MINSA)
+  // Sincronizado globalmente con el Sidebar (Espacio de Color Vino)
   // ============================================================================
-  const [modalidadAtencion, setModalidadAtencion] = useState<
-    "OBSTETRICIA" | "GINECOLOGIA" | "MEDICINA_GENERAL" | "ECOGRAFIA" | "LABORATORIO"
-  >("OBSTETRICIA");
+  const { modalidadAtencion, setModalidadAtencion, tipoEcografia, setTipoEcografia } = useHceSpecialty();
 
   // Pestaña activa de herramientas secundarias inferiores (Solución A)
   const [herramientaActiva, setHerramientaActiva] = useState<"imagenes" | "reagendar" | "adendas">("imagenes");
@@ -475,11 +475,6 @@ export default function HcePage() {
         };
     }
   };
-
-  // Sub-modalidad de Ecografía
-  const [tipoEcografia, setTipoEcografia] = useState<
-    "OBSTETRICA" | "TRANSVAGINAL" | "ABDOMINAL" | "RENAL" | "PROSTATICA" | "PARTES_BLANDAS" | "MAMARIA" | "TIROIDEA"
-  >("OBSTETRICA");
 
   // 1. Ecografía Prostática & Vesicoprostática (Cálculo Automático)
   const [prostataDt, setProstataDt] = useState(""); // Diámetro Transverso en mm
@@ -2228,7 +2223,7 @@ export default function HcePage() {
               </span>
             </div>
 
-            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+            <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
               {vistaCola === "espera" ? (
                 pacientesFiltrados.length === 0 ? (
                   <div className="py-6 text-center text-neutral-400">
@@ -2300,195 +2295,7 @@ export default function HcePage() {
             </div>
           </div>
 
-          {/* 2. Selector de Perfil Profesional & Especialidad Asistencial */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-3 space-y-2 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-1.5">
-              <span className="font-bold text-[11px] text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Stethoscope className="w-3.5 h-3.5 text-brand-700" />
-                Perfil & Especialidad
-              </span>
-              <span className="text-[9px] font-mono text-neutral-400">NTS N.° 139</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-1.5">
-              {/* Botón 1: Obstetricia (COP) */}
-              <button
-                type="button"
-                onClick={() => setModalidadAtencion("OBSTETRICIA")}
-                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
-                  modalidadAtencion === "OBSTETRICIA"
-                    ? "bg-rose-50/80 border-rose-300 text-rose-950 font-bold shadow-xs"
-                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
-                }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    modalidadAtencion === "OBSTETRICIA" ? "bg-rose-200/80 text-rose-800" : "bg-neutral-100 text-neutral-500"
-                  }`}>
-                    <Baby className="w-4 h-4" />
-                  </div>
-                  <div className="truncate">
-                    <span className="text-xs font-bold block leading-tight truncate">Obstetricia & Prenatal</span>
-                    <span className="text-[10px] text-rose-700/80 font-mono block">COP 13102 • Obstetra</span>
-                  </div>
-                </div>
-                {modalidadAtencion === "OBSTETRICIA" && <Check className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
-              </button>
-
-              {/* Botón 2: Ginecología (CMP / RNE) */}
-              <button
-                type="button"
-                onClick={() => setModalidadAtencion("GINECOLOGIA")}
-                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
-                  modalidadAtencion === "GINECOLOGIA"
-                    ? "bg-purple-50/80 border-purple-300 text-purple-950 font-bold shadow-xs"
-                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
-                }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    modalidadAtencion === "GINECOLOGIA" ? "bg-purple-200/80 text-purple-800" : "bg-neutral-100 text-neutral-500"
-                  }`}>
-                    <Activity className="w-4 h-4" />
-                  </div>
-                  <div className="truncate">
-                    <span className="text-xs font-bold block leading-tight truncate">Ginecología Especializada</span>
-                    <span className="text-[10px] text-purple-700/80 font-mono block">CMP 72450 • Ginecólogo</span>
-                  </div>
-                </div>
-                {modalidadAtencion === "GINECOLOGIA" && <Check className="w-3.5 h-3.5 text-purple-600 shrink-0" />}
-              </button>
-
-              {/* Botón 3: Ecografía Especializada */}
-              <button
-                type="button"
-                onClick={() => setModalidadAtencion("ECOGRAFIA")}
-                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
-                  modalidadAtencion === "ECOGRAFIA"
-                    ? "bg-sky-50/80 border-sky-300 text-sky-950 font-bold shadow-xs"
-                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
-                }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    modalidadAtencion === "ECOGRAFIA" ? "bg-sky-200/80 text-sky-800" : "bg-neutral-100 text-neutral-500"
-                  }`}>
-                    <Layers className="w-4 h-4" />
-                  </div>
-                  <div className="truncate">
-                    <span className="text-xs font-bold block leading-tight truncate">Ecografía Especializada</span>
-                    <span className="text-[10px] text-sky-700/80 font-mono block">8 modalidades clínicas</span>
-                  </div>
-                </div>
-                {modalidadAtencion === "ECOGRAFIA" && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0" />}
-              </button>
-
-              {/* Botón 4: Medicina General */}
-              <button
-                type="button"
-                onClick={() => setModalidadAtencion("MEDICINA_GENERAL")}
-                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
-                  modalidadAtencion === "MEDICINA_GENERAL"
-                    ? "bg-emerald-50/80 border-emerald-300 text-emerald-950 font-bold shadow-xs"
-                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
-                }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    modalidadAtencion === "MEDICINA_GENERAL" ? "bg-emerald-200/80 text-emerald-800" : "bg-neutral-100 text-neutral-500"
-                  }`}>
-                    <Stethoscope className="w-4 h-4" />
-                  </div>
-                  <div className="truncate">
-                    <span className="text-xs font-bold block leading-tight truncate">Medicina General</span>
-                    <span className="text-[10px] text-emerald-700/80 font-mono block">CMP • Consulta Adulto</span>
-                  </div>
-                </div>
-                {modalidadAtencion === "MEDICINA_GENERAL" && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-              </button>
-
-              {/* Botón 5: Laboratorio POCT */}
-              <button
-                type="button"
-                onClick={() => setModalidadAtencion("LABORATORIO")}
-                className={`w-full p-2 rounded-lg border text-left transition flex items-center justify-between ${
-                  modalidadAtencion === "LABORATORIO"
-                    ? "bg-amber-50/80 border-amber-300 text-amber-950 font-bold shadow-xs"
-                    : "border-neutral-100 hover:border-neutral-200 text-neutral-700 hover:bg-neutral-50"
-                }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    modalidadAtencion === "LABORATORIO" ? "bg-amber-200/80 text-amber-800" : "bg-neutral-100 text-neutral-500"
-                  }`}>
-                    <FlaskConical className="w-4 h-4" />
-                  </div>
-                  <div className="truncate">
-                    <span className="text-xs font-bold block leading-tight truncate">Exámenes de Laboratorio</span>
-                    <span className="text-[10px] text-amber-700/80 font-mono block">POCT • Tiras & Pruebas</span>
-                  </div>
-                </div>
-                {modalidadAtencion === "LABORATORIO" && <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
-              </button>
-            </div>
-          </div>
-
-          {/* 3. Selector de Sub-modalidad de Ecografía (solo visible si modalidad === ECOGRAFIA) */}
-          {modalidadAtencion === "ECOGRAFIA" && (
-            <div className="bg-white border border-sky-200 rounded-xl p-3 space-y-2 shadow-2xs">
-              <div className="flex items-center justify-between border-b border-sky-100 pb-1">
-                <span className="font-bold text-[11px] text-sky-950 uppercase tracking-wider">
-                  Tipo de Ecografía
-                </span>
-                <span className="text-[9px] font-mono text-sky-700 bg-sky-50 px-1.5 py-0.2 rounded border border-sky-200">
-                  8 Modalidades
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                <div>
-                  <label className="block text-[10px] text-neutral-600 mb-1 font-bold">Estudio Seleccionado:</label>
-                  <select
-                    disabled={isSealed}
-                    value={tipoEcografia}
-                    onChange={(e: any) => setTipoEcografia(e.target.value)}
-                    className="w-full p-2 border border-sky-300 bg-sky-50/50 rounded-lg text-xs font-bold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                  >
-                    <option value="OBSTETRICA">Ecografía Obstétrica / Fetal</option>
-                    <option value="TRANSVAGINAL">Ecografía Transvaginal / Pélvica</option>
-                    <option value="ABDOMINAL">Ecografía Abdominal Completa</option>
-                    <option value="RENAL">Ecografía Renal y Vías Urinarias</option>
-                    <option value="PROSTATICA">Ecografía Prostática (Vesicoprostática)</option>
-                    <option value="PARTES_BLANDAS">Ecografía de Partes Blandas / Hernias / Lipomas</option>
-                    <option value="MAMARIA">Ecografía Mamaria Bilateral (BI-RADS)</option>
-                    <option value="TIROIDEA">Ecografía Tiroidea y Cuello (TI-RADS)</option>
-                  </select>
-                </div>
-
-                <div className="p-2 bg-sky-50/60 border border-sky-100 rounded-lg text-[10px] text-sky-900 space-y-1">
-                  <div className="font-bold flex items-center justify-between">
-                    <span>Transductor:</span>
-                    <span className="font-mono text-[9px] bg-sky-200/70 px-1.5 py-0.2 rounded font-semibold text-sky-900">
-                      {tipoEcografia === "TRANSVAGINAL"
-                        ? "Endocavitario 6.5 MHz"
-                        : tipoEcografia === "PARTES_BLANDAS" || tipoEcografia === "MAMARIA" || tipoEcografia === "TIROIDEA"
-                        ? "Lineal 7.5 - 12 MHz"
-                        : "Convexo 3.5 - 5 MHz"}
-                    </span>
-                  </div>
-                  <div className="text-[9.5px] text-sky-700 leading-tight">
-                    {tipoEcografia === "PROSTATICA"
-                      ? "Cálculo volumétrico elipsoide automatizado + % Residuo Post-Miccional."
-                      : tipoEcografia === "OBSTETRICA"
-                      ? "Biometría fetal estandarizada (DBP, LF, CA, PFE, ILA)."
-                      : "Protocolo clínico y CIE-10 adaptados específicamente a este estudio."}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 4. Triaje Vital & Funciones Antropométricas */}
+          {/* 2. Triaje Vital & Funciones Antropométricas */}
           <div className="bg-white border border-neutral-200 rounded-xl p-3 space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-1">
               <span className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider flex items-center gap-1">
