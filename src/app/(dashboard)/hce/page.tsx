@@ -531,41 +531,57 @@ export default function HcePage() {
   // Pestaña activa de herramientas secundarias inferiores (Solución A)
   const [herramientaActiva, setHerramientaActiva] = useState<"imagenes" | "reagendar" | "adendas">("imagenes");
 
+  // Sanitización de registro profesional para prevenir duplicaciones ("COP COP", "CMP CMP")
+  const normalizarRegistroProfesional = (col: string, prefijoEsperado: "COP" | "CMP" | "POCT") => {
+    if (!col || !col.trim()) {
+      if (prefijoEsperado === "COP") return "COP 13102";
+      if (prefijoEsperado === "CMP") return "CMP 72450";
+      return "POCT Certificado";
+    }
+    const limpio = col.trim();
+    // Extraer prefijos repetidos tipo "COP", "CMP" o duplicados como "COP COP"
+    const sinPrefijos = limpio.replace(/^(COP|CMP)\s*(COP|CMP)?\s*/gi, "").trim();
+    if (prefijoEsperado === "POCT") {
+      return sinPrefijos ? `POCT Reg. ${sinPrefijos}` : "POCT Certificado";
+    }
+    return `${prefijoEsperado} ${sinPrefijos || "Colegiado"}`;
+  };
+
   // Identificación regulatoria oficial según Ley N.° 23346 (Obstetras) vs Ley N.° 15125 (Médicos)
   const getCargoProfesional = () => {
     switch (modalidadAtencion) {
       case "OBSTETRICIA":
         return {
           cargo: "Obstetra (Salud Materno-Perinatal)",
-          registro: colegiatura ? `COP ${colegiatura}` : "COP 13102",
+          registro: normalizarRegistroProfesional(colegiatura, "COP"),
           badgeColor: "bg-rose-50 text-rose-800 border-rose-200",
           leyRef: "Ley N.° 23346 (Acto Obstétrico)",
         };
       case "GINECOLOGIA":
         return {
           cargo: "Médico Ginecólogo-Obstetra",
-          registro: colegiatura ? `CMP ${colegiatura}` : "CMP 72450 • RNE",
+          registro: normalizarRegistroProfesional(colegiatura, "CMP"),
           badgeColor: "bg-purple-50 text-purple-800 border-purple-200",
           leyRef: "Ley N.° 15125 (Acto Médico Especializado)",
         };
       case "ECOGRAFIA":
         return {
           cargo: "Médico Ecografista",
-          registro: colegiatura ? `CMP ${colegiatura}` : "CMP Colegiado",
+          registro: normalizarRegistroProfesional(colegiatura, "CMP"),
           badgeColor: "bg-sky-50 text-sky-800 border-sky-200",
           leyRef: "Diagnóstico por Imágenes",
         };
       case "MEDICINA_GENERAL":
         return {
           cargo: "Médico Cirujano",
-          registro: colegiatura ? `CMP ${colegiatura}` : "CMP Colegiado",
+          registro: normalizarRegistroProfesional(colegiatura, "CMP"),
           badgeColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
           leyRef: "Ley N.° 15125 (Medicina General)",
         };
       case "LABORATORIO":
         return {
           cargo: "Responsable de Laboratorio POCT",
-          registro: colegiatura || "POCT Certificado",
+          registro: colegiatura ? normalizarRegistroProfesional(colegiatura, colegiatura.toUpperCase().includes("CMP") ? "CMP" : "COP") : "POCT Certificado",
           badgeColor: "bg-amber-50 text-amber-800 border-amber-200",
           leyRef: "Tamizaje Clínico & Pruebas Rápidas",
         };
@@ -658,9 +674,9 @@ export default function HcePage() {
   // 9. Exámenes de Laboratorio & Tiras Reactivas
   const [labHemoglobina, setLabHemoglobina] = useState("");
   const [labGlucosa, setLabGlucosa] = useState("");
-  const [labOrinaLeucocitos, setLabOrinaLeucocitos] = useState("Negativo");
-  const [labOrinaProteinas, setLabOrinaProteinas] = useState("Negativo");
-  const [labOrinaNitritos, setLabOrinaNitritos] = useState("Negativo");
+  const [labOrinaLeucocitos, setLabOrinaLeucocitos] = useState("No realizada");
+  const [labOrinaProteinas, setLabOrinaProteinas] = useState("No realizada");
+  const [labOrinaNitritos, setLabOrinaNitritos] = useState("No realizada");
   const [labPruebaEmbarazo, setLabPruebaEmbarazo] = useState("No realizada");
   const [labObservaciones, setLabObservaciones] = useState("");
 
@@ -739,9 +755,9 @@ export default function HcePage() {
     // Reset Laboratorio
     setLabHemoglobina("");
     setLabGlucosa("");
-    setLabOrinaLeucocitos("Negativo");
-    setLabOrinaProteinas("Negativo");
-    setLabOrinaNitritos("Negativo");
+    setLabOrinaLeucocitos("No realizada");
+    setLabOrinaProteinas("No realizada");
+    setLabOrinaNitritos("No realizada");
     setLabPruebaEmbarazo("No realizada");
     setLabObservaciones("");
 
@@ -1588,7 +1604,7 @@ export default function HcePage() {
             <div class="data-label">Profesional Responsable de la Atención</div>
             <div class="data-val">${profesionalNombre}</div>
             <div style="font-size:10px; color:#475569; margin-top:2px;">
-              Colegiatura / Registro: <strong>${colegiatura || "COP / CMP"}</strong>
+              Colegiatura / Registro: <strong>${colegiatura ? normalizarRegistroProfesional(colegiatura, colegiatura.toUpperCase().includes("CMP") ? "CMP" : "COP") : "COP / CMP"}</strong>
             </div>
             <div style="font-size:9.5px; color:#2563eb; margin-top:2px;">
               Servicio Evaluado: <strong>${selectedPatient.servicio}</strong>
@@ -1866,14 +1882,14 @@ export default function HcePage() {
             ${profesionalNombre}<br>
             ${
               modalidadAtencion === "OBSTETRICIA"
-                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Lic. en Obstetricia &bull; COP: ${colegiatura || "13102"}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Salud Materno-Perinatal &bull; Ley N.° 23346</span>`
+                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Lic. en Obstetricia &bull; ${normalizarRegistroProfesional(colegiatura, "COP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Salud Materno-Perinatal &bull; Ley N.° 23346</span>`
                 : modalidadAtencion === "GINECOLOGIA"
-                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Gineco-Obstetra &bull; CMP: ${colegiatura || "72450"}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Especialista RNE &bull; Ley N.° 15125</span>`
+                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Gineco-Obstetra &bull; ${normalizarRegistroProfesional(colegiatura, "CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Especialista RNE &bull; Ley N.° 15125</span>`
                 : modalidadAtencion === "ECOGRAFIA"
-                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Ecografista &bull; CMP: ${colegiatura || "CMP"}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Diagnóstico por Imágenes & Ultrasonografía</span>`
+                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Ecografista &bull; ${normalizarRegistroProfesional(colegiatura, "CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Diagnóstico por Imágenes & Ultrasonografía</span>`
                 : modalidadAtencion === "MEDICINA_GENERAL"
-                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Cirujano &bull; CMP: ${colegiatura || "CMP"}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Atención Médica Primaria &bull; Ley N.° 15125</span>`
-                : `<span style="font-size:9.5px; color:#334155; font-weight:700;">Responsable de Laboratorio POCT</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Reg. Profesional: ${colegiatura || "Certificado"}</span>`
+                ? `<span style="font-size:9.5px; color:#334155; font-weight:700;">Médico Cirujano &bull; ${normalizarRegistroProfesional(colegiatura, "CMP")}</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Atención Médica Primaria &bull; Ley N.° 15125</span>`
+                : `<span style="font-size:9.5px; color:#334155; font-weight:700;">Responsable de Laboratorio POCT</span><br><span style="font-size:8px; color:#64748b; font-weight:normal;">Reg. Profesional: ${colegiatura ? normalizarRegistroProfesional(colegiatura, colegiatura.toUpperCase().includes("CMP") ? "CMP" : "COP") : "Certificado"}</span>`
             }
           </div>
         </div>
@@ -3802,9 +3818,14 @@ export default function HcePage() {
                         value={labOrinaLeucocitos}
                         onChange={(e) => setLabOrinaLeucocitos(e.target.value)}
                         className={`w-full p-2 border rounded-lg text-xs font-bold ${
-                          labOrinaLeucocitos === "Negativo" ? "border-emerald-300 text-emerald-900 bg-emerald-50/50" : "border-rose-400 text-rose-900 bg-rose-50"
+                          labOrinaLeucocitos === "No realizada"
+                            ? "border-neutral-300 text-neutral-600 bg-white font-medium"
+                            : labOrinaLeucocitos === "Negativo"
+                            ? "border-emerald-300 text-emerald-900 bg-emerald-50/50"
+                            : "border-rose-400 text-rose-900 bg-rose-50"
                         }`}
                       >
+                        <option value="No realizada">No realizada</option>
                         <option value="Negativo">Negativo (Normal)</option>
                         <option value="Trazas">Trazas (±)</option>
                         <option value="Positivo (+)">Positivo (+)</option>
@@ -3820,9 +3841,14 @@ export default function HcePage() {
                         value={labOrinaProteinas}
                         onChange={(e) => setLabOrinaProteinas(e.target.value)}
                         className={`w-full p-2 border rounded-lg text-xs font-bold ${
-                          labOrinaProteinas === "Negativo" ? "border-emerald-300 text-emerald-900 bg-emerald-50/50" : "border-rose-400 text-rose-900 bg-rose-50"
+                          labOrinaProteinas === "No realizada"
+                            ? "border-neutral-300 text-neutral-600 bg-white font-medium"
+                            : labOrinaProteinas === "Negativo"
+                            ? "border-emerald-300 text-emerald-900 bg-emerald-50/50"
+                            : "border-rose-400 text-rose-900 bg-rose-50"
                         }`}
                       >
+                        <option value="No realizada">No realizada</option>
                         <option value="Negativo">Negativo (Normal)</option>
                         <option value="Trazas">Trazas (±)</option>
                         <option value="Positivo (+)">Positivo (+)</option>
@@ -3837,9 +3863,14 @@ export default function HcePage() {
                         value={labOrinaNitritos}
                         onChange={(e) => setLabOrinaNitritos(e.target.value)}
                         className={`w-full p-2 border rounded-lg text-xs font-bold ${
-                          labOrinaNitritos === "Negativo" ? "border-emerald-300 text-emerald-900 bg-emerald-50/50" : "border-rose-400 text-rose-900 bg-rose-50"
+                          labOrinaNitritos === "No realizada"
+                            ? "border-neutral-300 text-neutral-600 bg-white font-medium"
+                            : labOrinaNitritos === "Negativo"
+                            ? "border-emerald-300 text-emerald-900 bg-emerald-50/50"
+                            : "border-rose-400 text-rose-900 bg-rose-50"
                         }`}
                       >
+                        <option value="No realizada">No realizada</option>
                         <option value="Negativo">Negativo (Normal)</option>
                         <option value="Positivo (+)">Positivo (+) (Sugiere ITU)</option>
                       </select>
