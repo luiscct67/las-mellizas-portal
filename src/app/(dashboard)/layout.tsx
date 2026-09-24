@@ -1055,7 +1055,7 @@ function DashboardLayoutContent({
                                 Personal & Credenciales
                               </span>
                               <span className="text-[9px] font-mono text-brand-300 block">
-                                Padrón ({conteoPersonal}) &bull; Roles &bull; Claves
+                                Padrón ({conteoPersonal}) • Roles • Claves
                               </span>
                             </div>
                           )}
@@ -1095,7 +1095,7 @@ function DashboardLayoutContent({
                                 Inventario & Insumos
                               </span>
                               <span className="text-[9px] font-mono text-blue-300 block">
-                                Stock ({conteoInventario}) &bull; Kárdex
+                                Stock ({conteoInventario}) • Kárdex
                               </span>
                             </div>
                           )}
@@ -1142,7 +1142,7 @@ function DashboardLayoutContent({
                                 Control de Costos & Precios
                               </span>
                               <span className="text-[9px] font-mono text-emerald-300 block">
-                                Tarifario ({conteoServicios}) &bull; Ecografías
+                                Tarifario ({conteoServicios}) • Ecografías
                               </span>
                             </div>
                           )}
@@ -1182,7 +1182,7 @@ function DashboardLayoutContent({
                                 Auditoría Forense RLS
                               </span>
                               <span className="text-[9px] font-mono text-purple-300 block">
-                                Trazabilidad &bull; Zero-Trust
+                                Trazabilidad • Zero-Trust
                               </span>
                             </div>
                           )}

@@ -265,17 +265,25 @@ export default function SupervisionPage() {
   }, []);
 
   useEffect(() => {
-    setConteoPersonal(usuarios.length);
+    if (usuarios.length > 0) {
+      setConteoPersonal(usuarios.length);
+    }
   }, [usuarios, setConteoPersonal]);
 
   useEffect(() => {
-    setConteoInventario(productosInventario.length);
-    setStockBajoInventario(productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length);
+    if (productosInventario.length > 0) {
+      setConteoInventario(productosInventario.length);
+      setStockBajoInventario(productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length);
+    }
   }, [productosInventario, setConteoInventario, setStockBajoInventario]);
 
   useEffect(() => {
-    setConteoServicios(serviciosCustom.length);
-  }, [serviciosCustom, setConteoServicios]);
+    if (subModuloSupervision === "inventario") {
+      cargarInventario();
+    } else if (subModuloSupervision === "auditoria") {
+      cargarAuditoriaReal();
+    }
+  }, [subModuloSupervision]);
 
   const isAdmin = currentRole === "ADMIN";
 

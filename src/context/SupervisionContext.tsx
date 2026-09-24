@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { PADRON_OFICIAL_AUTORIZADO } from "@/lib/whitelist";
 
 export type SubModuloSupervision =
   | "personal"
@@ -36,8 +37,6 @@ interface SupervisionContextType {
   actualizarServicioTarifario: (serv: ServicioTarifario) => void;
   agregarServicioTarifario: (serv: Omit<ServicioTarifario, "id">) => void;
 }
-
-const SupervisionContext = createContext<SupervisionContextType | undefined>(undefined);
 
 export const CATALOGO_SERVICIOS_BASE: Omit<ServicioTarifario, "id">[] = [
   // --- PACKS PROMOCIONALES INTEGRALES ---
@@ -98,39 +97,57 @@ export const CATALOGO_SERVICIOS_BASE: Omit<ServicioTarifario, "id">[] = [
   { codigo: "LAB-007", nombre: "Perfil Prenatal Básico Completo", precio_venta: 120, costo_operativo: 42, categoria: "Laboratorio", descripcion: "Hemograma, glucosa, grupo, VIH, RPR y orina completa", activo: true },
 ];
 
+const SERVICIOS_INICIALES: ServicioTarifario[] = CATALOGO_SERVICIOS_BASE.map((s, idx) => ({
+  ...s,
+  id: `srv-${idx + 1}-${s.codigo.toLowerCase()}`,
+}));
+
+const DEFAULT_SUPERVISION_CONTEXT: SupervisionContextType = {
+  subModuloSupervision: "personal",
+  setSubModuloSupervision: () => {},
+  conteoPersonal: PADRON_OFICIAL_AUTORIZADO.length,
+  setConteoPersonal: () => {},
+  conteoInventario: 0,
+  setConteoInventario: () => {},
+  stockBajoInventario: 0,
+  setStockBajoInventario: () => {},
+  conteoServicios: CATALOGO_SERVICIOS_BASE.length,
+  setConteoServicios: () => {},
+  serviciosCustom: SERVICIOS_INICIALES,
+  setServiciosCustom: () => {},
+  actualizarServicioTarifario: () => {},
+  agregarServicioTarifario: () => {},
+};
+
+export const SupervisionContext = createContext<SupervisionContextType>(DEFAULT_SUPERVISION_CONTEXT);
+
 export function SupervisionProvider({ children }: { children: React.ReactNode }) {
   const [subModuloSupervision, setSubModuloSupervision] = useState<SubModuloSupervision>("personal");
-  const [conteoPersonal, setConteoPersonal] = useState<number>(14);
+  const [conteoPersonal, setConteoPersonal] = useState<number>(PADRON_OFICIAL_AUTORIZADO.length);
   const [conteoInventario, setConteoInventario] = useState<number>(0);
   const [stockBajoInventario, setStockBajoInventario] = useState<number>(0);
   const [conteoServicios, setConteoServicios] = useState<number>(CATALOGO_SERVICIOS_BASE.length);
 
-  // Inicialización de servicios con persistencia local resiliente
-  const [serviciosCustom, setServiciosCustom] = useState<ServicioTarifario[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("lm_catalogo_servicios_custom");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
-      } catch (err) {
-        console.warn("Aviso al cargar catalogo local:", err);
-      }
-    }
-    return CATALOGO_SERVICIOS_BASE.map((s, idx) => ({
-      ...s,
-      id: `srv-${idx + 1}-${s.codigo.toLowerCase()}`,
-    }));
-  });
+  // Inicialización SSR-segura: siempre usa la base en primer pase para garantizar cero mismatch de hidratación
+  const [serviciosCustom, setServiciosCustom] = useState<ServicioTarifario[]>(SERVICIOS_INICIALES);
 
+  // Carga client-side protegida desde localStorage post-hidratación
   useEffect(() => {
-    setConteoServicios(serviciosCustom.filter((s) => s.activo).length);
-  }, [serviciosCustom]);
+    try {
+      const stored = localStorage.getItem("lm_catalogo_servicios_custom");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setServiciosCustom(parsed);
+          setConteoServicios(parsed.filter((s: any) => s.activo !== false).length);
+        }
+      }
+    } catch (err) {
+      console.warn("Aviso al cargar catalogo local:", err);
+    }
+  }, []);
 
-  const guardarEnStorage = (items: ServicioTarifario[]) => {
+  const guardarEnStorage = useCallback((items: ServicioTarifario[]) => {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("lm_catalogo_servicios_custom", JSON.stringify(items));
@@ -139,9 +156,9 @@ export function SupervisionProvider({ children }: { children: React.ReactNode })
         console.warn("Aviso guardando catalogo en storage:", err);
       }
     }
-  };
+  }, []);
 
-  const actualizarServicioTarifario = (serv: ServicioTarifario) => {
+  const actualizarServicioTarifario = useCallback((serv: ServicioTarifario) => {
     setServiciosCustom((prev) => {
       const next = prev.map((item) =>
         item.id === serv.id ? { ...serv, updated_at: new Date().toISOString() } : item
@@ -149,9 +166,9 @@ export function SupervisionProvider({ children }: { children: React.ReactNode })
       guardarEnStorage(next);
       return next;
     });
-  };
+  }, [guardarEnStorage]);
 
-  const agregarServicioTarifario = (serv: Omit<ServicioTarifario, "id">) => {
+  const agregarServicioTarifario = useCallback((serv: Omit<ServicioTarifario, "id">) => {
     setServiciosCustom((prev) => {
       const nuevo: ServicioTarifario = {
         ...serv,
@@ -162,7 +179,7 @@ export function SupervisionProvider({ children }: { children: React.ReactNode })
       guardarEnStorage(next);
       return next;
     });
-  };
+  }, [guardarEnStorage]);
 
   return (
     <SupervisionContext.Provider
@@ -190,8 +207,5 @@ export function SupervisionProvider({ children }: { children: React.ReactNode })
 
 export function useSupervision() {
   const context = useContext(SupervisionContext);
-  if (!context) {
-    throw new Error("useSupervision debe ser utilizado dentro de un SupervisionProvider");
-  }
-  return context;
+  return context || DEFAULT_SUPERVISION_CONTEXT;
 }
