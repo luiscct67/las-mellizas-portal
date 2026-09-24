@@ -911,15 +911,6 @@ export default function SupervisionPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <button
-              onClick={() => setShowAdminPasswordModal(true)}
-              className="inline-flex items-center gap-1.5 bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-sm transition"
-            >
-              <KeyRound className="w-4 h-4 text-brand-700" />
-              <span>Cambiar mi Contraseña</span>
-            </button>
-          )}
           {subModuloSupervision === "personal" && isAdmin && (
             <button
               onClick={() => setShowNewUserModal(true)}
@@ -948,62 +939,6 @@ export default function SupervisionPage() {
             </button>
           )}
         </div>
-      </div>
-
-      {/* Selector de Sub-Módulos de Supervisión (Sincronizado con Columna Vino) */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 overflow-x-auto pb-px">
-        <button
-          onClick={() => setSubModuloSupervision("personal")}
-          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 ${
-            subModuloSupervision === "personal"
-              ? "border-brand-700 text-brand-700"
-              : "border-transparent text-neutral-500 hover:text-neutral-800"
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Gestión de Personal & Credenciales ({usuarios.length})</span>
-        </button>
-
-        <button
-          onClick={() => setSubModuloSupervision("inventario")}
-          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 ${
-            subModuloSupervision === "inventario"
-              ? "border-brand-700 text-brand-700"
-              : "border-transparent text-neutral-500 hover:text-neutral-800"
-          }`}
-        >
-          <Package className="w-4 h-4" />
-          <span>Control de Inventario & Insumos ({productosInventario.length})</span>
-          {productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length > 0 && (
-            <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-300 animate-pulse">
-              {productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length} bajo mín.
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => setSubModuloSupervision("costos")}
-          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 ${
-            subModuloSupervision === "costos"
-              ? "border-emerald-600 text-emerald-800 font-extrabold"
-              : "border-transparent text-neutral-500 hover:text-neutral-800"
-          }`}
-        >
-          <Coins className="w-4 h-4" />
-          <span>Control de Costos & Tarifario ({serviciosCustom.length})</span>
-        </button>
-
-        <button
-          onClick={() => setSubModuloSupervision("auditoria")}
-          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 ${
-            subModuloSupervision === "auditoria"
-              ? "border-brand-700 text-brand-700"
-              : "border-transparent text-neutral-500 hover:text-neutral-800"
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Bitácora de Auditoría Forense (RLS)</span>
-        </button>
       </div>
 
       {/* Contenido Pestaña Personal */}
@@ -2743,6 +2678,24 @@ export default function SupervisionPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Opción Discreta al Pie de Página para Seguridad de la Cuenta Admin */}
+      {isAdmin && (
+        <div className="pt-8 pb-2 border-t border-neutral-200/50 flex items-center justify-between text-xs text-neutral-400">
+          <span className="text-[11px] font-mono text-neutral-400">
+            Dirección General & Gobernanza Institucional
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowAdminPasswordModal(true)}
+            className="text-[11px] font-mono text-neutral-400 hover:text-neutral-700 transition flex items-center gap-1.5 px-2.5 py-1 rounded hover:bg-neutral-100 cursor-pointer"
+            title="Gestión de seguridad de la cuenta Dirección Médica"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-neutral-400" />
+            <span>Seguridad de Cuenta: Cambiar Contraseña Privada</span>
+          </button>
         </div>
       )}
     </div>
