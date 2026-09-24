@@ -1012,50 +1012,6 @@ function DashboardLayoutContent({
                 <span>{horaActual} PET</span>
               </div>
             )}
-
-            {/* Accesos Rápidos Directos a Módulos para Dirección y Supervisión */}
-            {(rol === "ADMIN" || rol === "SUPERVISION") && (
-              <div className="hidden sm:flex items-center gap-1 pl-2 border-l border-neutral-200">
-                <Link
-                  href="/admision-caja"
-                  prefetch={false}
-                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition flex items-center gap-1 ${
-                    pathname.startsWith("/admision-caja")
-                      ? "bg-brand-900 text-white shadow-xs"
-                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-                  }`}
-                >
-                  <UserCheck className="w-3 h-3" />
-                  <span>Administración</span>
-                </Link>
-
-                <Link
-                  href="/hce"
-                  prefetch={false}
-                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition flex items-center gap-1 ${
-                    pathname.startsWith("/hce")
-                      ? "bg-brand-900 text-white shadow-xs"
-                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-                  }`}
-                >
-                  <Stethoscope className="w-3 h-3" />
-                  <span>Consultorio HCE</span>
-                </Link>
-
-                <Link
-                  href="/supervision"
-                  prefetch={false}
-                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition flex items-center gap-1 ${
-                    pathname.startsWith("/supervision")
-                      ? "bg-brand-900 text-white shadow-xs"
-                      : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-                  }`}
-                >
-                  <ShieldCheck className="w-3 h-3" />
-                  <span>Supervisión & Auditoría</span>
-                </Link>
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-3">
