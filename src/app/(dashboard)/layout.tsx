@@ -28,10 +28,12 @@ import {
   Coins,
   Package,
   UserPlus,
+  Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { HceSpecialtyProvider, useHceSpecialty } from "@/context/HceSpecialtyContext";
 import { AdmisionProvider, useAdmision } from "@/context/AdmisionContext";
+import { SupervisionProvider, useSupervision } from "@/context/SupervisionContext";
 
 export default function DashboardLayout({
   children,
@@ -41,7 +43,9 @@ export default function DashboardLayout({
   return (
     <HceSpecialtyProvider>
       <AdmisionProvider>
-        <DashboardLayoutContent>{children}</DashboardLayoutContent>
+        <SupervisionProvider>
+          <DashboardLayoutContent>{children}</DashboardLayoutContent>
+        </SupervisionProvider>
       </AdmisionProvider>
     </HceSpecialtyProvider>
   );
@@ -76,6 +80,15 @@ function DashboardLayoutContent({
     vistaColaAdmision,
     setVistaColaAdmision,
   } = useAdmision();
+
+  const {
+    subModuloSupervision,
+    setSubModuloSupervision,
+    conteoPersonal,
+    conteoInventario,
+    stockBajoInventario,
+    conteoServicios,
+  } = useSupervision();
 
   const [rol, setRol] = useState<string | null>(null);
   const [user, setUser] = useState<string>("");
@@ -342,7 +355,8 @@ function DashboardLayoutContent({
               const isActive = pathname.startsWith(item.href);
               const isHceItem = item.href === "/hce";
               const isAdmisionItem = item.href === "/admision-caja";
-              const hasSubmenu = isHceItem || isAdmisionItem;
+              const isSupervisionItem = item.href === "/supervision";
+              const hasSubmenu = isHceItem || isAdmisionItem || isSupervisionItem;
               const isSubmenuOpen = isActive && !collapsedMenus[item.href];
 
               return (
@@ -990,6 +1004,193 @@ function DashboardLayoutContent({
                           </div>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* ========================================================== */}
+                  {/* SUB-MÓDULOS DE SUPERVISIÓN & AUDITORÍA EN COLOR VINO       */}
+                  {/* ========================================================== */}
+                  {isSupervisionItem && isSubmenuOpen && (
+                    <div
+                      className={`mt-1.5 space-y-1 animate-in fade-in duration-200 max-h-[calc(100vh-270px)] overflow-y-auto pr-1 ${
+                        isCollapsed
+                          ? "px-0.5"
+                          : "pl-2 pr-0.5 border-l-2 border-brand-700/60 ml-2"
+                      }`}
+                    >
+                      {!isCollapsed && (
+                        <div className="flex items-center justify-between px-1 py-0.5 text-[9px] font-mono uppercase tracking-wider text-brand-300/80 font-bold">
+                          <span>Sub-Módulos</span>
+                          <span className="text-neutral-500">Gobernanza</span>
+                        </div>
+                      )}
+
+                      {/* 1. Gestión de Personal & Credenciales */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubModuloSupervision("personal");
+                          if (!pathname.startsWith("/supervision")) router.push("/supervision");
+                        }}
+                        title={isCollapsed ? "Gestión de Personal & Credenciales" : undefined}
+                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
+                          subModuloSupervision === "personal"
+                            ? "bg-brand-900/90 border-brand-400 text-white shadow-xs ring-1 ring-brand-400/40"
+                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              subModuloSupervision === "personal"
+                                ? "bg-brand-600 text-white"
+                                : "bg-neutral-900 text-neutral-400"
+                            }`}
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="truncate">
+                              <span className="text-[11px] font-bold block leading-tight truncate">
+                                Personal & Credenciales
+                              </span>
+                              <span className="text-[9px] font-mono text-brand-300 block">
+                                Padrón ({conteoPersonal}) &bull; Roles &bull; Claves
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {!isCollapsed && subModuloSupervision === "personal" && (
+                          <Check className="w-3.5 h-3.5 text-brand-300 shrink-0" />
+                        )}
+                      </button>
+
+                      {/* 2. Control de Inventario & Insumos */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubModuloSupervision("inventario");
+                          if (!pathname.startsWith("/supervision")) router.push("/supervision");
+                        }}
+                        title={isCollapsed ? "Control de Inventario & Insumos" : undefined}
+                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
+                          subModuloSupervision === "inventario"
+                            ? "bg-blue-950/80 border-blue-500 text-white shadow-xs ring-1 ring-blue-500/40"
+                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              subModuloSupervision === "inventario"
+                                ? "bg-blue-600 text-white"
+                                : "bg-neutral-900 text-neutral-400"
+                            }`}
+                          >
+                            <Package className="w-3.5 h-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="truncate">
+                              <span className="text-[11px] font-bold block leading-tight truncate">
+                                Inventario & Insumos
+                              </span>
+                              <span className="text-[9px] font-mono text-blue-300 block">
+                                Stock ({conteoInventario}) &bull; Kárdex
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {!isCollapsed && (
+                          <div className="flex items-center gap-1">
+                            {stockBajoInventario > 0 && (
+                              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Stock bajo mínimo" />
+                            )}
+                            {subModuloSupervision === "inventario" && (
+                              <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            )}
+                          </div>
+                        )}
+                      </button>
+
+                      {/* 3. Control de Costos & Precios (Tarifario) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubModuloSupervision("costos");
+                          if (!pathname.startsWith("/supervision")) router.push("/supervision");
+                        }}
+                        title={isCollapsed ? "Control de Costos & Precios (Tarifario)" : undefined}
+                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
+                          subModuloSupervision === "costos"
+                            ? "bg-emerald-950/80 border-emerald-500 text-white shadow-xs ring-1 ring-emerald-500/40"
+                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              subModuloSupervision === "costos"
+                                ? "bg-emerald-600 text-white"
+                                : "bg-neutral-900 text-neutral-400"
+                            }`}
+                          >
+                            <Coins className="w-3.5 h-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="truncate">
+                              <span className="text-[11px] font-bold block leading-tight truncate">
+                                Control de Costos & Precios
+                              </span>
+                              <span className="text-[9px] font-mono text-emerald-300 block">
+                                Tarifario ({conteoServicios}) &bull; Ecografías
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {!isCollapsed && subModuloSupervision === "costos" && (
+                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        )}
+                      </button>
+
+                      {/* 4. Bitácora de Auditoría Forense */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubModuloSupervision("auditoria");
+                          if (!pathname.startsWith("/supervision")) router.push("/supervision");
+                        }}
+                        title={isCollapsed ? "Bitácora de Auditoría Forense (RLS)" : undefined}
+                        className={`w-full p-1.5 rounded-lg text-left transition flex items-center justify-between border ${
+                          subModuloSupervision === "auditoria"
+                            ? "bg-purple-950/80 border-purple-500 text-white shadow-xs ring-1 ring-purple-500/40"
+                            : "bg-black/20 border-[#300a16] text-neutral-300 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                              subModuloSupervision === "auditoria"
+                                ? "bg-purple-600 text-white"
+                                : "bg-neutral-900 text-neutral-400"
+                            }`}
+                          >
+                            <ShieldAlert className="w-3.5 h-3.5" />
+                          </div>
+                          {!isCollapsed && (
+                            <div className="truncate">
+                              <span className="text-[11px] font-bold block leading-tight truncate">
+                                Auditoría Forense RLS
+                              </span>
+                              <span className="text-[9px] font-mono text-purple-300 block">
+                                Trazabilidad &bull; Zero-Trust
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {!isCollapsed && subModuloSupervision === "auditoria" && (
+                          <Check className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                        )}
+                      </button>
                     </div>
                   )}
                 </div>

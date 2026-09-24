@@ -247,6 +247,28 @@ const CATALOGO_SERVICIOS: ServicioItem[] = [
   { nombre: "Perfil Prenatal Básico Completo", precio: 120, categoria: "Laboratorio", descripcion: "Hemograma, glucosa, grupo, VIH, RPR y orina completa" },
 ];
 
+const obtenerCatalogoActualizado = (): ServicioItem[] => {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("lm_catalogo_servicios_custom");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed
+            .filter((s: any) => s.activo !== false)
+            .map((s: any) => ({
+              nombre: s.nombre,
+              precio: Number(s.precio_venta ?? s.precio) || 0,
+              categoria: s.categoria,
+              descripcion: s.descripcion,
+            }));
+        }
+      }
+    } catch {}
+  }
+  return CATALOGO_SERVICIOS;
+};
+
 const TARIFARIO_BASE: Record<string, number> = CATALOGO_SERVICIOS.reduce((acc, srv) => {
   acc[srv.nombre] = srv.precio;
   return acc;
@@ -411,6 +433,19 @@ export default function AdmisionCajaPage() {
   const [busquedaFarmacia, setBusquedaFarmacia] = useState<string>("");
   const [servicioPersonalizadoNombre, setServicioPersonalizadoNombre] = useState("");
   const [servicioPersonalizadoPrecio, setServicioPersonalizadoPrecio] = useState<number | "">("");
+
+  // Catálogo sincronizado en tiempo real con Supervisión
+  const [serviciosCatalogo, setServiciosCatalogo] = useState<ServicioItem[]>(CATALOGO_SERVICIOS);
+
+  useEffect(() => {
+    setServiciosCatalogo(obtenerCatalogoActualizado());
+
+    const handleSyncCatalogo = () => {
+      setServiciosCatalogo(obtenerCatalogoActualizado());
+    };
+    window.addEventListener("storage", handleSyncCatalogo);
+    return () => window.removeEventListener("storage", handleSyncCatalogo);
+  }, []);
 
   // Pagos Mixtos y Fraccionados (Split Payment) - Inicia limpio
   const [modoSplit, setModoSplit] = useState<boolean>(false);
@@ -3146,7 +3181,7 @@ export default function AdmisionCajaPage() {
 
                       {dropdownServicioAbierto && (
                         <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-neutral-300 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto divide-y divide-neutral-100 ring-1 ring-black/5">
-                          {CATALOGO_SERVICIOS
+                          {serviciosCatalogo
                             .filter((srv) => {
                               const matchCat = categoriaFiltro === "Todas" || srv.categoria === categoriaFiltro;
                               const matchBusq =

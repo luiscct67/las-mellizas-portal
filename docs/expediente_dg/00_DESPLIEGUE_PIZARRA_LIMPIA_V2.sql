@@ -100,11 +100,72 @@ CREATE TABLE IF NOT EXISTS public.catalogo_servicio (
   codigo TEXT UNIQUE NOT NULL,
   nombre TEXT NOT NULL,
   categoria TEXT NOT NULL CHECK (categoria IN ('Ecografías', 'Consultas', 'Procedimientos', 'Laboratorio', 'Packs Promocionales', 'Farmacia')),
-  precio NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+  precio_venta NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+  costo_operativo NUMERIC(10,2) NOT NULL DEFAULT 0.00,
   duracion_minutos INTEGER DEFAULT 30,
+  descripcion TEXT,
   activo BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Siembra oficial del catálogo de tarifas y ecografías
+INSERT INTO public.catalogo_servicio (codigo, nombre, categoria, precio_venta, costo_operativo, descripcion, activo)
+VALUES
+  ('PCK-001', 'Pack Integral: Consulta + Ecografía 5D + PAP', 'Packs Promocionales', 220.00, 80.00, 'Paquete ginecológico preventivo integral y ecografía HD', true),
+  ('PCK-002', 'Pack Embarazo Control Inicial: Eco Genética + Perfil Prenatal', 'Packs Promocionales', 210.00, 75.00, 'Descarte genético I trimestre + analítica completa', true),
+  ('PCK-003', 'Pack Chequeo Ginecológico Anual: Colposcopía + PAP + Eco Transvaginal', 'Packs Promocionales', 190.00, 65.00, 'Chequeo preventivo integral femenino anual', true),
+  ('PCK-004', 'Pack Descarte ITS Integral: Rápido Dual + Frotis Vaginal + Orina', 'Packs Promocionales', 110.00, 35.00, 'Evaluación integral de salud urogenital', true),
+  ('PCK-005', 'Pack Urológico: Eco Renal + Vesicoprostática', 'Packs Promocionales', 120.00, 40.00, 'Evaluación urológica integral de riñones, vejiga y próstata', true),
+  ('ECO-001', 'Ecografía Especializada 4D / 5D (HD Live)', 'Ecografías', 150.00, 50.00, 'Visualización fetal volumétrica en tiempo real con video', true),
+  ('ECO-002', 'Ecografía Obstétrica Morfológica (Semana 20-24)', 'Ecografías', 140.00, 45.00, 'Evaluación anatómica fetal y marcadores de bienestar', true),
+  ('ECO-003', 'Ecografía Doppler Materno-Fetal', 'Ecografías', 160.00, 55.00, 'Flujometría de arterias uterinas y cordón umbilical', true),
+  ('ECO-004', 'Ecografía Genética / I Trimestre (Semana 11-14)', 'Ecografías', 120.00, 40.00, 'Translucencia nucal, hueso nasal y ductus venoso', true),
+  ('ECO-005', 'Ecografía de Apoyo Diagnóstico: Obstétrica Control', 'Ecografías', 70.00, 25.00, 'Biometría fetal, líquido amniótico y placenta', true),
+  ('ECO-006', 'Ecografía de Apoyo Diagnóstico: Transvaginal', 'Ecografías', 80.00, 25.00, 'Útero, endometrio y anexos ováricos de alta resolución', true),
+  ('ECO-007', 'Ecografía de Apoyo Diagnóstico: Pélvica', 'Ecografías', 70.00, 25.00, 'Vía suprapúbica para descarte ginecológico', true),
+  ('ECO-008', 'Ecografía Mamaria Bilateral', 'Ecografías', 80.00, 28.00, 'Evaluación ecográfica de ambas mamas y axilas (BI-RADS)', true),
+  ('ECO-009', 'Ecografía Tiroidea', 'Ecografías', 80.00, 28.00, 'Evaluación de glándula tiroides y nódulos (TI-RADS)', true),
+  ('ECO-010', 'Ecografía Abdominal Completa', 'Ecografías', 90.00, 30.00, 'Hígado, vesícula, páncreas, bazo y riñones', true),
+  ('ECO-011', 'Ecografía Renal y Vías Urinarias', 'Ecografías', 80.00, 28.00, 'Riñones, vejiga y descarte de litiasis', true),
+  ('ECO-012', 'Ecografía Prostática (Vesicoprostática)', 'Ecografías', 80.00, 28.00, 'Evaluación suprapúbica con cálculo de residuo postmiccional', true),
+  ('ECO-013', 'Ecografía de Partes Blandas y Pared', 'Ecografías', 70.00, 25.00, 'Tejido celular subcutáneo, lipomas y hernias', true),
+  ('ECO-014', 'Monitoreo Fetal Electrónico (NST)', 'Ecografías', 50.00, 15.00, 'Registro cardiotocográfico no estresante basal', true),
+  ('ECO-015', 'Perfil Biofísico Fetal (PBF)', 'Ecografías', 120.00, 40.00, 'Evaluación ecográfica de bienestar + Monitoreo fetal', true),
+  ('CON-001', 'Control Prenatal Reenfocado', 'Consultas', 70.00, 25.00, 'Evaluación clínica integral, triaje y carnet perinatal (Obstetra - COP)', true),
+  ('CON-002', 'Consulta Obstétrica', 'Consultas', 70.00, 25.00, 'Evaluación de la gestación, bienestar materno y salud sexual (Obstetra - COP)', true),
+  ('CON-003', 'Consejería en Planificación Familiar', 'Consultas', 60.00, 20.00, 'Orientación personalizada y prescripción anticonceptiva (Obstetra - COP)', true),
+  ('CON-004', 'Consulta Médica Ginecológica Especializada', 'Consultas', 80.00, 30.00, 'Evaluación especializada por gineco-obstetra (Médico - CMP)', true),
+  ('CON-005', 'Consulta Ginecológica de Control (Médico)', 'Consultas', 50.00, 20.00, 'Revisión de resultados y seguimiento médico (Médico - CMP)', true),
+  ('CON-006', 'Consulta Médica de Fertilidad y Pareja', 'Consultas', 100.00, 35.00, 'Estudio clínico de infertilidad y salud reproductiva (Médico - CMP)', true),
+  ('CON-007', 'Evaluación Médica de Climaterio y Menopausia', 'Consultas', 90.00, 30.00, 'Terapia de reemplazo hormonal y salud ósea (Médico - CMP)', true),
+  ('CON-008', 'Consulta de Medicina General', 'Consultas', 50.00, 18.00, 'Evaluación clínica integral del adulto y medicina ambulatoria (Médico - CMP)', true),
+  ('CON-009', 'Consulta de Control / Lectura de Exámenes (Medicina General)', 'Consultas', 30.00, 10.00, 'Seguimiento médico y evaluación de análisis clínicos (Médico - CMP)', true),
+  ('PRC-001', 'Prevención Cáncer Cervical (PAP)', 'Procedimientos', 50.00, 18.00, 'Toma de citología exfoliativa cervical Papanicolaou', true),
+  ('PRC-002', 'Colposcopía Digital Diagnóstica', 'Procedimientos', 100.00, 35.00, 'Examen microscópico digital del cuello uterino', true),
+  ('PRC-003', 'Pack Preventivo: Colposcopía + PAP', 'Procedimientos', 130.00, 45.00, 'Evaluación combinada de alta precisión para cuello uterino', true),
+  ('PRC-004', 'Cauterización / Crioterapia Cervical', 'Procedimientos', 180.00, 60.00, 'Tratamiento de ectropión / heridas de cuello uterino', true),
+  ('PRC-005', 'Inserción de DIU T de Cobre', 'Procedimientos', 120.00, 40.00, 'Colocación de dispositivo intrauterino con guía médica', true),
+  ('PRC-006', 'Inserción de DIU Hormonal (Mirena/Kyleena)', 'Procedimientos', 250.00, 90.00, 'Colocación especializada de sistema intrauterino', true),
+  ('PRC-007', 'Retiro de Dispositivo Intrauterino (DIU)', 'Procedimientos', 70.00, 25.00, 'Extracción segura de DIU o revisión de hilos', true),
+  ('PRC-008', 'Inserción de Implante Subdérmico', 'Procedimientos', 150.00, 50.00, 'Colocación de implante anticonceptivo subdérmico', true),
+  ('PRC-009', 'Retiro de Implante Subdérmico', 'Procedimientos', 90.00, 30.00, 'Extracción ambulatoria con anestesia local', true),
+  ('PRC-010', 'Biopsia de Cérvix / Endometrio', 'Procedimientos', 160.00, 55.00, 'Toma de muestra tisular para estudio anatomopatológico', true),
+  ('PRC-011', 'Lavado y Curación Ginecológica', 'Procedimientos', 40.00, 12.00, 'Tratamiento tópico y antisepsia vaginal', true),
+  ('LAB-001', 'Descarte Rápido ITS (VIH + Sífilis)', 'Laboratorio', 45.00, 15.00, 'Prueba rápida dual en suero/sangre capilar', true),
+  ('LAB-002', 'Prueba de Embarazo Rápida en Sangre (HCG)', 'Laboratorio', 35.00, 10.00, 'Detección temprana de subunidad beta en 15 min', true),
+  ('LAB-003', 'Hemoglobina y Hematocrito Rápido', 'Laboratorio', 20.00, 6.00, 'Dosaje instantáneo para descarte de anemia materna', true),
+  ('LAB-004', 'Examen Completo de Orina + Tira Reactiva', 'Laboratorio', 25.00, 8.00, 'Descarte de infección urinaria o proteinuria gestacional', true),
+  ('LAB-005', 'Cultivo y Antibiograma de Secreción Vaginal', 'Laboratorio', 60.00, 22.00, 'Identificación microbiológica y sensibilidad a antibióticos', true),
+  ('LAB-006', 'Grupo Sanguíneo y Factor Rh', 'Laboratorio', 25.00, 7.00, 'Determinación de grupo ABO y compatibilidad Rh', true),
+  ('LAB-007', 'Perfil Prenatal Básico Completo', 'Laboratorio', 120.00, 42.00, 'Hemograma, glucosa, grupo, VIH, RPR y orina completa', true)
+ON CONFLICT (codigo) DO UPDATE SET
+  nombre = EXCLUDED.nombre,
+  categoria = EXCLUDED.categoria,
+  precio_venta = EXCLUDED.precio_venta,
+  costo_operativo = EXCLUDED.costo_operativo,
+  descripcion = EXCLUDED.descripcion,
+  activo = EXCLUDED.activo;
 
 CREATE TABLE IF NOT EXISTS public.inventario_farmacia (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -445,6 +506,7 @@ CREATE POLICY "perfil_modificacion_propia" ON public.perfil_usuario FOR UPDATE T
 
 CREATE POLICY "paciente_gestion_autenticada" ON public.paciente FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "catalogo_lectura_autenticada" ON public.catalogo_servicio FOR SELECT TO authenticated USING (true);
+CREATE POLICY "catalogo_gestion_admin" ON public.catalogo_servicio FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "farmacia_gestion_autenticada" ON public.inventario_farmacia FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE POLICY "caja_turno_gestion_autenticada" ON public.caja_turno FOR ALL TO authenticated USING (true) WITH CHECK (true);

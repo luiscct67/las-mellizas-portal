@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
   SlidersHorizontal,
   Archive,
+  Coins,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
@@ -40,6 +41,7 @@ import {
   eliminarColaboradorReal,
 } from "@/app/actions/admin-users";
 import { PADRON_OFICIAL_AUTORIZADO } from "@/lib/whitelist";
+import { useSupervision, ServicioTarifario } from "@/context/SupervisionContext";
 
 interface UsuarioCredencial {
   id: string;
@@ -83,7 +85,18 @@ export interface MovimientoInventario {
 }
 
 export default function SupervisionPage() {
-  const [activeTab, setActiveTab] = useState<"personal" | "auditoria" | "inventario">("personal");
+  const {
+    subModuloSupervision,
+    setSubModuloSupervision,
+    setConteoPersonal,
+    setConteoInventario,
+    setStockBajoInventario,
+    setConteoServicios,
+    serviciosCustom,
+    actualizarServicioTarifario,
+    agregarServicioTarifario,
+  } = useSupervision();
+
   const [usuarios, setUsuarios] = useState<UsuarioCredencial[]>([]);
   const [currentRole, setCurrentRole] = useState<string>("ADMIN");
 
@@ -107,6 +120,20 @@ export default function SupervisionPage() {
   const [editEspecialidad, setEditEspecialidad] = useState("");
   const [editCargo, setEditCargo] = useState("");
   const [editActivo, setEditActivo] = useState(true);
+
+  // Estados para Control de Costos & Precios (Tarifario)
+  const [filtroCategoriaCostos, setFiltroCategoriaCostos] = useState<string>("Todas");
+  const [busquedaCostos, setBusquedaCostos] = useState<string>("");
+  const [showServicioModal, setShowServicioModal] = useState<boolean>(false);
+  const [servicioEditando, setServicioEditando] = useState<ServicioTarifario | null>(null);
+  const [editServCodigo, setEditServCodigo] = useState<string>("");
+  const [editServNombre, setEditServNombre] = useState<string>("");
+  const [editServCategoria, setEditServCategoria] = useState<"Ecografías" | "Consultas" | "Procedimientos" | "Laboratorio" | "Packs Promocionales">("Ecografías");
+  const [editServPrecioVenta, setEditServPrecioVenta] = useState<number>(0);
+  const [editServCostoOperativo, setEditServCostoOperativo] = useState<number>(0);
+  const [editServDescripcion, setEditServDescripcion] = useState<string>("");
+  const [editServActivo, setEditServActivo] = useState<boolean>(true);
+  const [isSavingServicio, setIsSavingServicio] = useState<boolean>(false);
 
   // Modal credencial temporal generada
   const [credencialGenerada, setCredencialGenerada] = useState<{
@@ -236,6 +263,19 @@ export default function SupervisionPage() {
     }
     initAdminRole();
   }, []);
+
+  useEffect(() => {
+    setConteoPersonal(usuarios.length);
+  }, [usuarios, setConteoPersonal]);
+
+  useEffect(() => {
+    setConteoInventario(productosInventario.length);
+    setStockBajoInventario(productosInventario.filter((p) => p.stock_actual <= p.stock_minimo).length);
+  }, [productosInventario, setConteoInventario, setStockBajoInventario]);
+
+  useEffect(() => {
+    setConteoServicios(serviciosCustom.length);
+  }, [serviciosCustom, setConteoServicios]);
 
   const isAdmin = currentRole === "ADMIN";
 
@@ -750,6 +790,115 @@ export default function SupervisionPage() {
     setTimeout(() => setCopiado(false), 2000);
   };
 
+  const handleAbrirNuevoServicio = () => {
+    setServicioEditando(null);
+    setEditServCodigo(`SRV-${Date.now().toString().slice(-4)}`);
+    setEditServNombre("");
+    setEditServCategoria("Ecografías");
+    setEditServPrecioVenta(80);
+    setEditServCostoOperativo(25);
+    setEditServDescripcion("");
+    setEditServActivo(true);
+    setShowServicioModal(true);
+  };
+
+  const handleAbrirEditarServicio = (serv: ServicioTarifario) => {
+    setServicioEditando(serv);
+    setEditServCodigo(serv.codigo);
+    setEditServNombre(serv.nombre);
+    setEditServCategoria(serv.categoria);
+    setEditServPrecioVenta(serv.precio_venta);
+    setEditServCostoOperativo(serv.costo_operativo);
+    setEditServDescripcion(serv.descripcion || "");
+    setEditServActivo(serv.activo);
+    setShowServicioModal(true);
+  };
+
+  const handleGuardarServicio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdmin) {
+      alert("Operación restringida: Solo el Administrador General puede modificar el tarifario institucional.");
+      return;
+    }
+    if (!editServNombre.trim()) {
+      alert("Ingrese el nombre del servicio o estudio ecográfico.");
+      return;
+    }
+    if (editServPrecioVenta < 0) {
+      alert("El precio de venta no puede ser negativo.");
+      return;
+    }
+
+    setIsSavingServicio(true);
+    try {
+      if (servicioEditando) {
+        const actualizado: ServicioTarifario = {
+          ...servicioEditando,
+          codigo: editServCodigo.trim().toUpperCase(),
+          nombre: editServNombre.trim(),
+          categoria: editServCategoria,
+          precio_venta: Number(editServPrecioVenta),
+          costo_operativo: Number(editServCostoOperativo),
+          descripcion: editServDescripcion.trim(),
+          activo: editServActivo,
+        };
+        actualizarServicioTarifario(actualizado);
+
+        try {
+          await supabase.from("catalogo_servicio").upsert({
+            id: actualizado.id,
+            codigo: actualizado.codigo,
+            nombre: actualizado.nombre,
+            categoria: actualizado.categoria,
+            precio_venta: actualizado.precio_venta,
+            costo_operativo: actualizado.costo_operativo,
+            descripcion: actualizado.descripcion,
+            activo: actualizado.activo,
+            updated_at: new Date().toISOString(),
+          });
+        } catch {}
+
+        alert(`✅ Tarifa actualizada exitosamente:\n${actualizado.nombre} -> S/ ${actualizado.precio_venta.toFixed(2)}`);
+      } else {
+        const nuevo: Omit<ServicioTarifario, "id"> = {
+          codigo: editServCodigo.trim().toUpperCase(),
+          nombre: editServNombre.trim(),
+          categoria: editServCategoria,
+          precio_venta: Number(editServPrecioVenta),
+          costo_operativo: Number(editServCostoOperativo),
+          descripcion: editServDescripcion.trim(),
+          activo: editServActivo,
+        };
+        agregarServicioTarifario(nuevo);
+
+        try {
+          await supabase.from("catalogo_servicio").insert({
+            codigo: nuevo.codigo,
+            nombre: nuevo.nombre,
+            categoria: nuevo.categoria,
+            precio_venta: nuevo.precio_venta,
+            costo_operativo: nuevo.costo_operativo,
+            descripcion: nuevo.descripcion,
+            activo: nuevo.activo,
+          });
+        } catch {}
+
+        alert(`✅ Nuevo servicio registrado en el tarifario:\n${nuevo.nombre} -> S/ ${nuevo.precio_venta.toFixed(2)}`);
+      }
+      setShowServicioModal(false);
+    } catch (err: any) {
+      alert("Error al guardar en tarifario:\n" + (err?.message || err));
+    } finally {
+      setIsSavingServicio(false);
+    }
+  };
+
+  const handleToggleActivoServicio = (serv: ServicioTarifario) => {
+    if (!isAdmin) return;
+    const actualizado = { ...serv, activo: !serv.activo };
+    actualizarServicioTarifario(actualizado);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -770,7 +919,7 @@ export default function SupervisionPage() {
               <span>Cambiar mi Contraseña</span>
             </button>
           )}
-          {activeTab === "personal" && isAdmin && (
+          {subModuloSupervision === "personal" && isAdmin && (
             <button
               onClick={() => setShowNewUserModal(true)}
               className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
@@ -779,7 +928,7 @@ export default function SupervisionPage() {
               <span>Alta de Nuevo Colaborador</span>
             </button>
           )}
-          {activeTab === "inventario" && isAdmin && (
+          {subModuloSupervision === "inventario" && isAdmin && (
             <button
               onClick={handleAbrirNuevoProducto}
               className="inline-flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
@@ -788,43 +937,24 @@ export default function SupervisionPage() {
               <span>Nuevo Insumo / Producto</span>
             </button>
           )}
+          {subModuloSupervision === "costos" && isAdmin && (
+            <button
+              onClick={handleAbrirNuevoServicio}
+              className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Nuevo Servicio / Ecografía</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Alerta de Perfil y Gobernanza */}
-      {isAdmin ? (
-        <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-xs text-emerald-900">
-          <div className="flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0" />
-            <div>
-              <span className="font-extrabold">Modo Administrador General Activo:</span>
-              <span className="ml-1 text-emerald-800">
-                Tienes autorización para <strong>editar los datos de cualquier colaborador</strong>, gestionar credenciales, configurar sedes y administrar el catálogo y stock de inventario.
-              </span>
-            </div>
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-300">
-            Control Total
-          </span>
-        </div>
-      ) : (
-        <div className="bg-purple-50 border border-purple-200 p-3.5 rounded-2xl flex items-center gap-2.5 text-xs text-purple-900">
-          <ShieldAlert className="w-5 h-5 text-purple-700 shrink-0" />
-          <div>
-            <span className="font-extrabold">Perfil Auditor / Supervisión (Solo Lectura):</span>
-            <span className="ml-1 text-purple-800">
-              La edición de colaboradores y catálogo de insumos está reservada a la <strong>Dirección General (ADMIN)</strong> para garantizar la segregación de funciones.
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-neutral-200">
+      {/* Selector de Sub-Módulos de Supervisión (Sincronizado con Columna Vino) */}
+      <div className="flex items-center gap-2 border-b border-neutral-200 overflow-x-auto pb-px">
         <button
-          onClick={() => setActiveTab("personal")}
-          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
-            activeTab === "personal"
+          onClick={() => setSubModuloSupervision("personal")}
+          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 ${
+            subModuloSupervision === "personal"
               ? "border-brand-700 text-brand-700"
               : "border-transparent text-neutral-500 hover:text-neutral-800"
           }`}
@@ -834,9 +964,9 @@ export default function SupervisionPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("inventario")}
-          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
-            activeTab === "inventario"
+          onClick={() => setSubModuloSupervision("inventario")}
+          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 ${
+            subModuloSupervision === "inventario"
               ? "border-brand-700 text-brand-700"
               : "border-transparent text-neutral-500 hover:text-neutral-800"
           }`}
@@ -851,9 +981,21 @@ export default function SupervisionPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("auditoria")}
-          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
-            activeTab === "auditoria"
+          onClick={() => setSubModuloSupervision("costos")}
+          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 ${
+            subModuloSupervision === "costos"
+              ? "border-emerald-600 text-emerald-800 font-extrabold"
+              : "border-transparent text-neutral-500 hover:text-neutral-800"
+          }`}
+        >
+          <Coins className="w-4 h-4" />
+          <span>Control de Costos & Tarifario ({serviciosCustom.length})</span>
+        </button>
+
+        <button
+          onClick={() => setSubModuloSupervision("auditoria")}
+          className={`pb-3 px-3 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 ${
+            subModuloSupervision === "auditoria"
               ? "border-brand-700 text-brand-700"
               : "border-transparent text-neutral-500 hover:text-neutral-800"
           }`}
@@ -864,7 +1006,7 @@ export default function SupervisionPage() {
       </div>
 
       {/* Contenido Pestaña Personal */}
-      {activeTab === "personal" && (
+      {subModuloSupervision === "personal" && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-neutral-100 flex items-center justify-between">
@@ -990,7 +1132,7 @@ export default function SupervisionPage() {
       )}
 
       {/* Contenido Pestaña Auditoría */}
-      {activeTab === "auditoria" && (
+      {subModuloSupervision === "auditoria" && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-neutral-100 flex items-center justify-between">
@@ -1068,7 +1210,7 @@ export default function SupervisionPage() {
       )}
 
       {/* Contenido Pestaña Control de Inventario & Insumos */}
-      {activeTab === "inventario" && (
+      {subModuloSupervision === "inventario" && (
         <div className="space-y-4">
           {/* Métricas y Resumen de Stock */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1418,6 +1560,242 @@ export default function SupervisionPage() {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* SUB-MÓDULO: CONTROL DE COSTOS & PRECIOS (TARIFARIO INSTITUCIONAL)    */}
+      {/* ==================================================================== */}
+      {subModuloSupervision === "costos" && (
+        <div className="space-y-4">
+          {/* Métricas y Resumen de Rentabilidad y Precios */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Servicios en Tarifario</span>
+                <span className="text-xl font-black text-neutral-900">{serviciosCustom.length}</span>
+                <span className="text-[10px] text-neutral-400 block mt-0.5">Estudios y atenciones</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                <Coins className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Ecografías Especializadas</span>
+                <span className="text-xl font-black text-sky-700">
+                  {serviciosCustom.filter((s) => s.categoria === "Ecografías").length}
+                </span>
+                <span className="text-[10px] text-neutral-400 block mt-0.5">Modalidades diagnósticas</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center font-bold">
+                <Activity className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Margen Bruto Promedio</span>
+                <span className="text-xl font-black text-emerald-600">
+                  {(() => {
+                    const activos = serviciosCustom.filter((s) => s.activo && s.precio_venta > 0);
+                    if (activos.length === 0) return "0%";
+                    const totalMargenPct = activos.reduce((acc, s) => {
+                      const margen = ((s.precio_venta - s.costo_operativo) / s.precio_venta) * 100;
+                      return acc + margen;
+                    }, 0);
+                    return `${(totalMargenPct / activos.length).toFixed(1)}%`;
+                  })()}
+                </span>
+                <span className="text-[10px] text-neutral-400 block mt-0.5">Rentabilidad operativa clínica</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                <DollarSign className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Costo Operativo Promedio</span>
+                <span className="text-xl font-black text-neutral-900">
+                  {(() => {
+                    const activos = serviciosCustom.filter((s) => s.activo);
+                    if (activos.length === 0) return "S/ 0.00";
+                    const totalCosto = activos.reduce((acc, s) => acc + s.costo_operativo, 0);
+                    return formatCurrency(totalCosto / activos.length);
+                  })()}
+                </span>
+                <span className="text-[10px] text-neutral-400 block mt-0.5">Base insumos & honorarios</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
+                <SlidersHorizontal className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+
+          {/* Tarjeta de Gestión de Precios */}
+          <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="font-bold text-sm text-neutral-800">
+                  Catálogo Oficial de Tarifas & Costos de Servicios Clínicos
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Administre los precios cobrados en ventanilla y los costos base operativos. Toda modificación se sincroniza inmediatamente con Admisión & Caja.
+                </p>
+              </div>
+
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={handleAbrirNuevoServicio}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow-xs transition shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Nuevo Servicio / Ecografía</span>
+                </button>
+              )}
+            </div>
+
+            {/* Barra de Filtros y Buscador */}
+            <div className="p-3 bg-neutral-50/60 border-b border-neutral-100 flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between">
+              {/* Filtros por Categoría */}
+              <div className="flex flex-wrap gap-1">
+                {(["Todas", "Ecografías", "Consultas", "Procedimientos", "Laboratorio", "Packs Promocionales"] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setFiltroCategoriaCostos(cat)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                      filtroCategoriaCostos === cat
+                        ? "bg-white text-neutral-900 border border-neutral-200 shadow-xs"
+                        : "text-neutral-500 hover:text-neutral-900"
+                    }`}
+                  >
+                    {cat} {cat === "Todas" ? `(${serviciosCustom.length})` : `(${serviciosCustom.filter((s) => s.categoria === cat).length})`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Buscador */}
+              <div className="relative min-w-[240px]">
+                <input
+                  type="text"
+                  value={busquedaCostos}
+                  onChange={(e) => setBusquedaCostos(e.target.value)}
+                  placeholder="Buscar servicio, ecografía o código..."
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-neutral-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                />
+                <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-2.5" />
+              </div>
+            </div>
+
+            {/* Tabla de Servicios y Precios */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm font-sans">
+                <thead className="bg-neutral-50 text-neutral-600 text-xs font-bold uppercase tracking-wider border-b border-neutral-200">
+                  <tr>
+                    <th className="py-3 px-4">Código</th>
+                    <th className="py-3 px-4">Servicio / Estudio Ecográfico</th>
+                    <th className="py-3 px-4">Categoría</th>
+                    <th className="py-3 px-4 text-right">Costo Operativo</th>
+                    <th className="py-3 px-4 text-right">Precio Venta (Público)</th>
+                    <th className="py-3 px-4 text-center">Margen Bruto</th>
+                    <th className="py-3 px-4 text-center">Estado</th>
+                    <th className="py-3 px-4 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {serviciosCustom
+                    .filter((s) => {
+                      const matchCat = filtroCategoriaCostos === "Todas" || s.categoria === filtroCategoriaCostos;
+                      const matchBusq =
+                        !busquedaCostos ||
+                        s.nombre.toLowerCase().includes(busquedaCostos.toLowerCase()) ||
+                        s.codigo.toLowerCase().includes(busquedaCostos.toLowerCase()) ||
+                        (s.descripcion && s.descripcion.toLowerCase().includes(busquedaCostos.toLowerCase()));
+                      return matchCat && matchBusq;
+                    })
+                    .map((s) => {
+                      const margenSoles = s.precio_venta - s.costo_operativo;
+                      const margenPct = s.precio_venta > 0 ? (margenSoles / s.precio_venta) * 100 : 0;
+                      return (
+                        <tr key={s.id} className="hover:bg-neutral-50/80 transition">
+                          <td className="py-3.5 px-4 font-mono font-bold text-xs text-neutral-600">
+                            {s.codigo}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-neutral-900 block leading-tight">{s.nombre}</span>
+                            {s.descripcion && (
+                              <span className="text-[11px] text-neutral-400 block mt-0.5">{s.descripcion}</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                s.categoria === "Ecografías"
+                                  ? "bg-sky-50 text-sky-800 border-sky-200"
+                                  : s.categoria === "Consultas"
+                                  ? "bg-purple-50 text-purple-800 border-purple-200"
+                                  : s.categoria === "Procedimientos"
+                                  ? "bg-rose-50 text-rose-800 border-rose-200"
+                                  : s.categoria === "Laboratorio"
+                                  ? "bg-amber-50 text-amber-800 border-amber-200"
+                                  : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              }`}
+                            >
+                              {s.categoria}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono text-xs text-neutral-500">
+                            {formatCurrency(s.costo_operativo)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono text-sm font-black text-emerald-700">
+                            {formatCurrency(s.precio_venta)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="font-mono text-xs font-bold text-neutral-800 block">
+                              +{formatCurrency(margenSoles)}
+                            </span>
+                            <span className="text-[10px] font-mono text-emerald-600 font-bold block">
+                              ({margenPct.toFixed(0)}%)
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActivoServicio(s)}
+                              title={isAdmin ? "Clic para cambiar estado" : undefined}
+                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border transition ${
+                                s.activo
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                  : "bg-neutral-100 text-neutral-500 border-neutral-300"
+                              }`}
+                            >
+                              {s.activo ? "Activo" : "En Pausa"}
+                            </button>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleAbrirEditarServicio(s)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition"
+                                title="Editar precio y costo operativo"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Editar</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -2198,6 +2576,167 @@ export default function SupervisionPage() {
                     </>
                   ) : (
                     <span>Registrar Movimiento</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Crear / Editar Servicio o Estudio Ecográfico */}
+      {showServicioModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-black text-brand-900">
+                {servicioEditando ? "Editar Tarifa y Costo de Servicio" : "Nuevo Servicio / Estudio Ecográfico"}
+              </h3>
+              <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">
+                Tarifario Oficial
+              </span>
+            </div>
+            <p className="text-xs text-neutral-500 mb-4">
+              Ajuste los valores comerciales. Los cambios se reflejarán inmediatamente en los carritos de venta y admisión.
+            </p>
+
+            <form onSubmit={handleGuardarServicio} className="space-y-3.5">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">Código *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editServCodigo}
+                    onChange={(e) => setEditServCodigo(e.target.value.toUpperCase())}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold focus:ring-2 focus:ring-brand-700"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">Categoría *</label>
+                  <select
+                    value={editServCategoria}
+                    onChange={(e) => setEditServCategoria(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-bold focus:ring-2 focus:ring-brand-700 bg-white"
+                  >
+                    <option value="Ecografías">Ecografías de Apoyo Diagnóstico</option>
+                    <option value="Consultas">Consultas Médicas / Obstétricas</option>
+                    <option value="Procedimientos">Procedimientos Ginecológicos</option>
+                    <option value="Laboratorio">Laboratorio & Pruebas Rápidas</option>
+                    <option value="Packs Promocionales">Packs Promocionales</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">Nombre Oficial del Servicio / Estudio *</label>
+                <input
+                  type="text"
+                  required
+                  value={editServNombre}
+                  onChange={(e) => setEditServNombre(e.target.value)}
+                  placeholder="Ej. Ecografía Obstétrica Morfológica Especializada..."
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-bold focus:ring-2 focus:ring-brand-700"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-1">Costo Operativo Base (S/)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-xs font-bold text-neutral-400">S/</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min={0}
+                      required
+                      value={editServCostoOperativo === 0 ? "" : editServCostoOperativo}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setEditServCostoOperativo(e.target.value === "" ? 0 : Number(e.target.value))}
+                      placeholder="0.00"
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold focus:ring-2 focus:ring-brand-700"
+                    />
+                  </div>
+                  <span className="text-[10px] text-neutral-400 block mt-0.5">Insumos, gel, láminas, honorario base</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-emerald-800 mb-1">Precio al Público / Venta (S/) *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-xs font-bold text-emerald-600">S/</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min={0}
+                      required
+                      value={editServPrecioVenta === 0 ? "" : editServPrecioVenta}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setEditServPrecioVenta(e.target.value === "" ? 0 : Number(e.target.value))}
+                      placeholder="0.00"
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border border-emerald-400 bg-emerald-50/40 text-xs font-mono font-black text-emerald-900 focus:ring-2 focus:ring-emerald-700"
+                    />
+                  </div>
+                  <span className="text-[10px] text-neutral-400 block mt-0.5">Monto cobrado en ventanilla</span>
+                </div>
+              </div>
+
+              {/* Indicador de Margen en Tiempo Real */}
+              <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200 flex items-center justify-between text-xs">
+                <span className="font-bold text-neutral-600">Margen Operativo Estimado:</span>
+                <div className="font-mono text-right">
+                  <span className="font-black text-neutral-900">
+                    S/ {(editServPrecioVenta - editServCostoOperativo).toFixed(2)}
+                  </span>
+                  <span className="ml-1 font-bold text-emerald-600">
+                    ({editServPrecioVenta > 0 ? (((editServPrecioVenta - editServCostoOperativo) / editServPrecioVenta) * 100).toFixed(0) : 0}%)
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-1">Descripción / Alcance Clínico</label>
+                <textarea
+                  rows={2}
+                  value={editServDescripcion}
+                  onChange={(e) => setEditServDescripcion(e.target.value)}
+                  placeholder="Detalles clínicos o insumos incluidos en el estudio..."
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs focus:ring-2 focus:ring-brand-700 leading-relaxed"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="chkServActivo"
+                  checked={editServActivo}
+                  onChange={(e) => setEditServActivo(e.target.checked)}
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                />
+                <label htmlFor="chkServActivo" className="text-xs font-bold text-neutral-700 cursor-pointer">
+                  Servicio Activo en Ventanilla
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => setShowServicioModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingServicio}
+                  className="px-5 py-2 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow inline-flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  {isSavingServicio ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <span>Guardar en Tarifario</span>
                   )}
                 </button>
               </div>
