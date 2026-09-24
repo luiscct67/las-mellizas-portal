@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Stethoscope,
@@ -2613,15 +2613,23 @@ export default function HcePage() {
     }
   };
 
-  const pacientesFiltrados = pacientesCola.filter(
-    (p) => sede === "Todas las Sedes" || normalizarSede(p.sede) === normalizarSede(sede)
+  const pacientesFiltrados = useMemo(
+    () =>
+      pacientesCola.filter(
+        (p) => sede === "Todas las Sedes" || normalizarSede(p.sede) === normalizarSede(sede)
+      ),
+    [pacientesCola, sede]
   );
 
-  const atendidosFiltrados = atendidosHoy.filter(
-    (p) => sede === "Todas las Sedes" || normalizarSede(p.sede) === normalizarSede(sede)
+  const atendidosFiltrados = useMemo(
+    () =>
+      atendidosHoy.filter(
+        (p) => sede === "Todas las Sedes" || normalizarSede(p.sede) === normalizarSede(sede)
+      ),
+    [atendidosHoy, sede]
   );
 
-  // Sincronización en tiempo real de la cola de pacientes con el Sidebar Color Vino
+  // Sincronización en tiempo real de la cola de pacientes con el Sidebar Color Vino (Memoizado para evitar bucles de render)
   useEffect(() => {
     setPacientesEspera(pacientesFiltrados);
     setPacientesAtendidos(atendidosFiltrados);
@@ -2632,13 +2640,16 @@ export default function HcePage() {
     setSelectedPatientId(selectedPatient ? selectedPatient.id : null);
   }, [selectedPatient, setSelectedPatientId]);
 
+  const handleSeleccionarPacienteRef = useRef(handleSeleccionarPaciente);
+  handleSeleccionarPacienteRef.current = handleSeleccionarPaciente;
+
   useEffect(() => {
-    setOnSelectPatient(() => (p: PacienteEnConsulta) => handleSeleccionarPaciente(p));
+    setOnSelectPatient(() => (p: PacienteEnConsulta) => handleSeleccionarPacienteRef.current(p));
     setOnReopenPatient(() => (p: PacienteEnConsulta) => {
       setEncuentroAReabrir(p);
       setShowReabrirModal(true);
     });
-  }, [handleSeleccionarPaciente, setOnSelectPatient, setOnReopenPatient]);
+  }, [setOnSelectPatient, setOnReopenPatient]);
 
   return (
     <div className="space-y-3 max-w-[1600px] mx-auto text-xs">
