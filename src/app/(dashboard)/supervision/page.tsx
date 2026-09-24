@@ -277,13 +277,6 @@ export default function SupervisionPage() {
     }
   }, [productosInventario, setConteoInventario, setStockBajoInventario]);
 
-  useEffect(() => {
-    if (subModuloSupervision === "inventario") {
-      cargarInventario();
-    } else if (subModuloSupervision === "auditoria") {
-      cargarAuditoriaReal();
-    }
-  }, [subModuloSupervision]);
 
   const isAdmin = currentRole === "ADMIN";
 
@@ -530,15 +523,15 @@ export default function SupervisionPage() {
   };
 
   useEffect(() => {
-    if (activeTab === "auditoria") {
+    if (subModuloSupervision === "auditoria") {
       cargarAuditoriaReal();
-    } else if (activeTab === "inventario") {
+    } else if (subModuloSupervision === "inventario") {
       cargarInventario();
       if (vistaInventario === "movimientos") {
         cargarMovimientos();
       }
     }
-  }, [activeTab, vistaInventario]);
+  }, [subModuloSupervision, vistaInventario]);
 
   const handleConfirmarEliminar = async () => {
     if (!usuarioAEliminar || !isAdmin) return;
