@@ -222,6 +222,36 @@ const CIE10_FRECUENTES = [
   { codigo: "D50.9", descripcion: "Anemia por deficiencia de hierro sin especificación" },
 ];
 
+export const DIAGNOSTICOS_RAPIDOS_LAS_MELLIZAS = [
+  { codigo: "Z34.9", nombre: "Embarazo normal en útero", cat: "Obstetricia", badge: "bg-emerald-50 text-emerald-800 border-emerald-300" },
+  { codigo: "N91.2", nombre: "Menstruación / Retraso menstrual", cat: "Menstruación", badge: "bg-rose-50 text-rose-800 border-rose-300" },
+  { codigo: "N92.6", nombre: "Disfunción menstrual / Metrorragia", cat: "Menstruación", badge: "bg-pink-50 text-pink-800 border-pink-300" },
+  { codigo: "N76.0", nombre: "Vaginosis bacteriana / Vaginitis", cat: "Ginecología", badge: "bg-purple-50 text-purple-800 border-purple-300" },
+  { codigo: "O20.0", nombre: "Amenaza de aborto", cat: "Obstetricia", badge: "bg-amber-50 text-amber-900 border-amber-300" },
+  { codigo: "N39.0", nombre: "Infección urinaria (ITU)", cat: "Urología", badge: "bg-sky-50 text-sky-800 border-sky-300" },
+  { codigo: "N73.9", nombre: "Enfermedad Pélvica Inflamatoria (EPI)", cat: "Ginecología", badge: "bg-indigo-50 text-indigo-800 border-indigo-300" },
+  { codigo: "Z30.0", nombre: "Orientación en Planificación Familiar", cat: "Anticoncepción", badge: "bg-blue-50 text-blue-800 border-blue-300" },
+  { codigo: "Z97.5", nombre: "Control de DIU in situ", cat: "Anticoncepción", badge: "bg-cyan-50 text-cyan-800 border-cyan-300" },
+  { codigo: "N72", nombre: "Cervicitis / Ectropión cervical", cat: "Ginecología", badge: "bg-fuchsia-50 text-fuchsia-800 border-fuchsia-300" },
+  { codigo: "O00.9", nombre: "Sospecha de Embarazo Ectópico", cat: "Urgencias", badge: "bg-red-50 text-red-800 border-red-300" },
+  { codigo: "O02.1", nombre: "Aborto Frustro / Retenido", cat: "Urgencias", badge: "bg-red-50 text-red-800 border-red-300" },
+];
+
+export const CONDUCTAS_RAPIDAS_LAS_MELLIZAS = [
+  "Test de Embarazo",
+  "Ecografía de apoyo diagnóstico",
+  "Hemoclasificación (Grupo y Rh)",
+  "Inserción / Retiro de DIU",
+  "Frotis cérvico-vaginal (en fresco)",
+  "Citología cérvico-vaginal (PAP)",
+  "Consulta especializada",
+  "Control prenatal reenfocado",
+  "Orientación en anticoncepción",
+  "IVAA (Ácido Acético)",
+  "Biopsia de endometrio / cérvix",
+  "Análisis de perfil materno / prenatal",
+];
+
 export function getCie10Sugeridos(
   modalidad: "OBSTETRICIA" | "GINECOLOGIA" | "MEDICINA_GENERAL" | "ECOGRAFIA" | "LABORATORIO",
   tipoEco: string
@@ -475,6 +505,64 @@ export default function HcePage() {
   const [lcf, setLcf] = useState("");
   const [presentacion, setPresentacion] = useState("");
 
+  // Submódulo Especializado de Obstetricia / Salud Femenina "Click & Mark" (Ficha Las Mellizas & MINSA)
+  const [subModoObstetricia, setSubModoObstetricia] = useState<"CONSULTA_RAPIDA" | "CARNET_MINSA">("CONSULTA_RAPIDA");
+  const [formulaT, setFormulaT] = useState("");
+  const [formulaPretermino, setFormulaPretermino] = useState("");
+  const [formulaA, setFormulaA] = useState("");
+  const [formulaHv, setFormulaHv] = useState("");
+  const [terminacionUltimoEmbarazo, setTerminacionUltimoEmbarazo] = useState("");
+  const [menarquia, setMenarquia] = useState("");
+  const [ciclos, setCiclos] = useState("");
+  const [irs, setIrs] = useState("");
+  const [anticoncepcionPrevia, setAnticoncepcionPrevia] = useState("");
+  const [papPrevio, setPapPrevio] = useState("");
+  const [grupoRh, setGrupoRh] = useState("");
+  const [alergiasSeleccionadas, setAlergiasSeleccionadas] = useState<string[]>(["Ninguna"]);
+
+  // Examen Ginecológico Visual (Espéculo y Tacto)
+  const [especuloVagina, setEspeculoVagina] = useState<"Sana" | "Sangre" | "Flujo">("Sana");
+  const [especuloFlujoTipo, setEspeculoFlujoTipo] = useState("");
+  const [especuloCuello, setEspeculoCuello] = useState<"Sano" | "Ectropión" | "Otro">("Sano");
+  const [especuloCuelloDetalle, setEspeculoCuelloDetalle] = useState("");
+  const [tactoVagina, setTactoVagina] = useState<"Normotérmica" | "Hipertérmica">("Normotérmica");
+  const [tactoCuello, setTactoCuello] = useState<"Cerrado" | "Dilatado" | "Doloroso">("Cerrado");
+  const [tactoUtero, setTactoUtero] = useState<"Anteversión" | "Retroversión" | "Media">("Anteversión");
+  const [tactoDesviacion, setTactoDesviacion] = useState<"Media" | "Izquierda" | "Derecho">("Media");
+  const [tactoAnexos, setTactoAnexos] = useState<"Normales" | "Dolorosos" | "Masas">("Normales");
+  const [tactoAnexosDetalle, setTactoAnexosDetalle] = useState("");
+
+  // Conductas / Procedimientos Marcados
+  const [conductasSeleccionadas, setConductasSeleccionadas] = useState<string[]>([]);
+
+  // Atenciones Prenatales MINSA (1 a 9)
+  const [atencionesMinsa, setAtencionesMinsa] = useState<Array<{
+    num: number;
+    fecha: string;
+    semana: string;
+    peso: string;
+    pa: string;
+    pulso: string;
+    au: string;
+    lcf: string;
+    presentacion: string;
+    edemas: string;
+    movFetal: string;
+    fierroFolico: string;
+    calcio: string;
+    cita: string;
+  }>>([
+    { num: 1, fecha: "", semana: "", peso: "", pa: "", pulso: "", au: "", lcf: "", presentacion: "", edemas: "-", movFetal: "+", fierroFolico: "SI", calcio: "NO", cita: "" },
+    { num: 2, fecha: "", semana: "", peso: "", pa: "", pulso: "", au: "", lcf: "", presentacion: "", edemas: "-", movFetal: "+", fierroFolico: "SI", calcio: "NO", cita: "" },
+    { num: 3, fecha: "", semana: "", peso: "", pa: "", pulso: "", au: "", lcf: "", presentacion: "", edemas: "-", movFetal: "+", fierroFolico: "SI", calcio: "NO", cita: "" },
+    { num: 4, fecha: "", semana: "", peso: "", pa: "", pulso: "", au: "", lcf: "", presentacion: "", edemas: "-", movFetal: "+", fierroFolico: "SI", calcio: "SI", cita: "" },
+    { num: 5, fecha: "", semana: "", peso: "", pa: "", pulso: "", au: "", lcf: "", presentacion: "", edemas: "-", movFetal: "+", fierroFolico: "SI", calcio: "SI", cita: "" },
+    { num: 6, fecha: "", semana: "", peso: "", pa: "", pulso: "", au: "", lcf: "", presentacion: "", edemas: "-", movFetal: "+", fierroFolico: "SI", calcio: "SI", cita: "" },
+    { num: 7, fecha: "", semana: "", peso: "", pa: "", pulso: "", au: "", lcf: "", presentacion: "", edemas: "-", movFetal: "+", fierroFolico: "SI", calcio: "SI", cita: "" },
+    { num: 8, fecha: "", semana: "", peso: "", pa: "", pulso: "", au: "", lcf: "", presentacion: "", edemas: "-", movFetal: "+", fierroFolico: "SI", calcio: "SI", cita: "" },
+    { num: 9, fecha: "", semana: "", peso: "", pa: "", pulso: "", au: "", lcf: "", presentacion: "", edemas: "-", movFetal: "+", fierroFolico: "SI", calcio: "SI", cita: "" },
+  ]);
+
   // Anamnesis, Examen y Tratamiento (Inicia limpio sin mocks)
   const [motivo, setMotivo] = useState("");
   const [antecedentes, setAntecedentes] = useState("");
@@ -550,6 +638,44 @@ export default function HcePage() {
 
   // Pestaña activa de herramientas secundarias inferiores (Solución A)
   const [herramientaActiva, setHerramientaActiva] = useState<"imagenes" | "reagendar" | "adendas">("imagenes");
+
+  // Helpers para Submódulo Obstétrico "Click & Mark"
+  const toggleAlergia = (alergia: string) => {
+    if (alergia === "Ninguna") {
+      setAlergiasSeleccionadas(["Ninguna"]);
+      return;
+    }
+    setAlergiasSeleccionadas((prev) => {
+      const sinNinguna = prev.filter((a) => a !== "Ninguna");
+      if (sinNinguna.includes(alergia)) {
+        const filtrado = sinNinguna.filter((a) => a !== alergia);
+        return filtrado.length === 0 ? ["Ninguna"] : filtrado;
+      } else {
+        return [...sinNinguna, alergia];
+      }
+    });
+  };
+
+  const toggleConducta = (conducta: string) => {
+    setConductasSeleccionadas((prev) =>
+      prev.includes(conducta) ? prev.filter((c) => c !== conducta) : [...prev, conducta]
+    );
+  };
+
+  const agregarDiagnosticoRapido = (codigo: string, descripcion: string) => {
+    setDiagnosticos((prev) => {
+      if (prev.some((d) => d.codigo === codigo)) return prev;
+      return [...prev, { codigo, descripcion }];
+    });
+  };
+
+  const actualizarAtencionMinsa = (index: number, campo: string, valor: string) => {
+    setAtencionesMinsa((prev) => {
+      const copia = [...prev];
+      copia[index] = { ...copia[index], [campo]: valor };
+      return copia;
+    });
+  };
 
   // Sanitización de registro profesional para prevenir duplicaciones ("COP COP", "CMP CMP")
   const normalizarRegistroProfesional = (col: string, prefijoEsperado: "COP" | "CMP" | "POCT") => {
@@ -771,6 +897,30 @@ export default function HcePage() {
     setTalla("");
     setFormulaG("");
     setFormulaP("");
+    setFormulaT("");
+    setFormulaPretermino("");
+    setFormulaA("");
+    setFormulaHv("");
+    setTerminacionUltimoEmbarazo("");
+    setMenarquia("");
+    setCiclos("");
+    setIrs("");
+    setAnticoncepcionPrevia("");
+    setPapPrevio("");
+    setGrupoRh("");
+    setAlergiasSeleccionadas(["Ninguna"]);
+    setEspeculoVagina("Sana");
+    setEspeculoFlujoTipo("");
+    setEspeculoCuello("Sano");
+    setEspeculoCuelloDetalle("");
+    setTactoVagina("Normotérmica");
+    setTactoCuello("Cerrado");
+    setTactoUtero("Anteversión");
+    setTactoDesviacion("Media");
+    setTactoAnexos("Normales");
+    setTactoAnexosDetalle("");
+    setConductasSeleccionadas([]);
+    setSubModoObstetricia("CONSULTA_RAPIDA");
     setFur("");
     setFpp("");
     setEg("");
@@ -1107,9 +1257,42 @@ export default function HcePage() {
               if (ef.laboratorio.orinaProteinas !== undefined) setLabOrinaProteinas(ef.laboratorio.orinaProteinas);
               if (ef.laboratorio.orinaNitritos !== undefined) setLabOrinaNitritos(ef.laboratorio.orinaNitritos);
               if (ef.laboratorio.pruebaEmbarazo !== undefined) setLabPruebaEmbarazo(ef.laboratorio.pruebaEmbarazo);
-              if (ef.laboratorio.observaciones !== undefined) setLabObservaciones(ef.laboratorio.observaciones);
             }
-          } catch {}
+
+            // Obstetricia Click & Mark
+            if (ef.obstetriciaClickMark) {
+              const ocm = ef.obstetriciaClickMark;
+              if (ocm.subModo) setSubModoObstetricia(ocm.subModo);
+              if (ocm.formulaT !== undefined) setFormulaT(ocm.formulaT);
+              if (ocm.formulaPretermino !== undefined) setFormulaPretermino(ocm.formulaPretermino);
+              if (ocm.formulaA !== undefined) setFormulaA(ocm.formulaA);
+              if (ocm.formulaHv !== undefined) setFormulaHv(ocm.formulaHv);
+              if (ocm.terminacionUltimoEmbarazo !== undefined) setTerminacionUltimoEmbarazo(ocm.terminacionUltimoEmbarazo);
+              if (ocm.menarquia !== undefined) setMenarquia(ocm.menarquia);
+              if (ocm.ciclos !== undefined) setCiclos(ocm.ciclos);
+              if (ocm.irs !== undefined) setIrs(ocm.irs);
+              if (ocm.anticoncepcionPrevia !== undefined) setAnticoncepcionPrevia(ocm.anticoncepcionPrevia);
+              if (ocm.papPrevio !== undefined) setPapPrevio(ocm.papPrevio);
+              if (ocm.grupoRh !== undefined) setGrupoRh(ocm.grupoRh);
+              if (Array.isArray(ocm.alergias)) setAlergiasSeleccionadas(ocm.alergias);
+              if (ocm.especulo) {
+                if (ocm.especulo.vagina) setEspeculoVagina(ocm.especulo.vagina);
+                if (ocm.especulo.flujoTipo) setEspeculoFlujoTipo(ocm.especulo.flujoTipo);
+                if (ocm.especulo.cuello) setEspeculoCuello(ocm.especulo.cuello);
+                if (ocm.especulo.detalle) setEspeculoCuelloDetalle(ocm.especulo.detalle);
+              }
+              if (ocm.tacto) {
+                if (ocm.tacto.vagina) setTactoVagina(ocm.tacto.vagina);
+                if (ocm.tacto.cuello) setTactoCuello(ocm.tacto.cuello);
+                if (ocm.tacto.utero) setTactoUtero(ocm.tacto.utero);
+                if (ocm.tacto.desviacion) setTactoDesviacion(ocm.tacto.desviacion);
+                if (ocm.tacto.anexos) setTactoAnexos(ocm.tacto.anexos);
+                if (ocm.tacto.detalle) setTactoAnexosDetalle(ocm.tacto.detalle);
+              }
+              if (Array.isArray(ocm.conductas)) setConductasSeleccionadas(ocm.conductas);
+              if (Array.isArray(ocm.atencionesMinsa)) setAtencionesMinsa(ocm.atencionesMinsa);
+            }
+          } catch (_err) {}
         }
         if (notaExistente.cerrada || notaExistente.hash_firma || estaAtendido) {
           setIsSealed(true);
@@ -2152,6 +2335,37 @@ export default function HcePage() {
       pruebaEmbarazo: labPruebaEmbarazo,
       observaciones: labObservaciones,
     },
+    obstetriciaClickMark: {
+      subModo: subModoObstetricia,
+      formulaT,
+      formulaPretermino,
+      formulaA,
+      formulaHv,
+      terminacionUltimoEmbarazo,
+      menarquia,
+      ciclos,
+      irs,
+      anticoncepcionPrevia,
+      papPrevio,
+      grupoRh,
+      alergias: alergiasSeleccionadas,
+      especulo: {
+        vagina: especuloVagina,
+        flujoTipo: especuloFlujoTipo,
+        cuello: especuloCuello,
+        detalle: especuloCuelloDetalle,
+      },
+      tacto: {
+        vagina: tactoVagina,
+        cuello: tactoCuello,
+        utero: tactoUtero,
+        desviacion: tactoDesviacion,
+        anexos: tactoAnexos,
+        detalle: tactoAnexosDetalle,
+      },
+      conductas: conductasSeleccionadas,
+      atencionesMinsa,
+    },
   });
 
   useEffect(() => {
@@ -2917,185 +3131,791 @@ export default function HcePage() {
           {/* Formulario Clínico Principal */}
           <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3.5 shadow-2xs">
             {/* ================================================================ */}
-            {/* 1. CASO: OBSTETRICIA & CONTROL PRENATAL (COP 13102)               */}
+            {/* 1. CASO: SUBMÓDULO OBSTETRICIA & SALUD FEMENINA (COP / MINSA)     */}
             {/* ================================================================ */}
             {modalidadAtencion === "OBSTETRICIA" && (
-              <div className="space-y-3">
-                {/* Panel Perfil Obstétrico / Carnet Perinatal (Fila Amplia) */}
-                <div className="p-3 bg-rose-50/40 border border-rose-200 rounded-xl space-y-2.5">
-                  <div className="flex items-center justify-between border-b border-rose-100 pb-1">
-                    <span className="font-bold text-[11px] text-rose-950 uppercase tracking-wider flex items-center gap-1.5">
-                      <Baby className="w-3.5 h-3.5 text-rose-700" />
-                      Biometría Materno-Fetal & Regla de Naegele
-                    </span>
-                    <span className="text-[9px] font-mono text-rose-800 bg-rose-100/80 px-2 py-0.5 rounded font-bold">
-                      Control Perinatal Oficial
-                    </span>
-                  </div>
+              <div className="space-y-3.5">
+                {/* Selector de Sub-Modo de Atención */}
+                <div className="flex items-center gap-1.5 p-1 bg-rose-50/70 rounded-xl border border-rose-200 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setSubModoObstetricia("CONSULTA_RAPIDA")}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                      subModoObstetricia === "CONSULTA_RAPIDA"
+                        ? "bg-rose-700 text-white shadow-xs"
+                        : "text-rose-900 hover:bg-rose-100/70"
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Ficha Gineco-Obstétrica "Click & Mark" (Las Mellizas - Consulta Diaria)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSubModoObstetricia("CARNET_MINSA")}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                      subModoObstetricia === "CARNET_MINSA"
+                        ? "bg-rose-700 text-white shadow-xs"
+                        : "text-rose-900 hover:bg-rose-100/70"
+                    }`}
+                  >
+                    <Baby className="w-3.5 h-3.5" />
+                    <span>Carné Perinatal Longitudinal MINSA (SIP - 9 Atenciones)</span>
+                  </button>
+                </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Fórmula G / P</label>
-                      <div className="flex gap-1">
-                        <input
-                          type="text"
-                          disabled={isSealed}
-                          value={formulaG}
-                          onChange={(e) => setFormulaG(e.target.value)}
-                          placeholder="G"
-                          className="w-1/2 px-1.5 py-1.5 border border-neutral-200 rounded font-mono text-center font-bold text-xs bg-white"
-                        />
-                        <input
-                          type="text"
-                          disabled={isSealed}
-                          value={formulaP}
-                          onChange={(e) => setFormulaP(e.target.value)}
-                          placeholder="P"
-                          className="w-1/2 px-1.5 py-1.5 border border-neutral-200 rounded font-mono text-center font-bold text-xs bg-white"
-                        />
+                {/* VISTA 1: FICHA AMBULATORIA CLICK & MARK (LAS MELLIZAS) */}
+                {subModoObstetricia === "CONSULTA_RAPIDA" ? (
+                  <div className="space-y-3.5">
+                    {/* PANEL 1: ANTECEDENTES GINECO-OBSTÉTRICOS & ALERGIAS */}
+                    <div className="p-3 bg-neutral-50/70 border border-neutral-200 rounded-xl space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+                        <span className="font-extrabold text-[11px] text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5 text-rose-700" />
+                          1. Antecedentes Gineco-Obstétricos (AGO) & Alergias
+                        </span>
+                        <span className="text-[9.5px] font-mono font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+                          Ficha Clínica Las Mellizas
+                        </span>
+                      </div>
+
+                      {/* Fila 1: Fórmula Obstétrica en Cajetines Reales (G - P - T - P - A - HV) */}
+                      <div className="bg-white p-2.5 rounded-lg border border-neutral-200 space-y-2">
+                        <div className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
+                          Fórmula Obstétrica & Antecedente Gestacional
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 items-end">
+                          <div>
+                            <label className="block text-[9.5px] font-bold text-neutral-600 mb-0.5 text-center">G (Gestas)</label>
+                            <input
+                              type="text"
+                              disabled={isSealed}
+                              value={formulaG}
+                              onChange={(e) => setFormulaG(e.target.value)}
+                              placeholder="0"
+                              className="w-full p-1.5 border border-neutral-300 rounded font-mono font-extrabold text-center text-xs bg-white text-neutral-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9.5px] font-bold text-neutral-600 mb-0.5 text-center">P (Partos)</label>
+                            <input
+                              type="text"
+                              disabled={isSealed}
+                              value={formulaP}
+                              onChange={(e) => setFormulaP(e.target.value)}
+                              placeholder="0"
+                              className="w-full p-1.5 border border-neutral-300 rounded font-mono font-extrabold text-center text-xs bg-white text-neutral-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9.5px] font-bold text-neutral-600 mb-0.5 text-center">T (A Término)</label>
+                            <input
+                              type="text"
+                              disabled={isSealed}
+                              value={formulaT}
+                              onChange={(e) => setFormulaT(e.target.value)}
+                              placeholder="0"
+                              className="w-full p-1.5 border border-neutral-300 rounded font-mono font-extrabold text-center text-xs bg-white text-neutral-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9.5px] font-bold text-neutral-600 mb-0.5 text-center">P (Pretérmino)</label>
+                            <input
+                              type="text"
+                              disabled={isSealed}
+                              value={formulaPretermino}
+                              onChange={(e) => setFormulaPretermino(e.target.value)}
+                              placeholder="0"
+                              className="w-full p-1.5 border border-neutral-300 rounded font-mono font-extrabold text-center text-xs bg-white text-neutral-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9.5px] font-bold text-neutral-600 mb-0.5 text-center">A (Abortos)</label>
+                            <input
+                              type="text"
+                              disabled={isSealed}
+                              value={formulaA}
+                              onChange={(e) => setFormulaA(e.target.value)}
+                              placeholder="0"
+                              className="w-full p-1.5 border border-neutral-300 rounded font-mono font-extrabold text-center text-xs bg-white text-rose-700"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9.5px] font-bold text-neutral-600 mb-0.5 text-center">HV (Vivos)</label>
+                            <input
+                              type="text"
+                              disabled={isSealed}
+                              value={formulaHv}
+                              onChange={(e) => setFormulaHv(e.target.value)}
+                              placeholder="0"
+                              className="w-full p-1.5 border border-neutral-300 rounded font-mono font-extrabold text-center text-xs bg-white text-emerald-800"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9.5px] font-bold text-neutral-600 mb-0.5">Fin Último Emb.</label>
+                            <input
+                              type="text"
+                              disabled={isSealed}
+                              value={terminacionUltimoEmbarazo}
+                              onChange={(e) => setTerminacionUltimoEmbarazo(e.target.value)}
+                              placeholder="Parto / Cesárea / Aborto"
+                              className="w-full p-1.5 border border-neutral-300 rounded text-xs bg-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Fila 2: Ciclos, FUM, FPP, Anticoncepción previa y PAP */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Menarquia / Ciclos</label>
+                          <div className="flex gap-1">
+                            <input
+                              type="text"
+                              disabled={isSealed}
+                              value={menarquia}
+                              onChange={(e) => setMenarquia(e.target.value)}
+                              placeholder="Edad (12a)"
+                              className="w-1/2 p-1.5 border border-neutral-300 rounded text-xs text-center"
+                            />
+                            <input
+                              type="text"
+                              disabled={isSealed}
+                              value={ciclos}
+                              onChange={(e) => setCiclos(e.target.value)}
+                              placeholder="28/4"
+                              className="w-1/2 p-1.5 border border-neutral-300 rounded text-xs text-center"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Edad Inicio R.S.</label>
+                          <input
+                            type="text"
+                            disabled={isSealed}
+                            value={irs}
+                            onChange={(e) => setIrs(e.target.value)}
+                            placeholder="Ej: 18 años"
+                            className="w-full p-1.5 border border-neutral-300 rounded text-xs text-center"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">F.U.M. (Regla)</label>
+                          <input
+                            type="date"
+                            disabled={isSealed}
+                            value={fur}
+                            onChange={(e) => handleFurChange(e.target.value)}
+                            className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">F.P.P. (Naegele)</label>
+                          <input
+                            type="date"
+                            disabled={isSealed}
+                            value={fpp}
+                            onChange={(e) => setFpp(e.target.value)}
+                            className="w-full p-1.5 border border-emerald-300 rounded font-mono text-xs font-bold text-emerald-900 bg-emerald-50/50"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Anticoncepción Previa</label>
+                          <select
+                            disabled={isSealed}
+                            value={anticoncepcionPrevia}
+                            onChange={(e) => setAnticoncepcionPrevia(e.target.value)}
+                            className="w-full p-1.5 border border-neutral-300 rounded text-xs bg-white"
+                          >
+                            <option value="">-- Ninguna --</option>
+                            <option value="Inyectable Mensual">Inyectable Mensual</option>
+                            <option value="Inyectable Trimestral">Inyectable Trimestral</option>
+                            <option value="Píldoras Orales">Píldoras Orales</option>
+                            <option value="DIU T de Cobre">DIU T de Cobre</option>
+                            <option value="Implante Subdérmico">Implante Subdérmico</option>
+                            <option value="Preservativo">Preservativo</option>
+                            <option value="Emergencia (Levonorgestrel)">Emergencia (Oral)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">PAP Prev. / Resultado</label>
+                          <input
+                            type="text"
+                            disabled={isSealed}
+                            value={papPrevio}
+                            onChange={(e) => setPapPrevio(e.target.value)}
+                            placeholder="Negativo / Inflamatorio"
+                            className="w-full p-1.5 border border-neutral-300 rounded text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Fila 3: Alergias en Botones Clickeables */}
+                      <div className="bg-white p-2.5 rounded-lg border border-neutral-200">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" />
+                            Alergias a Medicamentos & Materiales (Clic para marcar)
+                          </label>
+                          <span className="text-[9px] text-neutral-400 font-mono">Ficha Las Mellizas</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {["Ninguna", "Lidocaína", "Penicilina", "Tetraciclina", "Salicilatos", "Cobre", "Sulfas", "AINEs"].map((alergia) => {
+                            const estaMarcada = alergiasSeleccionadas.includes(alergia);
+                            return (
+                              <button
+                                key={alergia}
+                                type="button"
+                                disabled={isSealed}
+                                onClick={() => toggleAlergia(alergia)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center gap-1.5 ${
+                                  estaMarcada
+                                    ? alergia === "Ninguna"
+                                      ? "bg-emerald-600 text-white border-emerald-700"
+                                      : "bg-rose-700 text-white border-rose-800 shadow-2xs"
+                                    : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                                }`}
+                              >
+                                <span>{estaMarcada ? "✓" : "+"}</span>
+                                <span>{alergia}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">F.U.R. (Inicio)</label>
-                      <input
-                        type="date"
-                        disabled={isSealed}
-                        value={fur}
-                        onChange={(e) => handleFurChange(e.target.value)}
-                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-mono text-xs bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">F.P.P. (Naegele)</label>
-                      <input
-                        type="date"
-                        disabled={isSealed}
-                        value={fpp}
-                        onChange={(e) => setFpp(e.target.value)}
-                        className="w-full px-2 py-1.5 border border-emerald-300 rounded font-mono text-xs font-bold text-emerald-900 bg-emerald-50/40"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">EG Semanas</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={eg}
-                        onChange={(e) => setEg(e.target.value)}
-                        placeholder="Auto por FUR"
-                        className="w-full px-2 py-1.5 border border-brand-300 rounded font-mono font-bold text-brand-950 bg-brand-50/40 text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">A.U. (cm)</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={alturaUterina}
-                        onChange={(e) => setAlturaUterina(e.target.value)}
-                        placeholder="Ej: 24"
-                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-mono text-xs bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">L.C.F. (lpm)</label>
-                      <input
-                        type="text"
-                        disabled={isSealed}
-                        value={lcf}
-                        onChange={(e) => setLcf(e.target.value)}
-                        placeholder="Ej: 140"
-                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-mono font-bold text-neutral-900 text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Presentación</label>
-                      <select
-                        disabled={isSealed}
-                        value={presentacion}
-                        onChange={(e) => setPresentacion(e.target.value)}
-                        className="w-full px-2 py-1.5 border border-neutral-200 rounded font-semibold text-xs bg-white text-neutral-800"
-                      >
-                        <option value="">-- Seleccionar --</option>
-                        <option value="Cefálica">Cefálica</option>
-                        <option value="Podálica">Podálica</option>
-                        <option value="Transversa">Transversa</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Motivo & Antecedentes en 2 Columnas amplias */}
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-                      1. Motivo de Consulta & Relato Obstétrico
-                    </label>
-                    <textarea
-                      rows={3}
-                      disabled={isSealed}
-                      value={motivo}
-                      onChange={(e) => setMotivo(e.target.value)}
-                      placeholder="Gestante acude para evaluación de control prenatal..."
-                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900 placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
-                      2. Antecedentes Obstétricos & Perinatales
-                    </label>
-                    <textarea
-                      rows={3}
-                      disabled={isSealed}
-                      value={antecedentes}
-                      onChange={(e) => setAntecedentes(e.target.value)}
-                      placeholder="Partos previos, cesáreas, abortos, complicaciones, grupo sanguíneo de pareja..."
-                      className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900 placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
-                    />
-                  </div>
-                </div>
-
-                {/* Examen Físico / Evaluación Materno-Fetal */}
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
-                    <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
-                      3. Examen Físico / Evaluación Materno-Fetal
-                    </label>
-                    {!isSealed && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-neutral-400 font-mono">Macros:</span>
-                        <button
-                          type="button"
-                          onClick={() => insertarMacroExamen("Control Prenatal Normal: Gestante lúcida, afebril, hemodinámicamente estable. Altura uterina acorde a edad gestacional. LCF rítmicos presentes. Sin dinámica uterina ni sangrado vaginal. No edemas patológicos.")}
-                          className="text-[9.5px] bg-rose-50 hover:bg-rose-100 text-rose-800 px-2 py-0.5 rounded border border-rose-200 font-medium transition"
-                        >
-                          + Prenatal Normal
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => insertarMacroExamen("Ecografía Obstétrica: Feto único activo en cefálica, biometría acorde a edad gestacional por FUR. Placenta fúndica posterior Grado I. ILA normal. LCF presentes rítmicos.")}
-                          className="text-[9.5px] bg-rose-50 hover:bg-rose-100 text-rose-800 px-2 py-0.5 rounded border border-rose-200 font-medium transition"
-                        >
-                          + Eco Obstétrica
-                        </button>
+                    {/* PANEL 2: EXAMEN GINECOLÓGICO VISUAL (ESPÉCULO & TACTO EN CASILLAS) */}
+                    <div className="p-3 bg-purple-50/40 border border-purple-200 rounded-xl space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-purple-200/80 pb-1.5">
+                        <span className="font-extrabold text-[11px] text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <Stethoscope className="w-3.5 h-3.5 text-purple-700" />
+                          2. Examen Ginecológico Preferencial (Espéculo & Tacto Bimanual)
+                        </span>
+                        <span className="text-[9.5px] font-mono font-bold text-purple-800 bg-purple-100/80 px-2 py-0.5 rounded">
+                          Evaluación Clínica en Mostrador
+                        </span>
                       </div>
-                    )}
+
+                      <div className="grid md:grid-cols-2 gap-3">
+                        {/* Columna A: Especuloscopía */}
+                        <div className="bg-white p-3 rounded-lg border border-purple-200/70 space-y-2.5">
+                          <div className="text-xs font-bold text-purple-900 border-b border-neutral-100 pb-1 flex items-center justify-between">
+                            <span>A. ESPECULOSCOPÍA</span>
+                            <span className="text-[9.5px] font-mono text-neutral-400">Paredes & Cérvix</span>
+                          </div>
+
+                          {/* Vagina */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-neutral-600 mb-1">Vagina:</label>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {(["Sana", "Sangre", "Flujo"] as const).map((opc) => (
+                                <button
+                                  key={opc}
+                                  type="button"
+                                  disabled={isSealed}
+                                  onClick={() => setEspeculoVagina(opc)}
+                                  className={`py-1 px-2 rounded-md text-xs font-bold border transition text-center cursor-pointer ${
+                                    especuloVagina === opc
+                                      ? "bg-purple-700 text-white border-purple-800 shadow-2xs"
+                                      : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                                  }`}
+                                >
+                                  {opc}
+                                </button>
+                              ))}
+                            </div>
+                            {especuloVagina === "Flujo" && (
+                              <div className="mt-1.5">
+                                <select
+                                  disabled={isSealed}
+                                  value={especuloFlujoTipo}
+                                  onChange={(e) => setEspeculoFlujoTipo(e.target.value)}
+                                  className="w-full p-1.5 border border-purple-300 rounded text-xs bg-purple-50/40 text-purple-900 font-semibold"
+                                >
+                                  <option value="">-- Seleccionar tipo de flujo --</option>
+                                  <option value="Blanco grumoso en leche cortada (Candida)">Blanco grumoso en leche cortada (Candida)</option>
+                                  <option value="Amarillo verdoso espumoso (Trichomona)">Amarillo verdoso espumoso (Trichomona)</option>
+                                  <option value="Grisáceo homogéneo olor fétido (Vaginosis)">Grisáceo homogéneo olor fétido (Vaginosis)</option>
+                                  <option value="Acuoso / Leucorrea inespecífica">Acuoso / Leucorrea inespecífica</option>
+                                </select>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Cuello Uterino */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-neutral-600 mb-1">Cuello Uterino:</label>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {(["Sano", "Ectropión", "Otro"] as const).map((opc) => (
+                                <button
+                                  key={opc}
+                                  type="button"
+                                  disabled={isSealed}
+                                  onClick={() => setEspeculoCuello(opc)}
+                                  className={`py-1 px-2 rounded-md text-xs font-bold border transition text-center cursor-pointer ${
+                                    especuloCuello === opc
+                                      ? "bg-purple-700 text-white border-purple-800 shadow-2xs"
+                                      : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                                  }`}
+                                >
+                                  {opc}
+                                </button>
+                              ))}
+                            </div>
+                            {especuloCuello !== "Sano" && (
+                              <input
+                                type="text"
+                                disabled={isSealed}
+                                value={especuloCuelloDetalle}
+                                onChange={(e) => setEspeculoCuelloDetalle(e.target.value)}
+                                placeholder="Detalle: ej. Ectropión 10mm / Sangrado al contacto / Pólipo"
+                                className="w-full mt-1.5 p-1.5 border border-neutral-300 rounded text-xs bg-white"
+                              />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Columna B: Tacto Vaginal Bimanual */}
+                        <div className="bg-white p-3 rounded-lg border border-purple-200/70 space-y-2.5">
+                          <div className="text-xs font-bold text-purple-900 border-b border-neutral-100 pb-1 flex items-center justify-between">
+                            <span>B. TACTO VAGINAL BIMANUAL</span>
+                            <span className="text-[9.5px] font-mono text-neutral-400">Útero & Anexos</span>
+                          </div>
+
+                          {/* Temperatura Vaginal & Cuello */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-neutral-600 mb-1">Temperatura:</label>
+                              <div className="grid grid-cols-2 gap-1">
+                                {(["Normotérmica", "Hipertérmica"] as const).map((t) => (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    disabled={isSealed}
+                                    onClick={() => setTactoVagina(t)}
+                                    className={`py-1 px-1 rounded text-[10px] font-bold border text-center transition cursor-pointer ${
+                                      tactoVagina === t ? "bg-purple-700 text-white border-purple-800" : "bg-neutral-50 border-neutral-200 text-neutral-700"
+                                    }`}
+                                  >
+                                    {t.slice(0, 5)}...
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold text-neutral-600 mb-1">Cuello:</label>
+                              <div className="grid grid-cols-3 gap-1">
+                                {(["Cerrado", "Dilatado", "Doloroso"] as const).map((c) => (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    disabled={isSealed}
+                                    onClick={() => setTactoCuello(c)}
+                                    className={`py-1 px-1 rounded text-[9.5px] font-bold border text-center transition cursor-pointer ${
+                                      tactoCuello === c ? "bg-purple-700 text-white border-purple-800" : "bg-neutral-50 border-neutral-200 text-neutral-700"
+                                    }`}
+                                  >
+                                    {c}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Posición Uterina & Desviación */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-neutral-600 mb-1">Útero (Posición):</label>
+                              <div className="grid grid-cols-3 gap-1">
+                                {(["Anteversión", "Retroversión", "Media"] as const).map((u) => (
+                                  <button
+                                    key={u}
+                                    type="button"
+                                    disabled={isSealed}
+                                    onClick={() => setTactoUtero(u)}
+                                    className={`py-1 px-1 rounded text-[9.5px] font-bold border text-center transition cursor-pointer ${
+                                      tactoUtero === u ? "bg-purple-700 text-white border-purple-800" : "bg-neutral-50 border-neutral-200 text-neutral-700"
+                                    }`}
+                                  >
+                                    {u === "Anteversión" ? "AVF" : u === "Retroversión" ? "RVF" : "Media"}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold text-neutral-600 mb-1">Anexos:</label>
+                              <div className="grid grid-cols-3 gap-1">
+                                {(["Normales", "Dolorosos", "Masas"] as const).map((a) => (
+                                  <button
+                                    key={a}
+                                    type="button"
+                                    disabled={isSealed}
+                                    onClick={() => setTactoAnexos(a)}
+                                    className={`py-1 px-1 rounded text-[9.5px] font-bold border text-center transition cursor-pointer ${
+                                      tactoAnexos === a ? "bg-purple-700 text-white border-purple-800" : "bg-neutral-50 border-neutral-200 text-neutral-700"
+                                    }`}
+                                  >
+                                    {a}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* PANEL 3: MATRIZ DE 12 DIAGNÓSTICOS FRECUENTES EN 1-CLICK (FICHA LAS MELLIZAS) */}
+                    <div className="p-3 bg-amber-50/40 border border-amber-200 rounded-xl space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-amber-200 pb-1">
+                        <span className="font-extrabold text-[11px] text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-700" />
+                          3. Diagnósticos Frecuentes Las Mellizas (1-Click para asociar CIE-10)
+                        </span>
+                        <span className="text-[9px] font-mono text-amber-800">
+                          Al hacer clic se agrega automáticamente a la lista médica
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                        {DIAGNOSTICOS_RAPIDOS_LAS_MELLIZAS.map((dx) => {
+                          const yaAgregado = diagnosticos.some((d) => d.codigo === dx.codigo);
+                          return (
+                            <button
+                              key={dx.codigo}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => agregarDiagnosticoRapido(dx.codigo, dx.nombre)}
+                              className={`p-2 rounded-lg text-left border text-xs font-semibold transition cursor-pointer flex flex-col justify-between ${
+                                yaAgregado
+                                  ? "bg-amber-600 text-white border-amber-700 shadow-2xs"
+                                  : "bg-white text-neutral-800 border-neutral-200 hover:border-amber-400 hover:bg-amber-50/50"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded ${yaAgregado ? "bg-amber-800 text-amber-100" : "bg-neutral-100 text-neutral-600"}`}>
+                                  {dx.codigo}
+                                </span>
+                                <span className="text-[10px]">{yaAgregado ? "✓ Agregado" : "+ Añadir"}</span>
+                              </div>
+                              <span className="text-[11px] mt-1 line-clamp-2 leading-tight">{dx.nombre}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* PANEL 4: MATRIZ DE 12 CONDUCTAS & EXÁMENES EN 1-CLICK */}
+                    <div className="p-3 bg-emerald-50/40 border border-emerald-200 rounded-xl space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-emerald-200 pb-1">
+                        <span className="font-extrabold text-[11px] text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                          4. Conducta, Exámenes Solicitados & Procedimientos (Casillas de Marcado)
+                        </span>
+                        <span className="text-[9px] font-mono text-emerald-800">
+                          {conductasSeleccionadas.length} seleccionadas
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                        {CONDUCTAS_RAPIDAS_LAS_MELLIZAS.map((c) => {
+                          const marcada = conductasSeleccionadas.includes(c);
+                          return (
+                            <button
+                              key={c}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => toggleConducta(c)}
+                              className={`p-2 rounded-lg text-left text-xs font-semibold border transition cursor-pointer flex items-center gap-2 ${
+                                marcada
+                                  ? "bg-emerald-700 text-white border-emerald-800 shadow-2xs"
+                                  : "bg-white text-neutral-800 border-neutral-200 hover:border-emerald-300 hover:bg-emerald-50/40"
+                              }`}
+                            >
+                              <div className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold border ${marcada ? "bg-white text-emerald-800 border-white" : "border-neutral-300"}`}>
+                                {marcada && "✓"}
+                              </div>
+                              <span className="text-[11px] leading-tight">{c}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* PANEL 5: MOTIVO Y EVOLUCIÓN CLÍNICA ESPECÍFICA */}
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-[11px] text-neutral-700 uppercase tracking-wider mb-1">
+                          5. Motivo de Consulta & Tiempo de Enfermedad
+                        </label>
+                        <textarea
+                          rows={2}
+                          disabled={isSealed}
+                          value={motivo}
+                          onChange={(e) => setMotivo(e.target.value)}
+                          placeholder="Paciente acude refiriendo flujo, dolor pélvico o descarte..."
+                          className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900 placeholder:text-neutral-300"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="font-bold text-[11px] text-neutral-700 uppercase tracking-wider">
+                            6. Hallazgos Clínicos & Notas Adicionales
+                          </label>
+                          {!isSealed && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => insertarMacroExamen("Examen Ginecológico Normal: Abdomen blando, depresible, no doloroso. Genitales externos conservados. Especuloscopía: Cérvix sano eutrófico, sin sangrado. Tacto vaginal: Cuello cerrado, útero en AVF, no doloroso a movilización, anexos libres.")}
+                                className="text-[9px] bg-purple-50 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded font-semibold"
+                              >
+                                + Gineco Normal
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <textarea
+                          rows={2}
+                          disabled={isSealed}
+                          value={examenFisico}
+                          onChange={(e) => setExamenFisico(e.target.value)}
+                          placeholder="Observaciones clínicas complementarias..."
+                          className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <textarea
-                    rows={3}
-                    disabled={isSealed}
-                    value={examenFisico}
-                    onChange={(e) => setExamenFisico(e.target.value)}
-                    className="w-full p-2.5 border border-neutral-200 rounded-lg text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                  />
-                </div>
+                ) : (
+                  /* VISTA 2: CARNÉ PERINATAL LONGITUDINAL MINSA (SIP - 9 ATENCIONES) */
+                  <div className="p-3.5 bg-rose-50/40 border border-rose-200 rounded-xl space-y-3.5 shadow-2xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rose-200 pb-2">
+                      <div>
+                        <span className="font-extrabold text-xs text-rose-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <Baby className="w-4 h-4 text-rose-700" />
+                          Carné Perinatal Oficial MINSA • Atención Prenatal Reenfocada (SIP)
+                        </span>
+                        <p className="text-[10px] text-rose-800 mt-0.5">
+                          Hoja longitudinal de seguimiento para validar atenciones en postas, centros de salud y hospitales del MINSA
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold bg-rose-100 text-rose-900 border border-rose-300 px-2 py-0.5 rounded">
+                        NTS N.° 105-MINSA / CLAP-OPS
+                      </span>
+                    </div>
+
+                    {/* Matriz Longitudinal de 9 Atenciones Prenatales */}
+                    <div className="overflow-x-auto border border-neutral-200 rounded-lg bg-white shadow-2xs">
+                      <table className="w-full text-[10px] text-left border-collapse">
+                        <thead>
+                          <tr className="bg-rose-100/70 text-rose-950 font-bold border-b border-rose-200 text-center">
+                            <th className="p-1.5 border-r border-rose-200">Parámetro</th>
+                            {atencionesMinsa.map((at) => (
+                              <th key={at.num} className="p-1.5 border-r border-rose-200 min-w-[70px]">
+                                Aten. {at.num}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100">
+                          {/* Fila Fecha */}
+                          <tr>
+                            <td className="p-1.5 font-bold bg-neutral-50 text-neutral-700 border-r border-neutral-200">Fecha</td>
+                            {atencionesMinsa.map((at, idx) => (
+                              <td key={at.num} className="p-1 border-r border-neutral-200">
+                                <input
+                                  type="text"
+                                  disabled={isSealed}
+                                  value={at.fecha}
+                                  onChange={(e) => actualizarAtencionMinsa(idx, "fecha", e.target.value)}
+                                  placeholder="dd/mm"
+                                  className="w-full p-1 text-center font-mono text-[9.5px] border border-neutral-200 rounded"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                          {/* Fila Semanas EG */}
+                          <tr>
+                            <td className="p-1.5 font-bold bg-neutral-50 text-neutral-700 border-r border-neutral-200">Edad Gest. (sem)</td>
+                            {atencionesMinsa.map((at, idx) => (
+                              <td key={at.num} className="p-1 border-r border-neutral-200">
+                                <input
+                                  type="text"
+                                  disabled={isSealed}
+                                  value={at.semana}
+                                  onChange={(e) => actualizarAtencionMinsa(idx, "semana", e.target.value)}
+                                  placeholder="sem"
+                                  className="w-full p-1 text-center font-mono font-bold text-[10px] border border-neutral-200 rounded text-rose-900 bg-rose-50/20"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                          {/* Fila Peso Madre */}
+                          <tr>
+                            <td className="p-1.5 font-bold bg-neutral-50 text-neutral-700 border-r border-neutral-200">Peso Madre (kg)</td>
+                            {atencionesMinsa.map((at, idx) => (
+                              <td key={at.num} className="p-1 border-r border-neutral-200">
+                                <input
+                                  type="text"
+                                  disabled={isSealed}
+                                  value={at.peso}
+                                  onChange={(e) => actualizarAtencionMinsa(idx, "peso", e.target.value)}
+                                  placeholder="kg"
+                                  className="w-full p-1 text-center font-mono text-[9.5px] border border-neutral-200 rounded"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                          {/* Fila PA */}
+                          <tr>
+                            <td className="p-1.5 font-bold bg-neutral-50 text-neutral-700 border-r border-neutral-200">P.A. (mmHg)</td>
+                            {atencionesMinsa.map((at, idx) => (
+                              <td key={at.num} className="p-1 border-r border-neutral-200">
+                                <input
+                                  type="text"
+                                  disabled={isSealed}
+                                  value={at.pa}
+                                  onChange={(e) => actualizarAtencionMinsa(idx, "pa", e.target.value)}
+                                  placeholder="120/80"
+                                  className="w-full p-1 text-center font-mono font-bold text-[9.5px] border border-neutral-200 rounded"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                          {/* Fila Altura Uterina */}
+                          <tr>
+                            <td className="p-1.5 font-bold bg-neutral-50 text-neutral-700 border-r border-neutral-200">Alt. Uterina (cm)</td>
+                            {atencionesMinsa.map((at, idx) => (
+                              <td key={at.num} className="p-1 border-r border-neutral-200">
+                                <input
+                                  type="text"
+                                  disabled={isSealed}
+                                  value={at.au}
+                                  onChange={(e) => actualizarAtencionMinsa(idx, "au", e.target.value)}
+                                  placeholder="cm"
+                                  className="w-full p-1 text-center font-mono font-bold text-[10px] border border-neutral-200 rounded text-neutral-900"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                          {/* Fila LCF */}
+                          <tr>
+                            <td className="p-1.5 font-bold bg-neutral-50 text-neutral-700 border-r border-neutral-200">L.C.F. (lpm)</td>
+                            {atencionesMinsa.map((at, idx) => (
+                              <td key={at.num} className="p-1 border-r border-neutral-200">
+                                <input
+                                  type="text"
+                                  disabled={isSealed}
+                                  value={at.lcf}
+                                  onChange={(e) => actualizarAtencionMinsa(idx, "lcf", e.target.value)}
+                                  placeholder="lpm"
+                                  className="w-full p-1 text-center font-mono text-[9.5px] border border-neutral-200 rounded"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                          {/* Fila Presentación */}
+                          <tr>
+                            <td className="p-1.5 font-bold bg-neutral-50 text-neutral-700 border-r border-neutral-200">Presentación</td>
+                            {atencionesMinsa.map((at, idx) => (
+                              <td key={at.num} className="p-1 border-r border-neutral-200">
+                                <select
+                                  disabled={isSealed}
+                                  value={at.presentacion}
+                                  onChange={(e) => actualizarAtencionMinsa(idx, "presentacion", e.target.value)}
+                                  className="w-full p-0.5 text-center text-[9px] border border-neutral-200 rounded"
+                                >
+                                  <option value="">-</option>
+                                  <option value="C">Cefálica (C)</option>
+                                  <option value="P">Podálica (P)</option>
+                                  <option value="T">Transversa (T)</option>
+                                </select>
+                              </td>
+                            ))}
+                          </tr>
+                          {/* Fila Edemas */}
+                          <tr>
+                            <td className="p-1.5 font-bold bg-neutral-50 text-neutral-700 border-r border-neutral-200">Edemas</td>
+                            {atencionesMinsa.map((at, idx) => (
+                              <td key={at.num} className="p-1 border-r border-neutral-200">
+                                <input
+                                  type="text"
+                                  disabled={isSealed}
+                                  value={at.edemas}
+                                  onChange={(e) => actualizarAtencionMinsa(idx, "edemas", e.target.value)}
+                                  placeholder="- / +"
+                                  className="w-full p-1 text-center text-[9.5px] border border-neutral-200 rounded"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Gráficos Percentilares Oficiales MINSA (Curvas Altura Uterina & Incremento de Peso) */}
+                    <div className="grid md:grid-cols-2 gap-3 bg-white p-3 rounded-lg border border-neutral-200">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-neutral-700 uppercase">
+                            Curva de Altura Uterina vs Semanas (P10 - P90)
+                          </span>
+                          <span className="text-[9px] font-mono text-neutral-400">CLAP / MINSA</span>
+                        </div>
+                        <div className="h-28 bg-sky-50/50 border border-sky-200 rounded-lg p-2 flex items-center justify-center relative overflow-hidden">
+                          <svg className="w-full h-full" viewBox="0 0 200 80">
+                            {/* Líneas percentilares */}
+                            <path d="M 20 70 Q 100 40 180 15" fill="none" stroke="#0284c7" strokeWidth="1.5" strokeDasharray="3 2" />
+                            <path d="M 20 75 Q 100 55 180 30" fill="none" stroke="#0369a1" strokeWidth="2" />
+                            <path d="M 20 78 Q 100 65 180 45" fill="none" stroke="#0284c7" strokeWidth="1.5" strokeDasharray="3 2" />
+                            <text x="182" y="18" fontSize="6" fill="#0284c7">P90</text>
+                            <text x="182" y="32" fontSize="6" fill="#0369a1">P50</text>
+                            <text x="182" y="47" fontSize="6" fill="#0284c7">P10</text>
+                            {/* Punto actual */}
+                            {alturaUterina && eg && (
+                              <circle cx={Math.min(180, Math.max(20, parseInt(eg || "20") * 4.5))} cy={Math.max(15, 80 - parseInt(alturaUterina || "20") * 2.2)} r="3.5" fill="#e11d48" />
+                            )}
+                          </svg>
+                        </div>
+                        <div className="flex items-center justify-between text-[9px] text-neutral-500 font-mono">
+                          <span>13 sem</span>
+                          <span>24 sem</span>
+                          <span>32 sem</span>
+                          <span>40 sem</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-neutral-700 uppercase">
+                            Curva de Incremento Ponderal Materno
+                          </span>
+                          <span className="text-[9px] font-mono text-neutral-400">Nutrición Gestacional</span>
+                        </div>
+                        <div className="h-28 bg-emerald-50/50 border border-emerald-200 rounded-lg p-2 flex items-center justify-center relative overflow-hidden">
+                          <svg className="w-full h-full" viewBox="0 0 200 80">
+                            <path d="M 20 75 Q 100 50 180 20" fill="none" stroke="#059669" strokeWidth="1.5" strokeDasharray="3 2" />
+                            <path d="M 20 78 Q 100 65 180 40" fill="none" stroke="#047857" strokeWidth="2" />
+                            <text x="182" y="23" fontSize="6" fill="#059669">P90</text>
+                            <text x="182" y="42" fontSize="6" fill="#047857">P25</text>
+                          </svg>
+                        </div>
+                        <div className="flex items-center justify-between text-[9px] text-neutral-500 font-mono">
+                          <span>13 sem</span>
+                          <span>24 sem</span>
+                          <span>32 sem</span>
+                          <span>40 sem</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
