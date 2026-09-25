@@ -258,6 +258,41 @@ export default function SupervisionPage() {
         .order("fecha_hora", { ascending: false })
         .limit(100);
 
+      // 3. Si hay Webhook oficial de Google Sheets configurado, sincronizar atenciones en vivo
+      const webhookUrl = typeof window !== "undefined" ? localStorage.getItem("lm_sheets_webhook_url") : null;
+      let totalEnviadosWebhook = 0;
+      if (webhookUrl && webhookUrl.startsWith("http") && atencionesRaw && atencionesRaw.length > 0) {
+        for (const item of atencionesRaw) {
+          try {
+            const f = new Date(item.fecha_hora);
+            const ord = item.orden_pago?.[0];
+            const pagosList: any[] = Array.isArray(ord?.pago) ? ord.pago : (ord?.pago ? [ord.pago] : []);
+            const mediosStr = pagosList.map((p: any) => p.medio_pago).join(" + ") || "EFECTIVO";
+            await fetch(webhookUrl, {
+              method: "POST",
+              mode: "no-cors",
+              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              body: JSON.stringify({
+                fecha: f.toLocaleDateString("es-PE"),
+                hora: f.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
+                sede: item.site?.nombre || "Independencia",
+                paciente: `${item.paciente?.nombres || ''} ${item.paciente?.apellidos || ''}`.trim() || "Paciente Registrado",
+                dni: item.paciente?.dni || "-",
+                telefono: item.paciente?.telefono || "-",
+                servicio: item.servicio_solicitado || "Atención Clínica",
+                monto: ord?.monto ? Number(ord.monto) : 0,
+                medioPago: mediosStr,
+                cajero: "Caja de Turno",
+                estado: item.estado || "ATENDIDO",
+              }),
+            });
+            totalEnviadosWebhook++;
+          } catch (wErr) {
+            console.warn("Aviso al enviar lote a Sheets:", wErr);
+          }
+        }
+      }
+
       let csv = "\uFEFFsep=;\r\n"; // Directiva oficial de separador para Excel
 
       // BLOQUE 1: ATENCIONES Y VENTAS REALIZADAS EN VIVO
@@ -1294,6 +1329,31 @@ export default function SupervisionPage() {
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Sincronizar Sheets</span>
             </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  const actual = typeof window !== "undefined" ? localStorage.getItem("lm_sheets_webhook_url") || "" : "";
+                  const url = prompt(
+                    "DIRECCIÓN GENERAL — ENLACE CON GOOGLE SHEETS (WEB APP):\n\nPegue o actualice la URL /exec de su Google Apps Script para sincronizar las atenciones con Google Sheets:\n\n(Deje en blanco para eliminar la sincronización automática)",
+                    actual
+                  );
+                  if (url !== null) {
+                    if (url.trim()) {
+                      localStorage.setItem("lm_sheets_webhook_url", url.trim());
+                      alert("✅ URL de Google Sheets guardada exitosamente en la Dirección General.\n\nAl hacer clic en 'Sincronizar Sheets', las atenciones de la base de datos se transmitirán directamente a su hoja de cálculo.");
+                    } else {
+                      localStorage.removeItem("lm_sheets_webhook_url");
+                      alert("Enlace con Google Sheets desactivado.");
+                    }
+                  }
+                }}
+                className="inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white font-bold text-xs px-2.5 py-2 rounded-xl border border-white/10 transition cursor-pointer"
+                title="Configuración de Enlace Google Sheets (Solo Dirección General)"
+              >
+                <span>⚙️ Webhook</span>
+              </button>
+            )}
           </div>
         </div>
 

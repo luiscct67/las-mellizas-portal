@@ -2246,7 +2246,7 @@ export default function AdmisionCajaPage() {
         fetch(sheetsWebhook, {
           method: "POST",
           mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({
             fecha: new Date().toLocaleDateString("es-PE"),
             hora: horaStr,
@@ -4500,28 +4500,6 @@ export default function AdmisionCajaPage() {
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Sincronizar / Exportar a Google Sheets</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const actual = typeof window !== "undefined" ? localStorage.getItem("lm_sheets_webhook_url") || "" : "";
-                  const url = prompt(
-                    "CONFIGURACIÓN ENLACE EN VIVO GOOGLE SHEETS:\n\nPegue la URL del Webhook (Google Apps Script Web App) para registrar automáticamente cada cobro de caja como una nueva fila en Google Sheets en tiempo real:\n\n(Deje en blanco si solo desea exportar archivos manualmente)",
-                    actual
-                  );
-                  if (url !== null) {
-                    if (url.trim()) {
-                      localStorage.setItem("lm_sheets_webhook_url", url.trim());
-                      alert("✅ URL de Google Sheets guardada correctamente. Cada cobro realizado en caja se enviará automáticamente en tiempo real.");
-                    } else {
-                      localStorage.removeItem("lm_sheets_webhook_url");
-                      alert("Sincronización automática desactivada. Se continuará exportando en formato Excel/Sheets mediante el botón.");
-                    }
-                  }
-                }}
-                className="w-full text-center text-[10px] text-brand-200 hover:text-white underline pt-1 cursor-pointer block"
-              >
-                ⚙️ Configurar enlace en tiempo real con Google Sheets
               </button>
             </div>
           </div>
