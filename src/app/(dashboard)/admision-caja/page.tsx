@@ -2910,42 +2910,38 @@ export default function AdmisionCajaPage() {
       const cajeroActual = sessionStorage.getItem("lm_nombre") || "Cajero de Turno";
       const sedeNombre = sede || "Independencia";
 
-      let csv = "\uFEFF"; // UTF-8 BOM
-      csv += "=========================================================================================\n";
-      csv += "REPORTE DE TURNO DE CAJA — CONSULTORIO LAS MELLIZAS PERÚ S.A.C. (RUC 20611827335)\n";
-      csv += `Fecha de Emisión: ${fechaHoy} ${horaHoy} | Sede: ${sedeNombre} | Responsable: ${cajeroActual}\n`;
-      csv += "Notificaciones Oficiales: lasmellizaspe@gmail.com | Celular Dirección: 966840077\n";
-      csv += "=========================================================================================\n\n";
-
-      // 1. Resumen Financiero
-      csv += "--- 1. RESUMEN FINANCIERO DEL TURNO ---\n";
-      csv += `Fondo Inicial de Apertura,S/ ${(Number(fondoApertura) || 0).toFixed(2)}\n`;
-      csv += `Total Cobrado en Efectivo,S/ ${(Number(totalEfectivoCobros) || 0).toFixed(2)}\n`;
-      csv += `Egresos de Caja Chica,S/ ${(Number(totalEgresosTurno) || 0).toFixed(2)}\n`;
-      csv += `Efectivo Neto Esperado a Rendir,S/ ${(Number(efectivoNetoEsperado) || 0).toFixed(2)}\n`;
-      csv += `Cobros Digitales (Yape / Plin / POS),S/ ${(Number(totalDigitalCobros) || 0).toFixed(2)}\n`;
-      csv += `Facturación Bruta de la Jornada,S/ ${(Number(totalFacturadoBruto) || 0).toFixed(2)}\n\n`;
-
-      // 2. Detalle de Pacientes y Atenciones
-      csv += "--- 2. DETALLE DE ATENCIONES Y COMPROBANTES ---\n";
-      csv += "HORA,PACIENTE,DNI,SERVICIO / PACK,MONTO (S/),MEDIO DE PAGO,ESTADO CONSULTORIO\n";
+      // Formato oficial Microsoft Excel / Google Sheets con separador ';'
+      let csv = "\uFEFFsep=;\r\n";
+      csv += "HORA;PACIENTE;DNI;SERVICIO / PACK;MONTO (S/);MEDIO DE PAGO;ESTADO CONSULTORIO;SEDE;CAJERO\r\n";
       (pacientesTurno || []).forEach((p) => {
-        csv += `"${p.hora || ''}","${p.paciente || ''}","${p.dni || ''}","${p.servicio || ''}",${(Number(p.monto) || 0).toFixed(2)},"${p.medioPago || ''}","${p.estadoConsultorio || ''}"\n`;
+        csv += `"${p.hora || ''}";"${p.paciente || ''}";"${p.dni || ''}";"${p.servicio || ''}";${(Number(p.monto) || 0).toFixed(2)};"${p.medioPago || ''}";"${p.estadoConsultorio || ''}";"${sedeNombre}";"${cajeroActual}"\r\n`;
       });
-      csv += "\n";
 
-      // 3. Egresos de Caja Chica
-      csv += "--- 3. EGRESOS Y GASTOS AUTORIZADOS ---\n";
-      csv += "ID,HORA,RESPONSABLE,MONTO (S/),MOTIVO\n";
-      (egresos || []).forEach((eg) => {
-        csv += `"${eg.id || ''}","${eg.hora || ''}","${eg.autorizadoPor || ''}",${(Number(eg.monto) || 0).toFixed(2)},"${(eg.motivo || '').replace(/"/g, '""')}"\n`;
-      });
+      // Resumen Financiero estructurado al pie
+      csv += "\r\n";
+      csv += `--- RESUMEN FINANCIERO DEL TURNO (Fecha: ${fechaHoy} ${horaHoy} - Sede: ${sedeNombre}) ---;;;;;;;;\r\n`;
+      csv += `CONCEPTO;;;;IMPORTE (S/);;;;\r\n`;
+      csv += `Fondo Inicial de Apertura;;;;${(Number(fondoApertura) || 0).toFixed(2)};;;;\r\n`;
+      csv += `Total Cobrado en Efectivo;;;;${(Number(totalEfectivoCobros) || 0).toFixed(2)};;;;\r\n`;
+      csv += `Total Egresos de Caja Chica;;;;${(Number(totalEgresos) || 0).toFixed(2)};;;;\r\n`;
+      csv += `Efectivo Neto a Rendir;;;;${(Number(efectivoNetoEsperado) || 0).toFixed(2)};;;;\r\n`;
+      csv += `Cobros Digitales (Yape / Plin / POS);;;;${(Number(totalDigitalCobros) || 0).toFixed(2)};;;;\r\n`;
+      csv += `Facturación Bruta Total;;;;${(Number(totalFacturadoBruto) || 0).toFixed(2)};;;;\r\n`;
+
+      if (egresos && egresos.length > 0) {
+        csv += "\r\n";
+        csv += "--- DETALLE DE EGRESOS DE CAJA CHICA ---;;;;;;;;\r\n";
+        csv += "ID;HORA;RESPONSABLE;MONTO (S/);MOTIVO;;;;;\r\n";
+        egresos.forEach((eg: any) => {
+          csv += `"${eg.id || ''}";"${eg.hora || ''}";"${eg.aprobadoPor || eg.autorizadoPor || ''}";${(Number(eg.monto) || 0).toFixed(2)};"${(eg.concepto || eg.motivo || '').replace(/"/g, '""')}";;;;;\r\n`;
+        });
+      }
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `Caja_Turno_Las_Mellizas_${sedeNombre}_${Date.now()}.csv`);
+      link.setAttribute("download", `Caja_Turno_${sedeNombre}_${Date.now()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

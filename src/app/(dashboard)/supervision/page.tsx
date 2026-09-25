@@ -212,6 +212,7 @@ export default function SupervisionPage() {
   );
 
   // Exportar a Google Sheets
+  // Exportar Maestro a Google Sheets (con separador ';' compatible con Excel de Windows)
   const handleExportarGoogleSheets = () => {
     try {
       const fechaHoy = new Date().toLocaleDateString("es-PE", {
@@ -221,15 +222,9 @@ export default function SupervisionPage() {
       });
       const horaHoy = new Date().toLocaleTimeString("es-PE");
 
-      let csv = "\uFEFF"; // UTF-8 BOM
-      csv += "=========================================================================================\n";
-      csv += "REPORTE MAESTRO INTEGRAL — ECOSISTEMA DIGITAL LAS MELLIZAS PERÚ S.A.C. (RUC 20611827335)\n";
-      csv += `Fecha de Emisión: ${fechaHoy} ${horaHoy} | Correo: lasmellizaspe@gmail.com | Celular: 966840077\n`;
-      csv += "=========================================================================================\n\n";
-
-      // BLOQUE 1: SEMÁFORO DE KÁRDEX & STOCK EN VIVO
-      csv += "--- BLOQUE 1: SEMÁFORO DE KÁRDEX & STOCK EN VIVO ---\n";
-      csv += "CÓDIGO,PRODUCTO / MEDICAMENTO,CATEGORÍA,PRESENTACIÓN,STOCK ACTUAL,STOCK MÍNIMO,COSTO UNITARIO (S/),PRECIO VENTA (S/),VALOR TOTAL (S/),ESTADO ALERTA\n";
+      let csv = "\uFEFFsep=;\r\n"; // Directiva oficial de separador para Excel
+      csv += "--- BLOQUE 1: SEMÁFORO DE KÁRDEX & STOCK EN VIVO ---;;;;;;;;;\r\n";
+      csv += "CÓDIGO;PRODUCTO / MEDICAMENTO;CATEGORÍA;PRESENTACIÓN;STOCK ACTUAL;STOCK MÍNIMO;COSTO UNITARIO (S/);PRECIO VENTA (S/);VALOR TOTAL (S/);ESTADO ALERTA\r\n";
       (productosInventario || []).forEach((p) => {
         const stockAct = Number(p.stock_actual) || 0;
         const stockMin = Number(p.stock_minimo) || 0;
@@ -237,40 +232,93 @@ export default function SupervisionPage() {
         const precioVta = Number(p.precio_venta) || 0;
         const estado = stockAct === 0 ? "CRÍTICO - AGOTADO" : stockAct <= stockMin ? "ALERTA - REPOSICIÓN" : "ÓPTIMO";
         const valorTotal = (stockAct * costoUnit).toFixed(2);
-        csv += `"${p.codigo || ''}","${p.nombre || ''}","${p.categoria || ''}","${p.presentacion || ''}",${stockAct},${stockMin},${costoUnit.toFixed(2)},${precioVta.toFixed(2)},${valorTotal},"${estado}"\n`;
+        csv += `"${p.codigo || ''}";"${p.nombre || ''}";"${p.categoria || ''}";"${p.presentacion || ''}";${stockAct};${stockMin};${costoUnit.toFixed(2)};${precioVta.toFixed(2)};${valorTotal};"${estado}"\r\n`;
       });
-      csv += "\n";
+      csv += "\r\n";
 
       // BLOQUE 2: CATÁLOGO DE PACKS, OFERTAS Y MARGEN NETO ESTIMADO
-      csv += "--- BLOQUE 2: CATÁLOGO DE PACKS, OFERTAS Y MARGEN NETO REAL ---\n";
-      csv += "CÓDIGO,SERVICIO / PACK PROMOCIONAL,CATEGORÍA,PRECIO OFICIAL (S/),COSTO OPERATIVO INSUMOS (S/),MARGEN NETO (S/),MARGEN (%)\n";
+      csv += "--- BLOQUE 2: CATÁLOGO DE PACKS, OFERTAS Y MARGEN NETO REAL ---;;;;;;\r\n";
+      csv += "CÓDIGO;SERVICIO / PACK PROMOCIONAL;CATEGORÍA;PRECIO OFICIAL (S/);COSTO OPERATIVO INSUMOS (S/);MARGEN NETO (S/);MARGEN (%)\r\n";
       const listaPacks = (packsPromocionales && packsPromocionales.length > 0) ? packsPromocionales : (serviciosCustom || []).slice(0, 15);
       listaPacks.forEach((s) => {
         const precioNum = Number(s.precio_venta) || 0;
         const costoNum = Number(s.costo_operativo) || 0;
         const margenNeto = Number((precioNum - costoNum).toFixed(2));
         const margenPct = precioNum > 0 ? ((margenNeto / precioNum) * 100).toFixed(1) : "0.0";
-        csv += `"${s.codigo || s.id || ''}","${s.nombre || ''}","${s.categoria || ''}",${precioNum.toFixed(2)},${costoNum.toFixed(2)},${margenNeto.toFixed(2)},"${margenPct}%"\n`;
+        csv += `"${s.codigo || s.id || ''}";"${s.nombre || ''}";"${s.categoria || ''}";${precioNum.toFixed(2)};${costoNum.toFixed(2)};${margenNeto.toFixed(2)};"${margenPct}%"\r\n`;
       });
-      csv += "\n";
+      csv += "\r\n";
 
       // BLOQUE 3: AUDITORÍA DE MOVIMIENTOS RECIENTES
-      csv += "--- BLOQUE 3: HISTORIAL RECIENTE DE AUDITORÍA Y TRAZABILIDAD ---\n";
-      csv += "HORA,USUARIO / RESPONSABLE,ACCIÓN / TIPO,DETALLE / EVENTO\n";
-      eventosAuditoria.slice(0, 30).forEach((ev) => {
-        csv += `"${ev.hora}","${ev.usuario}","${ev.accion}","${ev.detalle.replace(/"/g, '""')}"\n`;
+      csv += "--- BLOQUE 3: HISTORIAL RECIENTE DE AUDITORÍA Y TRAZABILIDAD ---;;;\r\n";
+      csv += "HORA;USUARIO / RESPONSABLE;ACCIÓN / TIPO;DETALLE / EVENTO\r\n";
+      (eventosAuditoria || []).slice(0, 30).forEach((ev) => {
+        csv += `"${ev.hora || ''}";"${ev.usuario || ''}";"${ev.accion || ''}";"${(ev.detalle || '').replace(/"/g, '""')}"\r\n`;
       });
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `Control_Las_Mellizas_GoogleSheets_${Date.now()}.csv`);
+      link.setAttribute("download", `Control_Maestro_Las_Mellizas_${Date.now()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (err) {
-      alert("Error al exportar reporte: " + err);
+    } catch (err: any) {
+      alert("Error al exportar reporte: " + (err?.message || err));
+    }
+  };
+
+  // Exportar Hoja Específica de Packs a Excel (100% columnas limpias)
+  const handleExportarPacksExcel = () => {
+    try {
+      let csv = "\uFEFFsep=;\r\n";
+      csv += "CÓDIGO;SERVICIO / PACK PROMOCIONAL;CATEGORÍA;PRECIO VENTA (S/);COSTO INSUMOS (S/);MARGEN NETO (S/);MARGEN (%)\r\n";
+      const listaPacks = (packsPromocionales && packsPromocionales.length > 0) ? packsPromocionales : (serviciosCustom || []);
+      listaPacks.forEach((s) => {
+        const precioNum = Number(s.precio_venta) || 0;
+        const costoNum = Number(s.costo_operativo) || 0;
+        const margenNeto = Number((precioNum - costoNum).toFixed(2));
+        const margenPct = precioNum > 0 ? ((margenNeto / precioNum) * 100).toFixed(1) : "0.0";
+        csv += `"${s.codigo || s.id || ''}";"${s.nombre || ''}";"${s.categoria || ''}";${precioNum.toFixed(2)};${costoNum.toFixed(2)};${margenNeto.toFixed(2)};"${margenPct}%"\r\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Packs_Rentabilidad_Las_Mellizas_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      alert("Error al exportar packs: " + (err?.message || err));
+    }
+  };
+
+  // Exportar Hoja Específica de Stock a Excel (100% columnas limpias)
+  const handleExportarStockExcel = () => {
+    try {
+      let csv = "\uFEFFsep=;\r\n";
+      csv += "CÓDIGO;PRODUCTO / MEDICAMENTO;CATEGORÍA;PRESENTACIÓN;STOCK ACTUAL;STOCK MÍNIMO;COSTO UNITARIO (S/);PRECIO VENTA (S/);VALOR TOTAL (S/);ESTADO ALERTA\r\n";
+      (productosInventario || []).forEach((p) => {
+        const stockAct = Number(p.stock_actual) || 0;
+        const stockMin = Number(p.stock_minimo) || 0;
+        const costoUnit = Number(p.costo_unitario) || 0;
+        const precioVta = Number(p.precio_venta) || 0;
+        const estado = stockAct === 0 ? "CRÍTICO - AGOTADO" : stockAct <= stockMin ? "ALERTA - REPOSICIÓN" : "ÓPTIMO";
+        const valorTotal = (stockAct * costoUnit).toFixed(2);
+        csv += `"${p.codigo || ''}";"${p.nombre || ''}";"${p.categoria || ''}";"${p.presentacion || ''}";${stockAct};${stockMin};${costoUnit.toFixed(2)};${precioVta.toFixed(2)};${valorTotal};"${estado}"\r\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Inventario_Stock_Las_Mellizas_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      alert("Error al exportar inventario: " + (err?.message || err));
     }
   };
 
@@ -3050,7 +3098,7 @@ export default function SupervisionPage() {
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100">
               <button
                 type="button"
-                onClick={handleExportarGoogleSheets}
+                onClick={handleExportarStockExcel}
                 className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow inline-flex items-center gap-1.5"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -3145,7 +3193,7 @@ export default function SupervisionPage() {
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100">
               <button
                 type="button"
-                onClick={handleExportarGoogleSheets}
+                onClick={handleExportarPacksExcel}
                 className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow inline-flex items-center gap-1.5"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
