@@ -2230,6 +2230,33 @@ export default function AdmisionCajaPage() {
       localStorage.setItem("lm_nuevo_paciente_en_espera", JSON.stringify({ ...nuevaTx, id: encuentroId || nuevaTx.id }));
     } catch {}
 
+    // Sincronización Automática en Tiempo Real a Google Sheets (fila por cada cobro en caja)
+    try {
+      const sheetsWebhook = typeof window !== "undefined" ? localStorage.getItem("lm_sheets_webhook_url") : null;
+      if (sheetsWebhook && sheetsWebhook.startsWith("http")) {
+        fetch(sheetsWebhook, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fecha: new Date().toLocaleDateString("es-PE"),
+            hora: horaStr,
+            sede: normalizarSede(sede),
+            paciente: `${nombres.trim()} ${apellidos.trim()}`,
+            dni: dni.trim(),
+            telefono: telefono.trim(),
+            servicio: resumenServicios,
+            monto: montoTotalCarrito,
+            medioPago: medioPagoDesc,
+            cajero: cajeroNombre || "Cajero Ventanilla",
+            estado: "COBRADO_EN_ESPERA",
+          }),
+        }).catch((wErr) => console.warn("Aviso Sheets Webhook:", wErr));
+      }
+    } catch (e) {
+      console.warn("No se pudo enviar fila a Sheets:", e);
+    }
+
     setTransacciones((prev) => [nuevaTx, ...prev]);
     setTicketEmitido(nuevaTx);
     setIsProcessing(false);
@@ -2926,7 +2953,7 @@ export default function AdmisionCajaPage() {
       csv += `Total Egresos de Caja Chica;;;;${(Number(totalEgresos) || 0).toFixed(2)};;;;\r\n`;
       csv += `Efectivo Neto a Rendir;;;;${(Number(efectivoNetoEsperado) || 0).toFixed(2)};;;;\r\n`;
       csv += `Cobros Digitales (Yape / Plin / POS);;;;${(Number(totalDigitalCobros) || 0).toFixed(2)};;;;\r\n`;
-      csv += `Facturación Bruta Total;;;;${(Number(totalFacturadoBruto) || 0).toFixed(2)};;;;\r\n`;
+      csv += `Facturacion Bruta Total;;;;${(Number(totalFacturadoBruto) || 0).toFixed(2)};;;;\r\n`;
 
       if (egresos && egresos.length > 0) {
         csv += "\r\n";
@@ -4443,6 +4470,28 @@ export default function AdmisionCajaPage() {
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Sincronizar / Exportar a Google Sheets</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const actual = typeof window !== "undefined" ? localStorage.getItem("lm_sheets_webhook_url") || "" : "";
+                  const url = prompt(
+                    "CONFIGURACIÓN ENLACE EN VIVO GOOGLE SHEETS:\n\nPegue la URL del Webhook (Google Apps Script Web App) para registrar automáticamente cada cobro de caja como una nueva fila en Google Sheets en tiempo real:\n\n(Deje en blanco si solo desea exportar archivos manualmente)",
+                    actual
+                  );
+                  if (url !== null) {
+                    if (url.trim()) {
+                      localStorage.setItem("lm_sheets_webhook_url", url.trim());
+                      alert("✅ URL de Google Sheets guardada correctamente. Cada cobro realizado en caja se enviará automáticamente en tiempo real.");
+                    } else {
+                      localStorage.removeItem("lm_sheets_webhook_url");
+                      alert("Sincronización automática desactivada. Se continuará exportando en formato Excel/Sheets mediante el botón.");
+                    }
+                  }
+                }}
+                className="w-full text-center text-[10px] text-brand-200 hover:text-white underline pt-1 cursor-pointer block"
+              >
+                ⚙️ Configurar enlace en tiempo real con Google Sheets
               </button>
             </div>
           </div>

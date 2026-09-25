@@ -211,9 +211,8 @@ export default function SupervisionPage() {
       s.nombre.toLowerCase().includes("combo")
   );
 
-  // Exportar a Google Sheets
-  // Exportar Maestro a Google Sheets (con separador ';' compatible con Excel de Windows)
-  const handleExportarGoogleSheets = () => {
+  // Exportar a Google Sheets / Excel con datos de PRODUCCIÓN REAL (Atenciones, Ventas, Insumos y Caja)
+  const handleExportarGoogleSheets = async () => {
     try {
       const fechaHoy = new Date().toLocaleDateString("es-PE", {
         year: "numeric",
@@ -222,50 +221,151 @@ export default function SupervisionPage() {
       });
       const horaHoy = new Date().toLocaleTimeString("es-PE");
 
+      // 1. Consultar atenciones reales registradas en base de datos
+      const { data: atencionesRaw } = await supabase
+        .from("encuentro")
+        .select(`
+          id,
+          servicio_solicitado,
+          estado,
+          fecha_hora,
+          paciente:paciente_id ( dni, nombres, apellidos, telefono ),
+          site:site_id ( nombre ),
+          orden_pago (
+            id,
+            monto,
+            items,
+            pago ( id, monto, medio_pago, referencia )
+          )
+        `)
+        .order("fecha_hora", { ascending: false })
+        .limit(250);
+
+      // 2. Consultar movimientos reales de kárdex / insumos
+      const { data: movsRaw } = await supabase
+        .from("movimiento_inventario")
+        .select(`
+          id,
+          tipo,
+          cantidad,
+          stock_anterior,
+          stock_nuevo,
+          motivo,
+          usuario_nombre,
+          fecha_hora,
+          producto:producto_id ( codigo, nombre, categoria )
+        `)
+        .order("fecha_hora", { ascending: false })
+        .limit(100);
+
       let csv = "\uFEFFsep=;\r\n"; // Directiva oficial de separador para Excel
-      csv += "--- BLOQUE 1: SEMÁFORO DE KÁRDEX & STOCK EN VIVO ---;;;;;;;;;\r\n";
-      csv += "CÓDIGO;PRODUCTO / MEDICAMENTO;CATEGORÍA;PRESENTACIÓN;STOCK ACTUAL;STOCK MÍNIMO;COSTO UNITARIO (S/);PRECIO VENTA (S/);VALOR TOTAL (S/);ESTADO ALERTA\r\n";
-      (productosInventario || []).forEach((p) => {
-        const stockAct = Number(p.stock_actual) || 0;
-        const stockMin = Number(p.stock_minimo) || 0;
-        const costoUnit = Number(p.costo_unitario) || 0;
-        const precioVta = Number(p.precio_venta) || 0;
-        const estado = stockAct === 0 ? "CRÍTICO - AGOTADO" : stockAct <= stockMin ? "ALERTA - REPOSICIÓN" : "ÓPTIMO";
-        const valorTotal = (stockAct * costoUnit).toFixed(2);
-        csv += `"${p.codigo || ''}";"${p.nombre || ''}";"${p.categoria || ''}";"${p.presentacion || ''}";${stockAct};${stockMin};${costoUnit.toFixed(2)};${precioVta.toFixed(2)};${valorTotal};"${estado}"\r\n`;
-      });
+
+      // BLOQUE 1: ATENCIONES Y VENTAS REALIZADAS EN VIVO
+      csv += "--- BLOQUE 1: REGISTRO DE ATENCIONES Y VENTAS REALIZADAS ---;;;;;;;;;\r\n";
+      csv += "FECHA;HORA;SEDE;PACIENTE;DNI;TELEFONO;SERVICIO O PACK COBRADO;MONTO COBRADO (S/);MEDIO DE PAGO;ESTADO CONSULTORIO\r\n";
+
+      let totalEfectivo = 0;
+      let totalDigital = 0;
+      let totalRecaudado = 0;
+      const mapaServiciosVendidos: { [key: string]: { cantidad: number; total: number; costoEstimado: number } } = {};
+
+      if (atencionesRaw && atencionesRaw.length > 0) {
+        atencionesRaw.forEach((item: any) => {
+          const f = new Date(item.fecha_hora);
+          const fechaStr = f.toLocaleDateString("es-PE");
+          const horaStr = f.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+          const pac = item.paciente || {};
+          const nombrePac = `${pac.nombres || ''} ${pac.apellidos || ''}`.trim() || "Paciente Registrado";
+          const dniPac = pac.dni || "-";
+          const telfPac = pac.telefono || "-";
+          const sedeNombre = item.site?.nombre || "Sede Principal";
+          const servDesc = item.servicio_solicitado || "Consulta / Procedimiento";
+
+          const ord = item.orden_pago?.[0];
+          const montoCobrado = ord?.monto ? Number(ord.monto) : 0;
+          totalRecaudado += montoCobrado;
+
+          const pagosList: any[] = Array.isArray(ord?.pago) ? ord.pago : (ord?.pago ? [ord.pago] : []);
+          let mediosPagoStr = "EFECTIVO";
+          if (pagosList.length > 0) {
+            mediosPagoStr = pagosList.map((p) => `${p.medio_pago || 'PAGO'}: S/ ${Number(p.monto).toFixed(2)}`).join(" | ");
+            pagosList.forEach((p) => {
+              if (p.medio_pago === "EFECTIVO") totalEfectivo += Number(p.monto) || 0;
+              else totalDigital += Number(p.monto) || 0;
+            });
+          } else {
+            totalEfectivo += montoCobrado;
+          }
+
+          // Agrupar únicamente los servicios y packs efectivamente vendidos
+          if (!mapaServiciosVendidos[servDesc]) {
+            const matchTarifario = (serviciosCustom || []).find(
+              (s) => s.nombre.toLowerCase() === servDesc.toLowerCase() || servDesc.toLowerCase().includes(s.nombre.toLowerCase())
+            );
+            const costoUnit = matchTarifario ? Number(matchTarifario.costo_operativo) || 0 : 0;
+            mapaServiciosVendidos[servDesc] = { cantidad: 0, total: 0, costoEstimado: costoUnit };
+          }
+          mapaServiciosVendidos[servDesc].cantidad += 1;
+          mapaServiciosVendidos[servDesc].total += montoCobrado;
+
+          csv += `"${fechaStr}";"${horaStr}";"${sedeNombre}";"${nombrePac.replace(/"/g, '""')}";"${dniPac}";"${telfPac}";"${servDesc.replace(/"/g, '""')}";${montoCobrado.toFixed(2)};"${mediosPagoStr}";"${item.estado || 'ATENDIDO'}"\r\n`;
+        });
+      } else {
+        csv += `"${fechaHoy}";"${horaHoy}";"Todas";"SIN ATENCIONES REGISTRADAS EN LA JORNADA";"-";"-";"0 atenciones cobradas";0.00;"-";"ESPERANDO INGRESOS DESDE CAJA"\r\n`;
+      }
       csv += "\r\n";
 
-      // BLOQUE 2: CATÁLOGO DE PACKS, OFERTAS Y MARGEN NETO ESTIMADO
-      csv += "--- BLOQUE 2: CATÁLOGO DE PACKS, OFERTAS Y MARGEN NETO REAL ---;;;;;;\r\n";
-      csv += "CÓDIGO;SERVICIO / PACK PROMOCIONAL;CATEGORÍA;PRECIO OFICIAL (S/);COSTO OPERATIVO INSUMOS (S/);MARGEN NETO (S/);MARGEN (%)\r\n";
-      const listaPacks = (packsPromocionales && packsPromocionales.length > 0) ? packsPromocionales : (serviciosCustom || []).slice(0, 15);
-      listaPacks.forEach((s) => {
-        const precioNum = Number(s.precio_venta) || 0;
-        const costoNum = Number(s.costo_operativo) || 0;
-        const margenNeto = Number((precioNum - costoNum).toFixed(2));
-        const margenPct = precioNum > 0 ? ((margenNeto / precioNum) * 100).toFixed(1) : "0.0";
-        csv += `"${s.codigo || s.id || ''}";"${s.nombre || ''}";"${s.categoria || ''}";${precioNum.toFixed(2)};${costoNum.toFixed(2)};${margenNeto.toFixed(2)};"${margenPct}%"\r\n`;
-      });
+      // BLOQUE 2: RESUMEN DE PRODUCCION Y RENTABILIDAD POR SERVICIO / PACK EJECUTADO (SOLO VENTAS REALES)
+      csv += "--- BLOQUE 2: RESUMEN DE PRODUCCION Y RENTABILIDAD POR SERVICIO O PACK VENDIDO ---;;;;;\r\n";
+      csv += "SERVICIO O PACK EJECUTADO;CANTIDAD ATENDIDA;TOTAL RECAUDADO (S/);COSTO INSUMOS ESTIMADO (S/);MARGEN NETO (S/);RENTABILIDAD (%)\r\n";
+
+      const serviciosVendidosKeys = Object.keys(mapaServiciosVendidos);
+      if (serviciosVendidosKeys.length > 0) {
+        serviciosVendidosKeys.forEach((key) => {
+          const item = mapaServiciosVendidos[key];
+          const costoTotalInsumos = item.costoEstimado * item.cantidad;
+          const margenNeto = item.total - costoTotalInsumos;
+          const margenPct = item.total > 0 ? ((margenNeto / item.total) * 100).toFixed(1) : "0.0";
+          csv += `"${key.replace(/"/g, '""')}";${item.cantidad};${item.total.toFixed(2)};${costoTotalInsumos.toFixed(2)};${margenNeto.toFixed(2)};"${margenPct}%"\r\n`;
+        });
+      } else {
+        csv += `"Sin servicios ni packs vendidos en el periodo (0 movimientos)";0;0.00;0.00;0.00;"0.0%"\r\n`;
+      }
       csv += "\r\n";
 
-      // BLOQUE 3: AUDITORÍA DE MOVIMIENTOS RECIENTES
-      csv += "--- BLOQUE 3: HISTORIAL RECIENTE DE AUDITORÍA Y TRAZABILIDAD ---;;;\r\n";
-      csv += "HORA;USUARIO / RESPONSABLE;ACCIÓN / TIPO;DETALLE / EVENTO\r\n";
-      (eventosAuditoria || []).slice(0, 30).forEach((ev) => {
-        csv += `"${ev.hora || ''}";"${ev.usuario || ''}";"${ev.accion || ''}";"${(ev.detalle || '').replace(/"/g, '""')}"\r\n`;
-      });
+      // BLOQUE 3: CONSUMO Y MOVIMIENTOS REALES DE INSUMOS (KARDEX EN VIVO)
+      csv += "--- BLOQUE 3: CONSUMO Y MOVIMIENTOS DE INSUMOS REGISTRADOS ---;;;;;;;\r\n";
+      csv += "FECHA Y HORA;PRODUCTO O MEDICAMENTO;CATEGORIA;TIPO MOVIMIENTO;CANTIDAD;STOCK RESULTANTE;MOTIVO O SEDE;RESPONSABLE\r\n";
+      if (movsRaw && movsRaw.length > 0) {
+        movsRaw.forEach((m: any) => {
+          const fStr = new Date(m.fecha_hora).toLocaleString("es-PE");
+          const prodNombre = m.producto?.nombre || "Insumo Clínico";
+          const prodCat = m.producto?.categoria || "General";
+          csv += `"${fStr}";"${prodNombre.replace(/"/g, '""')}";"${prodCat}";"${m.tipo || 'MOVIMIENTO'}";${m.cantidad || 0};${m.stock_nuevo || 0};"${(m.motivo || '').replace(/"/g, '""')}";"${m.usuario_nombre || 'Personal Autorizado'}"\r\n`;
+        });
+      } else {
+        csv += `"${fechaHoy} ${horaHoy}";"Sin movimientos de insumos registrados en el periodo";"-";"-";0;0;"-";"-"\r\n`;
+      }
+      csv += "\r\n";
+
+      // BLOQUE 4: BALANCE FINANCIERO Y RECAUDACION CONSOLIDADA
+      csv += "--- BLOQUE 4: BALANCE FINANCIERO Y RECAUDACION CONSOLIDADA ---;;;;;;;;;\r\n";
+      csv += "CONCEPTO;;;;IMPORTE (S/);;;;\r\n";
+      csv += `Total Recaudado en Efectivo;;;;${totalEfectivo.toFixed(2)};;;;\r\n`;
+      csv += `Total Recaudado Digital (Yape / Plin / POS);;;;${totalDigital.toFixed(2)};;;;\r\n`;
+      csv += `Total Facturacion Bruta;;;;${totalRecaudado.toFixed(2)};;;;\r\n`;
+      csv += `Total Atenciones Registradas;;;;${atencionesRaw?.length || 0} pacientes;;;;\r\n`;
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `Control_Maestro_Las_Mellizas_${Date.now()}.csv`);
+      link.setAttribute("download", `Produccion_Ventas_Las_Mellizas_${Date.now()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (err: any) {
-      alert("Error al exportar reporte: " + (err?.message || err));
+      alert("Error al exportar reporte de produccion: " + (err?.message || err));
     }
   };
 
@@ -1151,15 +1251,6 @@ export default function SupervisionPage() {
               <span>+ Nuevo Servicio / Ecografía</span>
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleExportarGoogleSheets}
-            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-sm transition"
-            title="Exportar base consolidada a Google Sheets / Excel"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Exportar Sheets</span>
-          </button>
         </div>
       </div>
 
