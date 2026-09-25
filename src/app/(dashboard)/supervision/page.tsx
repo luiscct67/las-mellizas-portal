@@ -64,7 +64,7 @@ export interface ProductoInventario {
   presentacion: string;
   stock_actual: number;
   stock_minimo: number;
-  precio_costo: number;
+  costo_unitario: number;
   precio_venta: number;
   activo: boolean;
   created_at?: string;
@@ -75,13 +75,13 @@ export interface MovimientoInventario {
   id: string;
   producto_id: string;
   producto?: { nombre: string; codigo: string };
-  tipo_movimiento: "ENTRADA_COMPRA" | "SALIDA_VENTA" | "SALIDA_USO_CLINICO" | "SALIDA_MERMA" | "AJUSTE_INVENTARIO";
+  tipo: "ENTRADA" | "SALIDA_VENTA" | "SALIDA_USO_CLINICO" | "AJUSTE";
   cantidad: number;
   stock_anterior: number;
   stock_nuevo: number;
   motivo?: string;
   usuario_nombre?: string;
-  created_at: string;
+  fecha_hora: string;
 }
 
 export default function SupervisionPage() {
@@ -181,7 +181,7 @@ export default function SupervisionPage() {
   // Modal Ajuste / Movimiento Rápido de Stock
   const [showMovimientoModal, setShowMovimientoModal] = useState(false);
   const [productoParaMovimiento, setProductoParaMovimiento] = useState<ProductoInventario | null>(null);
-  const [movTipo, setMovTipo] = useState<"ENTRADA_COMPRA" | "AJUSTE_INVENTARIO" | "SALIDA_MERMA">("ENTRADA_COMPRA");
+  const [movTipo, setMovTipo] = useState<"ENTRADA" | "AJUSTE" | "SALIDA_USO_CLINICO">("ENTRADA");
   const [movCantidad, setMovCantidad] = useState<number>(1);
   const [movMotivo, setMovMotivo] = useState("");
   const [isSavingMovimiento, setIsSavingMovimiento] = useState(false);
@@ -376,19 +376,19 @@ export default function SupervisionPage() {
         .select(`
           id,
           producto_id,
-          tipo_movimiento,
+          tipo,
           cantidad,
           stock_anterior,
           stock_nuevo,
           motivo,
           usuario_nombre,
-          created_at,
+          fecha_hora,
           producto:producto_id (
             nombre,
             codigo
           )
         `)
-        .order("created_at", { ascending: false })
+        .order("fecha_hora", { ascending: false })
         .limit(50);
 
       if (!error && data) {
@@ -422,7 +422,7 @@ export default function SupervisionPage() {
     setProdPresentacion(p.presentacion);
     setProdStockActual(p.stock_actual);
     setProdStockMinimo(p.stock_minimo);
-    setProdPrecioCosto(p.precio_costo);
+    setProdPrecioCosto(p.costo_unitario);
     setProdPrecioVenta(p.precio_venta);
     setShowProductoModal(true);
   };
@@ -436,6 +436,7 @@ export default function SupervisionPage() {
     setIsSavingProducto(true);
     try {
       if (productoEditando) {
+        const stockActualNum = Number(prodStockActual);
         const { error } = await supabase
           .from("producto_inventario")
           .update({
@@ -443,14 +444,34 @@ export default function SupervisionPage() {
             nombre: prodNombre.trim(),
             categoria: prodCategoria,
             presentacion: prodPresentacion.trim(),
+            stock_actual: stockActualNum,
             stock_minimo: Number(prodStockMinimo),
-            precio_costo: Number(prodPrecioCosto),
+            costo_unitario: Number(prodPrecioCosto),
             precio_venta: Number(prodPrecioVenta),
             updated_at: new Date().toISOString(),
           })
           .eq("id", productoEditando.id);
 
         if (error) throw error;
+
+        // Registrar ajuste en kárdex si hubo variación de stock
+        const diff = stockActualNum - productoEditando.stock_actual;
+        if (diff !== 0) {
+          try {
+            await supabase.from("movimiento_inventario").insert({
+              producto_id: productoEditando.id,
+              tipo: "AJUSTE",
+              cantidad: Math.abs(diff),
+              stock_anterior: productoEditando.stock_actual,
+              stock_nuevo: stockActualNum,
+              motivo: `Ajuste en edición de catálogo (${diff > 0 ? "+" : ""}${diff} unds)`,
+              usuario_nombre: sessionStorage.getItem("lm_nombre") || "Administración General",
+              fecha_hora: new Date().toISOString(),
+            });
+          } catch (mErr) {
+            console.warn("Aviso: No se pudo registrar ajuste en movimiento_inventario:", mErr);
+          }
+        }
       } else {
         const { error } = await supabase
           .from("producto_inventario")
@@ -461,7 +482,7 @@ export default function SupervisionPage() {
             presentacion: prodPresentacion.trim(),
             stock_actual: Number(prodStockActual),
             stock_minimo: Number(prodStockMinimo),
-            precio_costo: Number(prodPrecioCosto),
+            costo_unitario: Number(prodPrecioCosto),
             precio_venta: Number(prodPrecioVenta),
             activo: true,
           });
@@ -480,7 +501,7 @@ export default function SupervisionPage() {
 
   const handleAbrirMovimiento = (p: ProductoInventario) => {
     setProductoParaMovimiento(p);
-    setMovTipo("ENTRADA_COMPRA");
+    setMovTipo("ENTRADA");
     setMovCantidad(1);
     setMovMotivo("");
     setShowMovimientoModal(true);
@@ -501,10 +522,10 @@ export default function SupervisionPage() {
 
       const { error } = await supabase.rpc("registrar_movimiento_inventario", {
         p_producto_id: productoParaMovimiento.id,
-        p_tipo_movimiento: movTipo,
+        p_tipo: movTipo,
         p_cantidad: Number(movCantidad),
         p_motivo: movMotivo.trim() || `Ajuste administrativo (${movTipo})`,
-        p_usuario_id: userAuth.user?.id || null,
+        p_site_id: null,
         p_usuario_nombre: currentUserName,
       });
 
@@ -1180,7 +1201,7 @@ export default function SupervisionPage() {
               <div>
                 <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Valor Costo Inventario</span>
                 <span className="text-xl font-black text-neutral-900">
-                  {formatCurrency(productosInventario.reduce((acc, p) => acc + (p.stock_actual * p.precio_costo), 0))}
+                  {formatCurrency(productosInventario.reduce((acc, p) => acc + (p.stock_actual * p.costo_unitario), 0))}
                 </span>
                 <span className="text-[10px] text-neutral-400 block mt-0.5">Inversión operativa en stock</span>
               </div>
@@ -1381,7 +1402,7 @@ export default function SupervisionPage() {
                                   {p.stock_minimo}
                                 </td>
                                 <td className="py-3.5 px-4 text-right font-mono text-xs text-neutral-600">
-                                  {formatCurrency(p.precio_costo)}
+                                  {formatCurrency(p.costo_unitario)}
                                 </td>
                                 <td className="py-3.5 px-4 text-right font-mono text-xs font-bold text-neutral-900">
                                   {formatCurrency(p.precio_venta)}
@@ -1461,19 +1482,19 @@ export default function SupervisionPage() {
                           <td className="py-3 px-4">
                             <span
                               className={`inline-flex items-center gap-1 font-bold text-[10px] px-2 py-0.5 rounded-full ${
-                                m.tipo_movimiento.startsWith("ENTRADA")
+                                m.tipo === "ENTRADA"
                                   ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                  : m.tipo_movimiento === "SALIDA_MERMA"
+                                  : m.tipo.startsWith("SALIDA")
                                   ? "bg-rose-100 text-rose-800 border border-rose-300"
                                   : "bg-blue-100 text-blue-800 border border-blue-300"
                               }`}
                             >
-                              {m.tipo_movimiento.startsWith("ENTRADA") ? (
+                              {m.tipo === "ENTRADA" ? (
                                 <ArrowDownRight className="w-3 h-3" />
                               ) : (
                                 <ArrowUpRight className="w-3 h-3" />
                               )}
-                              {m.tipo_movimiento}
+                              {m.tipo}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center font-mono font-bold text-neutral-900">
@@ -2332,21 +2353,18 @@ export default function SupervisionPage() {
               <div className="grid grid-cols-2 gap-2.5 bg-neutral-50 p-3 rounded-2xl border border-neutral-200">
                 <div>
                   <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                    {productoEditando ? "Stock Actual (Inalterable aquí)" : "Stock Inicial *"}
+                    Stock Actual *
                   </label>
                   <input
                     type="number"
                     min={0}
                     required
-                    disabled={Boolean(productoEditando)}
                     value={prodStockActual}
                     onChange={(e) => setProdStockActual(Number(e.target.value))}
-                    className={`w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold ${
-                      productoEditando ? "bg-neutral-100 text-neutral-500" : "bg-white"
-                    }`}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold bg-white focus:ring-2 focus:ring-brand-700"
                   />
                   {productoEditando && (
-                    <span className="text-[10px] text-neutral-400 block mt-0.5">Ajuste vía Kárdex</span>
+                    <span className="text-[10px] text-brand-600 font-semibold block mt-0.5">Permite corregir o actualizar stock directamente</span>
                   )}
                 </div>
 
@@ -2457,9 +2475,9 @@ export default function SupervisionPage() {
                   onChange={(e) => setMovTipo(e.target.value as any)}
                   className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs bg-white font-bold focus:ring-2 focus:ring-brand-700"
                 >
-                  <option value="ENTRADA_COMPRA">ENTRADA: Compra o Recepción de Proveedor (+)</option>
-                  <option value="AJUSTE_INVENTARIO">AJUSTE: Rectificación por Inventario Físico (+/-)</option>
-                  <option value="SALIDA_MERMA">SALIDA: Merma, Vencimiento o Deterioro (-)</option>
+                  <option value="ENTRADA">ENTRADA: Compra o Recepción de Proveedor (+)</option>
+                  <option value="AJUSTE">AJUSTE: Rectificación por Inventario Físico (+/-)</option>
+                  <option value="SALIDA_USO_CLINICO">SALIDA: Uso Clínico, Merma o Deterioro (-)</option>
                 </select>
               </div>
 
