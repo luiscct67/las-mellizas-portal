@@ -57,6 +57,7 @@ El presente directorio contiene únicamente los documentos normativos, arquitect
 | **`02_DESPLIEGUE_PIZARRA_LIMPIA_V2.sql`** | Script SQL maestro para la creación de la base de datos virgen desde cero ($0 costo). | Certificado |
 | **`03_MANUAL_OPERATIVO_PASO_A_PASO_RESETEO.md`** | Guía de ejecución minuto a minuto para reseteo y puesta en marcha del sábado 26. | Vigente |
 | **`04_GUIAS_RAPIDAS_OPERATIVAS_CLINICA_Y_CAJA.md`** | Manuales de bolsillo plastificados (One-Pagers) para cajeras, recepcionistas y obstetras. | Vigente |
+| **`05_SISTEMA_INTELIGENCIA_EMPRESARIAL_CENTINELA_AI.md`** | Torre de Control Proactiva: Alertas Push en WhatsApp, Margen Real por Pack y Briefing Diario con Gemini. | Vigente |
 
 ---
 
