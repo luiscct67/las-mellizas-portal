@@ -1461,7 +1461,16 @@ export default function AdmisionCajaPage() {
 
   const handleActualizarPagoFraccionado = (id: string, campos: Partial<PagoFraccionado>) => {
     setPagosFraccionados((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...campos } : p))
+      prev.map((p) => {
+        if (p.id === id) {
+          const updated = { ...p, ...campos };
+          if (campos.monto !== undefined && campos.montoEntregado === undefined) {
+            updated.montoEntregado = campos.monto;
+          }
+          return updated;
+        }
+        return p;
+      })
     );
   };
 
@@ -2939,10 +2948,15 @@ export default function AdmisionCajaPage() {
 
       // Formato oficial Microsoft Excel / Google Sheets con separador ';'
       let csv = "\uFEFFsep=;\r\n";
-      csv += "HORA;PACIENTE;DNI;SERVICIO / PACK;MONTO (S/);MEDIO DE PAGO;ESTADO CONSULTORIO;SEDE;CAJERO\r\n";
-      (pacientesTurno || []).forEach((p) => {
-        csv += `"${p.hora || ''}";"${p.paciente || ''}";"${p.dni || ''}";"${p.servicio || ''}";${(Number(p.monto) || 0).toFixed(2)};"${p.medioPago || ''}";"${p.estadoConsultorio || ''}";"${sedeNombre}";"${cajeroActual}"\r\n`;
-      });
+      csv += "HORA;PACIENTE;DNI;SERVICIO O PACK;MONTO (S/);MEDIO DE PAGO;ESTADO CONSULTORIO;SEDE;CAJERO\r\n";
+      const listaAtenciones = (transaccionesDelTurno && transaccionesDelTurno.length > 0) ? transaccionesDelTurno : (transacciones || []);
+      if (listaAtenciones.length > 0) {
+        listaAtenciones.forEach((p) => {
+          csv += `"${p.hora || ''}";"${p.paciente || ''}";"${p.dni || ''}";"${p.servicio || ''}";${(Number(p.monto) || 0).toFixed(2)};"${p.medioPago || ''}";"${p.estadoConsultorio || ''}";"${p.sede || sedeNombre}";"${cajeroActual}"\r\n`;
+        });
+      } else {
+        csv += `"${horaHoy}";"Sin atenciones en el turno activo";"-";"-";0.00;"-";"SIN MOVIMIENTOS";"${sedeNombre}";"${cajeroActual}"\r\n`;
+      }
 
       // Resumen Financiero estructurado al pie
       csv += "\r\n";
