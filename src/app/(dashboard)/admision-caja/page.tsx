@@ -2854,23 +2854,39 @@ export default function AdmisionCajaPage() {
     // Actualizar cierre en Supabase con condición atómica estado = ABIERTA (Prevención de condición de carrera)
     if (turnoActivo?.id && !turnoActivo.id.startsWith("TURNO-")) {
       try {
-        const { data: turnoActualizado, error: errorCierre } = await supabase
+        const payloadCierre: any = {
+          estado: "CERRADA",
+          fecha_cierre: now.toISOString(),
+          monto_cierre_efectivo_declarado: efectivoContado,
+          total_ingresos_efectivo: totalEfectivoCobros,
+          total_ingresos_digital: totalDigitalCobros,
+          total_egresos: totalEgresos,
+          efectivo_neto_esperado: efectivoNetoEsperado,
+          diferencia: diferencia,
+          observaciones: obsAuditadas,
+          hash_cierre: hashCierre,
+        };
+
+        let { data: turnoActualizado, error: errorCierre } = await supabase
           .from("caja_turno")
-          .update({
-            estado: "CERRADA",
-            fecha_cierre: now.toISOString(),
-            monto_cierre_efectivo_declarado: efectivoContado,
-            total_ingresos_efectivo: totalEfectivoCobros,
-            total_ingresos_digital: totalDigitalCobros,
-            total_egresos: totalEgresos,
-            efectivo_neto_esperado: efectivoNetoEsperado,
-            diferencia: diferencia,
-            observaciones: obsAuditadas,
-            hash_cierre: hashCierre,
-          })
+          .update(payloadCierre)
           .eq("id", turnoActivo.id)
           .eq("estado", "ABIERTA")
           .select();
+
+        // Resiliencia retrocompatible: si la base de datos de prueba aún no tiene la columna hash_cierre
+        if (errorCierre && errorCierre.message?.includes("hash_cierre")) {
+          delete payloadCierre.hash_cierre;
+          payloadCierre.observaciones = `${obsAuditadas ? obsAuditadas + " | " : ""}[HASH_SHA256:${hashCierre.slice(0, 16)}...]`;
+          const reintento = await supabase
+            .from("caja_turno")
+            .update(payloadCierre)
+            .eq("id", turnoActivo.id)
+            .eq("estado", "ABIERTA")
+            .select();
+          turnoActualizado = reintento.data;
+          errorCierre = reintento.error;
+        }
 
         if (errorCierre) {
           console.error("Error al persistir cierre de turno en Supabase:", errorCierre);
