@@ -230,22 +230,27 @@ export default function SupervisionPage() {
       // BLOQUE 1: SEMÁFORO DE KÁRDEX & STOCK EN VIVO
       csv += "--- BLOQUE 1: SEMÁFORO DE KÁRDEX & STOCK EN VIVO ---\n";
       csv += "CÓDIGO,PRODUCTO / MEDICAMENTO,CATEGORÍA,PRESENTACIÓN,STOCK ACTUAL,STOCK MÍNIMO,COSTO UNITARIO (S/),PRECIO VENTA (S/),VALOR TOTAL (S/),ESTADO ALERTA\n";
-      productosInventario.forEach((p) => {
-        const estado = p.stock_actual === 0 ? "CRÍTICO - AGOTADO" : p.stock_actual <= p.stock_minimo ? "ALERTA - REPOSICIÓN" : "ÓPTIMO";
-        const valorTotal = (p.stock_actual * p.costo_unitario).toFixed(2);
-        csv += `"${p.codigo}","${p.nombre}","${p.categoria}","${p.presentacion}",${p.stock_actual},${p.stock_minimo},${p.costo_unitario.toFixed(2)},${p.precio_venta.toFixed(2)},${valorTotal},"${estado}"\n`;
+      (productosInventario || []).forEach((p) => {
+        const stockAct = Number(p.stock_actual) || 0;
+        const stockMin = Number(p.stock_minimo) || 0;
+        const costoUnit = Number(p.costo_unitario) || 0;
+        const precioVta = Number(p.precio_venta) || 0;
+        const estado = stockAct === 0 ? "CRÍTICO - AGOTADO" : stockAct <= stockMin ? "ALERTA - REPOSICIÓN" : "ÓPTIMO";
+        const valorTotal = (stockAct * costoUnit).toFixed(2);
+        csv += `"${p.codigo || ''}","${p.nombre || ''}","${p.categoria || ''}","${p.presentacion || ''}",${stockAct},${stockMin},${costoUnit.toFixed(2)},${precioVta.toFixed(2)},${valorTotal},"${estado}"\n`;
       });
       csv += "\n";
 
       // BLOQUE 2: CATÁLOGO DE PACKS, OFERTAS Y MARGEN NETO ESTIMADO
-      csv += "--- BLOQUE 2: CATÁLOGO DE PACKS, OFERTAS Y MARGEN NETO ESTIMADO ---\n";
-      csv += "CÓDIGO,SERVICIO / PACK PROMOCIONAL,CATEGORÍA,PRECIO OFICIAL (S/),COSTO ESTIMADO INSUMOS (S/),MARGEN NETO ESTIMADO (S/),MARGEN (%)\n";
-      const listaPacks = packsPromocionales.length > 0 ? packsPromocionales : serviciosCustom.slice(0, 15);
+      csv += "--- BLOQUE 2: CATÁLOGO DE PACKS, OFERTAS Y MARGEN NETO REAL ---\n";
+      csv += "CÓDIGO,SERVICIO / PACK PROMOCIONAL,CATEGORÍA,PRECIO OFICIAL (S/),COSTO OPERATIVO INSUMOS (S/),MARGEN NETO (S/),MARGEN (%)\n";
+      const listaPacks = (packsPromocionales && packsPromocionales.length > 0) ? packsPromocionales : (serviciosCustom || []).slice(0, 15);
       listaPacks.forEach((s) => {
-        const costoEstimado = Number((s.precio * 0.14).toFixed(2));
-        const margenNeto = Number((s.precio - costoEstimado).toFixed(2));
-        const margenPct = s.precio > 0 ? ((margenNeto / s.precio) * 100).toFixed(1) : "0.0";
-        csv += `"${s.id}","${s.nombre}","${s.categoria}",${s.precio.toFixed(2)},${costoEstimado.toFixed(2)},${margenNeto.toFixed(2)},"${margenPct}%"\n`;
+        const precioNum = Number(s.precio_venta) || 0;
+        const costoNum = Number(s.costo_operativo) || 0;
+        const margenNeto = Number((precioNum - costoNum).toFixed(2));
+        const margenPct = precioNum > 0 ? ((margenNeto / precioNum) * 100).toFixed(1) : "0.0";
+        csv += `"${s.codigo || s.id || ''}","${s.nombre || ''}","${s.categoria || ''}",${precioNum.toFixed(2)},${costoNum.toFixed(2)},${margenNeto.toFixed(2)},"${margenPct}%"\n`;
       });
       csv += "\n";
 
@@ -3112,16 +3117,17 @@ export default function SupervisionPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 font-mono">
-                    {(packsPromocionales.length > 0 ? packsPromocionales : serviciosCustom.slice(0, 15)).map((s) => {
-                      const costoEstimado = Number((s.precio * 0.14).toFixed(2));
-                      const margenNeto = Number((s.precio - costoEstimado).toFixed(2));
-                      const margenPct = s.precio > 0 ? ((margenNeto / s.precio) * 100).toFixed(1) : "0.0";
+                    {(packsPromocionales && packsPromocionales.length > 0 ? packsPromocionales : (serviciosCustom || []).slice(0, 15)).map((s) => {
+                      const precioNum = Number(s.precio_venta) || 0;
+                      const costoNum = Number(s.costo_operativo) || 0;
+                      const margenNeto = Number((precioNum - costoNum).toFixed(2));
+                      const margenPct = precioNum > 0 ? ((margenNeto / precioNum) * 100).toFixed(1) : "0.0";
                       return (
-                        <tr key={s.id} className="hover:bg-neutral-50/80 transition">
+                        <tr key={s.id || s.codigo} className="hover:bg-neutral-50/80 transition">
                           <td className="py-2.5 px-3 font-sans font-bold text-neutral-900">{s.nombre}</td>
                           <td className="py-2.5 px-3 font-sans text-neutral-500 text-[11px]">{s.categoria}</td>
-                          <td className="py-2.5 px-3 text-right font-bold text-neutral-900">{formatCurrency(s.precio)}</td>
-                          <td className="py-2.5 px-3 text-right text-rose-600">{formatCurrency(costoEstimado)}</td>
+                          <td className="py-2.5 px-3 text-right font-bold text-neutral-900">{formatCurrency(precioNum)}</td>
+                          <td className="py-2.5 px-3 text-right text-rose-600 font-bold">{formatCurrency(costoNum)}</td>
                           <td className="py-2.5 px-3 text-right font-bold text-emerald-700">{formatCurrency(margenNeto)}</td>
                           <td className="py-2.5 px-3 text-center">
                             <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
