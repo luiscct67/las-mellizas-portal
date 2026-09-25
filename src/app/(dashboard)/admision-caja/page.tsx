@@ -2283,22 +2283,24 @@ export default function AdmisionCajaPage() {
     try {
       const sheetsWebhook = typeof window !== "undefined" ? localStorage.getItem("lm_sheets_webhook_url") : null;
       if (sheetsWebhook && sheetsWebhook.startsWith("http")) {
-        fetch(sheetsWebhook, {
+        fetch("/api/sheets-proxy", {
           method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fecha: new Date().toLocaleDateString("es-PE"),
-            hora: horaStr,
-            sede: normalizarSede(sede),
-            paciente: `${nombres.trim()} ${apellidos.trim()}`,
-            dni: dni.trim(),
-            telefono: telefono.trim(),
-            servicio: resumenServicios,
-            monto: montoTotalCarrito,
-            medioPago: medioPagoDesc,
-            cajero: cajeroNombre || "Cajero Ventanilla",
-            estado: "COBRADO_EN_ESPERA",
+            webhookUrl: sheetsWebhook,
+            payload: {
+              fecha: new Date().toLocaleDateString("es-PE"),
+              hora: horaStr,
+              sede: normalizarSede(sede),
+              paciente: `${nombres.trim()} ${apellidos.trim()}`,
+              dni: dni.trim(),
+              telefono: telefono.trim(),
+              servicio: resumenServicios,
+              monto: montoTotalCarrito,
+              medioPago: medioPagoDesc,
+              cajero: cajeroNombre || "Cajero Ventanilla",
+              estado: "COBRADO_EN_ESPERA",
+            },
           }),
         }).catch((wErr) => console.warn("Aviso Sheets Webhook:", wErr));
       }

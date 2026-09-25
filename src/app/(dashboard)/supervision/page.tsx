@@ -357,25 +357,28 @@ export default function SupervisionPage() {
             const ord = item.orden_pago?.[0];
             const pagosList: any[] = Array.isArray(ord?.pago) ? ord.pago : (ord?.pago ? [ord.pago] : []);
             const mediosStr = pagosList.map((p: any) => p.medio_pago).join(" + ") || "EFECTIVO";
-            await fetch(webhookUrl, {
+            const pRes = await fetch("/api/sheets-proxy", {
               method: "POST",
-              mode: "no-cors",
-              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                fecha: f.toLocaleDateString("es-PE"),
-                hora: f.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
-                sede: item.site?.nombre || "Independencia",
-                paciente: `${item.paciente?.nombres || ''} ${item.paciente?.apellidos || ''}`.trim() || "Paciente Registrado",
-                dni: item.paciente?.dni || "-",
-                telefono: item.paciente?.telefono || "-",
-                servicio: item.servicio_solicitado || "Atención Clínica",
-                monto: ord?.monto ? Number(ord.monto) : 0,
-                medioPago: mediosStr,
-                cajero: "Caja de Turno",
-                estado: item.estado || "ATENDIDO",
+                webhookUrl,
+                payload: {
+                  fecha: f.toLocaleDateString("es-PE"),
+                  hora: f.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" }),
+                  sede: item.site?.nombre || "Independencia",
+                  paciente: `${item.paciente?.nombres || ''} ${item.paciente?.apellidos || ''}`.trim() || "Paciente Registrado",
+                  dni: item.paciente?.dni || "-",
+                  telefono: item.paciente?.telefono || "-",
+                  servicio: item.servicio_solicitado || "Atención Clínica",
+                  monto: ord?.monto ? Number(ord.monto) : 0,
+                  medioPago: mediosStr,
+                  cajero: "Caja de Turno",
+                  estado: item.estado || "ATENDIDO",
+                },
               }),
             });
-            totalEnviadosWebhook++;
+            const pData = await pRes.json();
+            if (pData.ok) totalEnviadosWebhook++;
           } catch (wErr) {
             console.warn("Aviso al enviar lote a Sheets:", wErr);
           }
@@ -3642,26 +3645,41 @@ _${recomendacionTactica}_
                   if (!webhookUrlInput.trim()) return;
                   setIsTestingWebhook(true);
                   try {
-                    await fetch(webhookUrlInput.trim(), {
+                    let urlToSend = webhookUrlInput.trim();
+                    if (!urlToSend.endsWith("/exec") && !urlToSend.includes("/exec")) {
+                      urlToSend = urlToSend.replace(/\/+$/, "") + "/exec";
+                    }
+
+                    const res = await fetch("/api/sheets-proxy", {
                       method: "POST",
-                      mode: "no-cors",
-                      headers: { "Content-Type": "text/plain;charset=utf-8" },
+                      headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        fecha: new Date().toLocaleDateString("es-PE"),
-                        hora: new Date().toLocaleTimeString("es-PE"),
-                        sede: "Independencia",
-                        paciente: "VERIFICACION EN VIVO (DIRECCION GENERAL)",
-                        dni: "00000000",
-                        telefono: "966840077",
-                        servicio: "Prueba de Enlace Google Sheets",
-                        monto: 1.0,
-                        medioPago: "EFECTIVO",
-                        cajero: "Direccion General",
-                        estado: "COMPROBADO",
+                        webhookUrl: urlToSend,
+                        payload: {
+                          fecha: new Date().toLocaleDateString("es-PE"),
+                          hora: new Date().toLocaleTimeString("es-PE"),
+                          sede: "Independencia",
+                          paciente: "VERIFICACION EN VIVO (DIRECCION GENERAL)",
+                          dni: "00000000",
+                          telefono: "966840077",
+                          servicio: "Prueba de Enlace Google Sheets",
+                          monto: 1.0,
+                          medioPago: "EFECTIVO",
+                          cajero: "Direccion General",
+                          estado: "COMPROBADO",
+                        },
                       }),
                     });
-                    localStorage.setItem("lm_sheets_webhook_url", webhookUrlInput.trim());
-                    alert("✅ Fila de prueba transmitida con éxito.\n\nAbra su documento de Google Sheets en Google Drive ahora mismo: verá aparecer la fila de verificación con fecha y hora actual.");
+
+                    const data = await res.json();
+                    if (!data.ok) {
+                      alert(`❌ No se pudo conectar con Google Sheets:\n\n${data.error}`);
+                      return;
+                    }
+
+                    localStorage.setItem("lm_sheets_webhook_url", urlToSend);
+                    setWebhookUrlInput(urlToSend);
+                    alert("✅ ¡Conexión con Google Sheets verificada con éxito!\n\nSe insertó la fila de prueba en su documento oficial de Google Drive.");
                   } catch (err: any) {
                     alert("Error al enviar señal de prueba: " + (err?.message || err));
                   } finally {
