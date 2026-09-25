@@ -488,6 +488,18 @@ export default function SupervisionPage() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      if (totalEnviadosWebhook > 0) {
+        alert(
+          `✅ Sincronización Exitosa con Google Drive:\n\n• ${totalEnviadosWebhook} atenciones enviadas directamente a su hoja de Google Sheets.\n• Se guardó un archivo CSV de respaldo en este equipo.`
+        );
+      } else if (!webhookUrl) {
+        alert(
+          `ℹ️ Respaldo descargado en archivo CSV.\n\nPara subir directamente a su hoja de Google Drive en tiempo real, guarde la URL de Google Apps Script en el botón "🔗 Webhook" de esta Torre de Control.`
+        );
+      } else {
+        alert(`✅ Respaldo de producción y ventas descargado exitosamente.`);
+      }
     } catch (err: any) {
       alert("Error al exportar reporte de produccion: " + (err?.message || err));
     }

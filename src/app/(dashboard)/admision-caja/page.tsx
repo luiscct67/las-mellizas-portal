@@ -40,6 +40,7 @@ import {
   Phone,
   UserPlus,
   Stethoscope,
+  Download,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/lib/supabase/client";
@@ -420,6 +421,37 @@ export default function AdmisionCajaPage() {
   const [apellidos, setApellidos] = useState("");
   const [telefono, setTelefono] = useState("");
   const [estadoBusquedaDni, setEstadoBusquedaDni] = useState<"ENCONTRADO" | "NUEVO" | null>(null);
+
+  // Manejo estricto de números celulares peruanos (9 dígitos, inicia con 9, solo dígitos)
+  const handleTelefonoInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value;
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("51") && digits.length > 9) {
+      digits = digits.slice(2);
+    }
+    if (digits.startsWith("0")) {
+      digits = digits.replace(/^0+/, "");
+    }
+    if (digits.length > 0 && !digits.startsWith("9")) {
+      return;
+    }
+    setTelefono(digits.slice(0, 9));
+  };
+
+  const handleReagendarTelefonoInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value;
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("51") && digits.length > 9) {
+      digits = digits.slice(2);
+    }
+    if (digits.startsWith("0")) {
+      digits = digits.replace(/^0+/, "");
+    }
+    if (digits.length > 0 && !digits.startsWith("9")) {
+      return;
+    }
+    setReagendarTelefono(digits.slice(0, 9));
+  };
 
   // Carrito de Consumo (Servicios, Procedimientos, Packs, Insumos) - Inicia limpio
   const [itemsCarrito, setItemsCarrito] = useState<ItemCarrito[]>([]);
@@ -2017,6 +2049,14 @@ export default function AdmisionCajaPage() {
       return;
     }
 
+    const cleanTel = telefono.replace(/\D/g, "");
+    if (!cleanTel || cleanTel.length !== 9 || !cleanTel.startsWith("9")) {
+      alert(
+        "⚠️ Número de celular obligatorio o inválido:\n\nDebe ingresar un número de celular de 9 dígitos que comience con 9 (ejemplo: 987654321).\n\nEs indispensable para el envío seguro de comprobantes y resultados ecográficos por WhatsApp institucional."
+      );
+      return;
+    }
+
     if (itemsCarrito.length === 0) {
       alert("El carrito está vacío. Agregue al menos un servicio o producto antes de cobrar.");
       return;
@@ -2296,51 +2336,48 @@ export default function AdmisionCajaPage() {
     setServicioPersonalizadoPrecio("");
   };
 
-  // Exportación segura de libro de recaudación (Ley N.° 29733 - Minimización de datos)
-  const handleExportarLibroCaja = () => {
+  // Exportación segura de libro de egresos del turno a CSV local (Ley N.° 29733)
+  const handleExportarEgresosCsv = () => {
     if (!esAdminOSupervisor) {
-      alert("Acceso restringido: Solo Dirección Médica y Supervisión pueden exportar datos masivos.");
+      alert("Acceso restringido: Solo Dirección Médica y Supervisión pueden exportar datos.");
       return;
     }
-    if (transacciones.length === 0) {
-      alert("No hay atenciones registradas para exportar en esta jornada.");
+    if (egresos.length === 0) {
+      alert("No hay egresos registrados en este turno activo para descargar.");
       return;
     }
 
-    // Cabeceras estrictamente administrativas/financieras (CERO notas clínicas ni diagnósticos)
     const cabeceras = [
       "ID Operacion",
       "Hora",
       "Sede",
-      "DNI",
-      "Paciente",
-      "Servicio Solicitado",
+      "Tipo de Egreso",
+      "Concepto / Justificacion",
       "Monto (S/)",
-      "Medio de Pago",
-      "Referencia",
-      "Estado Consultorio",
+      "Destinatario / Beneficiario",
+      "Aprobado Por",
+      "Comprobante Ref",
     ];
 
-    const filas = transacciones.map((t) => [
-      `"${t.id}"`,
-      `"${t.hora}"`,
-      `"${t.sede}"`,
-      `"${t.dni}"`,
-      `"${t.paciente.replace(/"/g, '""')}"`,
-      `"${t.servicio.replace(/"/g, '""')}"`,
-      t.monto.toFixed(2),
-      `"${t.medioPago}"`,
-      `"${(t.referencia || "").replace(/"/g, '""')}"`,
-      `"${t.estadoConsultorio}"`,
+    const filas = egresos.map((eg) => [
+      `"${eg.id}"`,
+      `"${eg.hora}"`,
+      `"${normalizarSede(sede)}"`,
+      `"${eg.tipo}"`,
+      `"${eg.concepto.replace(/"/g, '""')}"`,
+      Number(eg.monto).toFixed(2),
+      `"${eg.destinatario.replace(/"/g, '""')}"`,
+      `"${eg.aprobadoPor.replace(/"/g, '""')}"`,
+      `"${(eg.comprobanteRef || "-").replace(/"/g, '""')}"`,
     ]);
 
-    const csvContent = "\uFEFF" + [cabeceras.join(","), ...filas.map((f) => f.join(","))].join("\r\n");
+    const csvContent = "\uFEFFsep=;\r\n" + [cabeceras.join(";"), ...filas.map((f) => f.join(";"))].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const fechaHoy = new Date().toISOString().slice(0, 10);
     link.setAttribute("href", url);
-    link.setAttribute("download", `las_mellizas_recaudacion_${sede.toLowerCase()}_${fechaHoy}.csv`);
+    link.setAttribute("download", `las_mellizas_egresos_${sede.toLowerCase()}_${fechaHoy}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -2441,6 +2478,12 @@ export default function AdmisionCajaPage() {
     const pacienteNom = reagendarPaciente.trim() || (nombres ? `${nombres} ${apellidos}`.trim() : "");
     if (!pacienteNom) {
       alert("Por favor ingrese el nombre de la paciente.");
+      return;
+    }
+
+    const telLimpio = (reagendarTelefono || telefono).replace(/\D/g, "");
+    if (telLimpio && (telLimpio.length !== 9 || !telLimpio.startsWith("9"))) {
+      alert("⚠️ Celular inválido: Debe tener 9 dígitos y comenzar con 9 (ejemplo: 987654321).");
       return;
     }
 
@@ -3147,16 +3190,64 @@ export default function AdmisionCajaPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider mb-1">
-                    Teléfono / WhatsApp de Contacto
-                  </label>
-                  <input
-                    type="text"
-                    value={telefono}
-                    onChange={(e) => setTelefono(e.target.value)}
-                    placeholder="999 000 111"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-neutral-300 text-xs focus:outline-none focus:ring-2 focus:ring-brand-700"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-extrabold text-neutral-600 uppercase tracking-wider">
+                      Teléfono / WhatsApp de Contacto *
+                    </label>
+                    <span className="text-[10px] font-mono font-bold text-neutral-400">
+                      {telefono.length}/9 dígitos
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500 font-bold text-xs select-none">
+                      🇵🇪 +51
+                    </div>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={9}
+                      value={telefono}
+                      onChange={handleTelefonoInputChange}
+                      placeholder="9XXXXXXXX"
+                      className={`w-full pl-16 pr-9 py-2.5 rounded-xl border text-xs font-mono font-bold focus:outline-none transition ${
+                        telefono.length === 9 && telefono.startsWith("9")
+                          ? "border-emerald-500 bg-emerald-50/40 text-emerald-950 focus:ring-2 focus:ring-emerald-500"
+                          : telefono.length > 0
+                          ? "border-amber-400 bg-amber-50/30 text-amber-950 focus:ring-2 focus:ring-amber-500"
+                          : "border-neutral-300 focus:ring-2 focus:ring-brand-700"
+                      }`}
+                    />
+                    {telefono.length === 9 && telefono.startsWith("9") && (
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-emerald-600">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                    )}
+                  </div>
+                  {/* Indicador de validación de celular peruano */}
+                  <div className="mt-1">
+                    {telefono.length === 0 ? (
+                      <p className="text-[10px] text-neutral-400 flex items-center gap-1 font-medium">
+                        <Phone className="w-3 h-3 text-neutral-400 shrink-0" />
+                        Celular peruano de 9 dígitos (debe iniciar con 9 para reportes WhatsApp).
+                      </p>
+                    ) : telefono.length < 9 ? (
+                      <p className="text-[10px] text-amber-700 font-bold flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                        Incompleto: faltan {9 - telefono.length} dígitos para completar los 9.
+                      </p>
+                    ) : telefono.startsWith("9") ? (
+                      <p className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                        Celular válido (+51 {telefono}) &bull; Notificaciones y ecografías habilitadas.
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-rose-600 font-bold flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                        En Perú los celulares deben iniciar obligatoriamente con el dígito 9.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -4309,17 +4400,35 @@ export default function AdmisionCajaPage() {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                        Teléfono / WhatsApp (9 Dígitos) *
-                      </label>
-                      <input
-                        type="tel"
-                        maxLength={9}
-                        value={reagendarTelefono}
-                        onChange={(e) => setReagendarTelefono(e.target.value)}
-                        placeholder="987654321"
-                        className="w-full px-3 py-2 rounded-xl border border-neutral-300 text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-600 bg-white"
-                      />
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-neutral-700">
+                          Teléfono / WhatsApp (9 Dígitos) *
+                        </label>
+                        <span className="text-[10px] font-mono font-bold text-neutral-400">
+                          {reagendarTelefono.length}/9
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-neutral-500 font-bold text-xs select-none">
+                          🇵🇪 +51
+                        </div>
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={9}
+                          value={reagendarTelefono}
+                          onChange={handleReagendarTelefonoInputChange}
+                          placeholder="9XXXXXXXX"
+                          className={`w-full pl-14 pr-3 py-2 rounded-xl border text-xs font-mono font-bold focus:outline-none transition ${
+                            reagendarTelefono.length === 9 && reagendarTelefono.startsWith("9")
+                              ? "border-emerald-500 bg-emerald-50/40 text-emerald-950 focus:ring-2 focus:ring-emerald-600"
+                              : reagendarTelefono.length > 0
+                              ? "border-amber-400 bg-amber-50/30 text-amber-950 focus:ring-2 focus:ring-amber-500"
+                              : "border-neutral-300 focus:ring-2 focus:ring-emerald-600 bg-white"
+                          }`}
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -4492,15 +4601,6 @@ export default function AdmisionCajaPage() {
                 <Lock className="w-3.5 h-3.5" />
                 <span>Ejecutar Arqueo de Caja</span>
               </button>
-              <button
-                type="button"
-                onClick={handleExportarTurnoGoogleSheets}
-                className="w-full py-2 bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer"
-                title="Exportar turno de caja a Google Sheets / Excel"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Sincronizar / Exportar a Google Sheets</span>
-              </button>
             </div>
           </div>
 
@@ -4558,12 +4658,12 @@ export default function AdmisionCajaPage() {
                 {esAdminOSupervisor && (
                   <button
                     type="button"
-                    onClick={handleExportarLibroCaja}
-                    title="Exportar Registro a CSV para Google Drive"
-                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-xl border border-emerald-200 transition flex items-center gap-1 shadow-xs"
+                    onClick={handleExportarEgresosCsv}
+                    title="Descargar libro de egresos en CSV / Excel local"
+                    className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-[10px] rounded-xl border border-neutral-300 transition flex items-center gap-1 shadow-xs cursor-pointer"
                   >
-                    <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
-                    <span>Exportar Drive</span>
+                    <Download className="w-3 h-3 text-neutral-700" />
+                    <span>Descargar CSV Egresos</span>
                   </button>
                 )}
               </div>
