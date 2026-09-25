@@ -2902,6 +2902,57 @@ export default function AdmisionCajaPage() {
     return vueltoEfectivo;
   };
 
+  const handleExportarTurnoGoogleSheets = () => {
+    try {
+      const now = new Date();
+      const fechaHoy = now.toLocaleDateString("es-PE", { year: "numeric", month: "2-digit", day: "2-digit" });
+      const horaHoy = now.toLocaleTimeString("es-PE");
+      const cajeroActual = sessionStorage.getItem("lm_nombre") || "Cajero de Turno";
+
+      let csv = "\uFEFF"; // UTF-8 BOM
+      csv += "=========================================================================================\n";
+      csv += "REPORTE DE TURNO DE CAJA — CONSULTORIO LAS MELLIZAS PERÚ S.A.C. (RUC 20611827335)\n";
+      csv += `Fecha de Emisión: ${fechaHoy} ${horaHoy} | Sede: ${sedeActual} | Responsable: ${cajeroActual}\n`;
+      csv += "Notificaciones Oficiales: lasmellizaspe@gmail.com | Celular Dirección: 966840077\n";
+      csv += "=========================================================================================\n\n";
+
+      // 1. Resumen Financiero
+      csv += "--- 1. RESUMEN FINANCIERO DEL TURNO ---\n";
+      csv += `Fondo Inicial de Apertura,S/ ${fondoApertura.toFixed(2)}\n`;
+      csv += `Total Cobrado en Efectivo,S/ ${totalEfectivoCobros.toFixed(2)}\n`;
+      csv += `Egresos de Caja Chica,S/ ${totalEgresosTurno.toFixed(2)}\n`;
+      csv += `Efectivo Neto Esperado a Rendir,S/ ${efectivoNetoEsperado.toFixed(2)}\n`;
+      csv += `Cobros Digitales (Yape / Plin / POS),S/ ${totalDigitalCobros.toFixed(2)}\n`;
+      csv += `Facturación Bruta de la Jornada,S/ ${totalFacturadoBruto.toFixed(2)}\n\n`;
+
+      // 2. Detalle de Pacientes y Atenciones
+      csv += "--- 2. DETALLE DE ATENCIONES Y COMPROBANTES ---\n";
+      csv += "HORA,PACIENTE,DNI,SERVICIO / PACK,MONTO (S/),MEDIO DE PAGO,ESTADO CONSULTORIO\n";
+      pacientesTurno.forEach((p) => {
+        csv += `"${p.hora}","${p.paciente}","${p.dni}","${p.servicio}",${p.monto.toFixed(2)},"${p.medioPago}","${p.estadoConsultorio}"\n`;
+      });
+      csv += "\n";
+
+      // 3. Egresos de Caja Chica
+      csv += "--- 3. EGRESOS Y GASTOS AUTORIZADOS ---\n";
+      csv += "ID,HORA,RESPONSABLE,MONTO (S/),MOTIVO\n";
+      egresos.forEach((eg) => {
+        csv += `"${eg.id}","${eg.hora}","${eg.autorizadoPor}",${eg.monto.toFixed(2)},"${eg.motivo.replace(/"/g, '""')}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Caja_Turno_Las_Mellizas_${sedeActual}_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert("Error al exportar reporte de caja: " + err);
+    }
+  };
+
   return (
     <div className="space-y-6">
 
@@ -4375,17 +4426,26 @@ export default function AdmisionCajaPage() {
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-white/10 flex gap-2">
+            <div className="mt-4 pt-3 border-t border-white/10 flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setEfectivoContado(efectivoNetoEsperado);
                   setShowCierreModal(true);
                 }}
-                className="w-full py-2.5 bg-white hover:bg-brand-50 text-brand-900 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 bg-white hover:bg-brand-50 text-brand-900 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Ejecutar Arqueo de Caja</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExportarTurnoGoogleSheets}
+                className="w-full py-2 bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Exportar turno de caja a Google Sheets / Excel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Sincronizar / Exportar a Google Sheets</span>
               </button>
             </div>
           </div>
