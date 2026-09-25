@@ -226,13 +226,13 @@ export const DIAGNOSTICOS_RAPIDOS_LAS_MELLIZAS = [
   { codigo: "Z34.9", nombre: "Embarazo normal en útero", cat: "Obstetricia", badge: "bg-emerald-50 text-emerald-800 border-emerald-300" },
   { codigo: "N91.2", nombre: "Menstruación / Retraso menstrual", cat: "Menstruación", badge: "bg-rose-50 text-rose-800 border-rose-300" },
   { codigo: "N92.6", nombre: "Disfunción menstrual / Metrorragia", cat: "Menstruación", badge: "bg-pink-50 text-pink-800 border-pink-300" },
-  { codigo: "N76.0", nombre: "Vaginosis bacteriana / Vaginitis", cat: "Ginecología", badge: "bg-purple-50 text-purple-800 border-purple-300" },
+  { codigo: "N76.0", nombre: "Vaginosis bacteriana / Vaginitis", cat: "Obstetricia / Flujos", badge: "bg-purple-50 text-purple-800 border-purple-300" },
   { codigo: "O20.0", nombre: "Amenaza de aborto", cat: "Obstetricia", badge: "bg-amber-50 text-amber-900 border-amber-300" },
   { codigo: "N39.0", nombre: "Infección urinaria (ITU)", cat: "Urología", badge: "bg-sky-50 text-sky-800 border-sky-300" },
-  { codigo: "N73.9", nombre: "Enfermedad Pélvica Inflamatoria (EPI)", cat: "Ginecología", badge: "bg-indigo-50 text-indigo-800 border-indigo-300" },
+  { codigo: "N73.9", nombre: "Enfermedad Pélvica Inflamatoria (EPI)", cat: "Obstetricia / Pélvica", badge: "bg-indigo-50 text-indigo-800 border-indigo-300" },
   { codigo: "Z30.0", nombre: "Orientación en Planificación Familiar", cat: "Anticoncepción", badge: "bg-blue-50 text-blue-800 border-blue-300" },
   { codigo: "Z97.5", nombre: "Control de DIU in situ", cat: "Anticoncepción", badge: "bg-cyan-50 text-cyan-800 border-cyan-300" },
-  { codigo: "N72", nombre: "Cervicitis / Ectropión cervical", cat: "Ginecología", badge: "bg-fuchsia-50 text-fuchsia-800 border-fuchsia-300" },
+  { codigo: "N72", nombre: "Cervicitis / Ectropión cervical", cat: "Salud Reproductiva", badge: "bg-fuchsia-50 text-fuchsia-800 border-fuchsia-300" },
   { codigo: "O00.9", nombre: "Sospecha de Embarazo Ectópico", cat: "Urgencias", badge: "bg-red-50 text-red-800 border-red-300" },
   { codigo: "O02.1", nombre: "Aborto Frustro / Retenido", cat: "Urgencias", badge: "bg-red-50 text-red-800 border-red-300" },
 ];
@@ -520,7 +520,51 @@ export default function HcePage() {
   const [grupoRh, setGrupoRh] = useState("");
   const [alergiasSeleccionadas, setAlergiasSeleccionadas] = useState<string[]>(["Ninguna"]);
 
-  // Examen Ginecológico Visual (Espéculo y Tacto)
+  // Filiación de Ficha Física Las Mellizas & Antecedentes Familiares
+  const [pacienteOcupacion, setPacienteOcupacion] = useState("");
+  const [pacienteGradoInstruccion, setPacienteGradoInstruccion] = useState("");
+  const [pacienteEstadoCivil, setPacienteEstadoCivil] = useState("");
+  const [pacienteAcompanante, setPacienteAcompanante] = useState("");
+  const [antecedentesFamiliares, setAntecedentesFamiliares] = useState<string[]>([]);
+  const [antecedentesFamiliaresDetalle, setAntecedentesFamiliaresDetalle] = useState("");
+
+  // Submódulo de Planificación Familiar (MAC - Anticoncepción Integral)
+  const [pfCondicionUsuaria, setPfCondicionUsuaria] = useState("");
+  const [pfMetodoElegido, setPfMetodoElegido] = useState("");
+  const [pfFechaAplicacion, setPfFechaAplicacion] = useState("");
+  const [pfProximaCita, setPfProximaCita] = useState("");
+  const [pfConsejeriaBrindada, setPfConsejeriaBrindada] = useState(true);
+  const [pfConsentimientoAceptado, setPfConsentimientoAceptado] = useState(true);
+  const [pfObservaciones, setPfObservaciones] = useState("");
+
+  // Click & Mark para Ecografía Obstétrica Fetal
+  const [ecoObstFeto, setEcoObstFeto] = useState("Único");
+  const [ecoObstVitalidad, setEcoObstVitalidad] = useState("Activa");
+  const [ecoObstSituacion, setEcoObstSituacion] = useState("Longitudinal");
+  const [ecoObstPresentacion, setEcoObstPresentacion] = useState("Cefálica");
+  const [ecoObstDorso, setEcoObstDorso] = useState("Izquierdo");
+  const [ecoObstPlacentaLoc, setEcoObstPlacentaLoc] = useState("Fúndica posterior");
+  const [ecoObstPlacentaGrado, setEcoObstPlacentaGrado] = useState("Grado I");
+  const [ecoObstLiquidoVol, setEcoObstLiquidoVol] = useState("Normal");
+
+  // Click & Mark para Ecografía Transvaginal
+  const [ecoTvUteroPos, setEcoTvUteroPos] = useState("AVF");
+  const [ecoTvMiometrio, setEcoTvMiometrio] = useState("Homogéneo");
+  const [ecoTvEndometrioFase, setEcoTvEndometrioFase] = useState("Proliferativo trilaminar");
+  const [ecoTvOvarioDerPatron, setEcoTvOvarioDerPatron] = useState("Normal");
+  const [ecoTvOvarioIzqPatron, setEcoTvOvarioIzqPatron] = useState("Normal");
+  const [ecoTvDouglas, setEcoTvDouglas] = useState("Libre");
+
+  // Calculadora Clínica & Ecográfica Interactiva Flotante
+  const [calculadoraOpen, setCalculadoraOpen] = useState(false);
+  const [calcTab, setCalcTab] = useState<"GESTACIONAL" | "HADLOCK" | "PBF" | "PROSTATA">("GESTACIONAL");
+  const [pbfResp, setPbfResp] = useState(2);
+  const [pbfMov, setPbfMov] = useState(2);
+  const [pbfTono, setPbfTono] = useState(2);
+  const [pbfNst, setPbfNst] = useState(2);
+  const [pbfIlaScore, setPbfIlaScore] = useState(2);
+
+  // Examen Obstétrico y Pélvico Visual (Espéculo y Tacto)
   const [especuloVagina, setEspeculoVagina] = useState<"Sana" | "Sangre" | "Flujo">("Sana");
   const [especuloFlujoTipo, setEspeculoFlujoTipo] = useState("");
   const [especuloCuello, setEspeculoCuello] = useState<"Sano" | "Ectropión" | "Otro">("Sano");
@@ -675,6 +719,61 @@ export default function HcePage() {
       copia[index] = { ...copia[index], [campo]: valor };
       return copia;
     });
+  };
+
+  const toggleAntecedenteFamiliar = (ant: string) => {
+    if (ant === "Ninguno") {
+      setAntecedentesFamiliares(["Ninguno"]);
+      return;
+    }
+    setAntecedentesFamiliares((prev) => {
+      const sinNinguno = prev.filter((a) => a !== "Ninguno");
+      if (sinNinguno.includes(ant)) {
+        const filtrado = sinNinguno.filter((a) => a !== ant);
+        return filtrado.length === 0 ? ["Ninguno"] : filtrado;
+      } else {
+        return [...sinNinguno, ant];
+      }
+    });
+  };
+
+  const seleccionarMetodoPf = (metodo: string) => {
+    setPfMetodoElegido(metodo);
+    const hoy = new Date();
+    const hoyStr = hoy.toISOString().split("T")[0];
+    if (!pfFechaAplicacion) setPfFechaAplicacion(hoyStr);
+    
+    // Cálculo automático de próxima dosis o control según método
+    const fechaBase = pfFechaAplicacion ? new Date(pfFechaAplicacion) : hoy;
+    const prox = new Date(fechaBase);
+    if (metodo === "INYECTABLE_MENSUAL") {
+      prox.setDate(prox.getDate() + 30);
+    } else if (metodo === "INYECTABLE_TRIMESTRAL") {
+      prox.setDate(prox.getDate() + 90);
+    } else if (metodo === "IMPLANTE_SUBDERMICO") {
+      prox.setFullYear(prox.getFullYear() + 3);
+    } else if (metodo === "DIU_T_COBRE") {
+      prox.setFullYear(prox.getFullYear() + 5);
+    } else if (metodo === "AOC_ORALES") {
+      prox.setDate(prox.getDate() + 28);
+    } else if (metodo === "AOE_EMERGENCIA") {
+      prox.setDate(prox.getDate() + 21);
+    } else {
+      prox.setDate(prox.getDate() + 30);
+    }
+    setPfProximaCita(prox.toISOString().split("T")[0]);
+  };
+
+  const calcularHadlockPfe = (dbpMmStr: string, lfMmStr: string, caMmStr: string): string => {
+    const dbpCm = (parseFloat(dbpMmStr) || 0) / 10;
+    const lfCm = (parseFloat(lfMmStr) || 0) / 10;
+    const caCm = (parseFloat(caMmStr) || 0) / 10;
+    if (caCm <= 0 || lfCm <= 0) return "";
+    // Fórmula Hadlock estándar: Log10(BW) = 1.335 - 0.0034(AC*FL) + 0.0316(BPD) + 0.0457(AC) + 0.1623(FL)
+    const log10Bw = 1.335 - (0.0034 * caCm * lfCm) + (0.0316 * dbpCm) + (0.0457 * caCm) + (0.1623 * lfCm);
+    const pesoGramos = Math.round(Math.pow(10, log10Bw));
+    if (isNaN(pesoGramos) || pesoGramos <= 0 || pesoGramos > 7000) return "";
+    return pesoGramos.toString();
   };
 
   // Sanitización de registro profesional para prevenir duplicaciones ("COP COP", "CMP CMP")
@@ -921,6 +1020,34 @@ export default function HcePage() {
     setTactoAnexosDetalle("");
     setConductasSeleccionadas([]);
     setSubModoObstetricia("CONSULTA_RAPIDA");
+    setPacienteOcupacion("");
+    setPacienteGradoInstruccion("");
+    setPacienteEstadoCivil("");
+    setPacienteAcompanante("");
+    setAntecedentesFamiliares([]);
+    setAntecedentesFamiliaresDetalle("");
+    setPfCondicionUsuaria("");
+    setPfMetodoElegido("");
+    setPfFechaAplicacion("");
+    setPfProximaCita("");
+    setPfConsejeriaBrindada(true);
+    setPfConsentimientoAceptado(true);
+    setPfObservaciones("");
+    setEcoObstFeto("Único");
+    setEcoObstVitalidad("Activa");
+    setEcoObstSituacion("Longitudinal");
+    setEcoObstPresentacion("Cefálica");
+    setEcoObstDorso("Izquierdo");
+    setEcoObstPlacentaLoc("Fúndica posterior");
+    setEcoObstPlacentaGrado("Grado I");
+    setEcoObstLiquidoVol("Normal");
+    setEcoTvUteroPos("AVF");
+    setEcoTvMiometrio("Homogéneo");
+    setEcoTvEndometrioFase("Proliferativo trilaminar");
+    setEcoTvOvarioDerPatron("Normal");
+    setEcoTvOvarioIzqPatron("Normal");
+    setEcoTvDouglas("Libre");
+    setCalculadoraOpen(false);
     setFur("");
     setFpp("");
     setEg("");
@@ -1291,6 +1418,56 @@ export default function HcePage() {
               }
               if (Array.isArray(ocm.conductas)) setConductasSeleccionadas(ocm.conductas);
               if (Array.isArray(ocm.atencionesMinsa)) setAtencionesMinsa(ocm.atencionesMinsa);
+            }
+
+            // Filiación Ficha Física Las Mellizas
+            if (ef.filiacionFicha) {
+              if (ef.filiacionFicha.ocupacion) setPacienteOcupacion(ef.filiacionFicha.ocupacion);
+              if (ef.filiacionFicha.gradoInstruccion) setPacienteGradoInstruccion(ef.filiacionFicha.gradoInstruccion);
+              if (ef.filiacionFicha.estadoCivil) setPacienteEstadoCivil(ef.filiacionFicha.estadoCivil);
+              if (ef.filiacionFicha.acompanante) setPacienteAcompanante(ef.filiacionFicha.acompanante);
+            }
+
+            // Antecedentes Familiares
+            if (ef.antecedentesFamiliares) {
+              if (Array.isArray(ef.antecedentesFamiliares.items)) setAntecedentesFamiliares(ef.antecedentesFamiliares.items);
+              if (ef.antecedentesFamiliares.detalle) setAntecedentesFamiliaresDetalle(ef.antecedentesFamiliares.detalle);
+            }
+
+            // Planificación Familiar (MAC)
+            if (ef.planificacionFamiliar) {
+              const pf = ef.planificacionFamiliar;
+              if (pf.condicionUsuaria) setPfCondicionUsuaria(pf.condicionUsuaria);
+              if (pf.metodoElegido) setPfMetodoElegido(pf.metodoElegido);
+              if (pf.fechaAplicacion) setPfFechaAplicacion(pf.fechaAplicacion);
+              if (pf.proximaCita) setPfProximaCita(pf.proximaCita);
+              if (pf.consejeriaBrindada !== undefined) setPfConsejeriaBrindada(pf.consejeriaBrindada);
+              if (pf.consentimientoAceptado !== undefined) setPfConsentimientoAceptado(pf.consentimientoAceptado);
+              if (pf.observaciones) setPfObservaciones(pf.observaciones);
+            }
+
+            // Ecografía Obstétrica Click & Mark
+            if (ef.ecoObstClickMark) {
+              const eocm = ef.ecoObstClickMark;
+              if (eocm.feto) setEcoObstFeto(eocm.feto);
+              if (eocm.vitalidad) setEcoObstVitalidad(eocm.vitalidad);
+              if (eocm.situacion) setEcoObstSituacion(eocm.situacion);
+              if (eocm.presentacion) setEcoObstPresentacion(eocm.presentacion);
+              if (eocm.dorso) setEcoObstDorso(eocm.dorso);
+              if (eocm.placentaLoc) setEcoObstPlacentaLoc(eocm.placentaLoc);
+              if (eocm.placentaGrado) setEcoObstPlacentaGrado(eocm.placentaGrado);
+              if (eocm.liquidoVol) setEcoObstLiquidoVol(eocm.liquidoVol);
+            }
+
+            // Ecografía Transvaginal Click & Mark
+            if (ef.ecoTvClickMark) {
+              const etvm = ef.ecoTvClickMark;
+              if (etvm.uteroPos) setEcoTvUteroPos(etvm.uteroPos);
+              if (etvm.miometrio) setEcoTvMiometrio(etvm.miometrio);
+              if (etvm.endometrioFase) setEcoTvEndometrioFase(etvm.endometrioFase);
+              if (etvm.ovarioDerPatron) setEcoTvOvarioDerPatron(etvm.ovarioDerPatron);
+              if (etvm.ovarioIzqPatron) setEcoTvOvarioIzqPatron(etvm.ovarioIzqPatron);
+              if (etvm.douglas) setEcoTvDouglas(etvm.douglas);
             }
           } catch (_err) {}
         }
@@ -2366,6 +2543,43 @@ export default function HcePage() {
       conductas: conductasSeleccionadas,
       atencionesMinsa,
     },
+    filiacionFicha: {
+      ocupacion: pacienteOcupacion,
+      gradoInstruccion: pacienteGradoInstruccion,
+      estadoCivil: pacienteEstadoCivil,
+      acompanante: pacienteAcompanante,
+    },
+    antecedentesFamiliares: {
+      items: antecedentesFamiliares,
+      detalle: antecedentesFamiliaresDetalle,
+    },
+    planificacionFamiliar: {
+      condicionUsuaria: pfCondicionUsuaria,
+      metodoElegido: pfMetodoElegido,
+      fechaAplicacion: pfFechaAplicacion,
+      proximaCita: pfProximaCita,
+      consejeriaBrindada: pfConsejeriaBrindada,
+      consentimientoAceptado: pfConsentimientoAceptado,
+      observaciones: pfObservaciones,
+    },
+    ecoObstClickMark: {
+      feto: ecoObstFeto,
+      vitalidad: ecoObstVitalidad,
+      situacion: ecoObstSituacion,
+      presentacion: ecoObstPresentacion,
+      dorso: ecoObstDorso,
+      placentaLoc: ecoObstPlacentaLoc,
+      placentaGrado: ecoObstPlacentaGrado,
+      liquidoVol: ecoObstLiquidoVol,
+    },
+    ecoTvClickMark: {
+      uteroPos: ecoTvUteroPos,
+      miometrio: ecoTvMiometrio,
+      endometrioFase: ecoTvEndometrioFase,
+      ovarioDerPatron: ecoTvOvarioDerPatron,
+      ovarioIzqPatron: ecoTvOvarioIzqPatron,
+      douglas: ecoTvDouglas,
+    },
   });
 
   useEffect(() => {
@@ -2455,6 +2669,16 @@ export default function HcePage() {
     ecoBirads, ecoTirads, conclusionEcografica, sugerenciasEcograficas,
     tiempoEnfermedad, examenRegionalMedicina, descansoMedicoDias, labHemoglobina, labGlucosa,
     labOrinaLeucocitos, labOrinaProteinas, labOrinaNitritos, labPruebaEmbarazo, labObservaciones,
+    subModoObstetricia, formulaT, formulaPretermino, formulaA, formulaHv, terminacionUltimoEmbarazo,
+    menarquia, ciclos, irs, anticoncepcionPrevia, papPrevio, grupoRh, alergiasSeleccionadas,
+    especuloVagina, especuloFlujoTipo, especuloCuello, especuloCuelloDetalle,
+    tactoVagina, tactoCuello, tactoUtero, tactoDesviacion, tactoAnexos, tactoAnexosDetalle,
+    conductasSeleccionadas, atencionesMinsa, pacienteOcupacion, pacienteGradoInstruccion,
+    pacienteEstadoCivil, pacienteAcompanante, antecedentesFamiliares, antecedentesFamiliaresDetalle,
+    pfCondicionUsuaria, pfMetodoElegido, pfFechaAplicacion, pfProximaCita, pfConsejeriaBrindada,
+    pfConsentimientoAceptado, pfObservaciones, ecoObstFeto, ecoObstVitalidad, ecoObstSituacion,
+    ecoObstPresentacion, ecoObstDorso, ecoObstPlacentaLoc, ecoObstPlacentaGrado, ecoObstLiquidoVol,
+    ecoTvUteroPos, ecoTvMiometrio, ecoTvEndometrioFase, ecoTvOvarioDerPatron, ecoTvOvarioIzqPatron, ecoTvDouglas,
   ]);
 
   const handleAgregarCie = (item: { codigo: string; descripcion: string }) => {
@@ -3147,7 +3371,7 @@ export default function HcePage() {
                     }`}
                   >
                     <FileText className="w-3.5 h-3.5" />
-                    <span>Ficha Gineco-Obstétrica "Click & Mark" (Las Mellizas - Consulta Diaria)</span>
+                    <span>Ficha Obstétrica "Click & Mark" (Las Mellizas - Consulta Ambulatoria)</span>
                   </button>
                   <button
                     type="button"
@@ -3166,12 +3390,142 @@ export default function HcePage() {
                 {/* VISTA 1: FICHA AMBULATORIA CLICK & MARK (LAS MELLIZAS) */}
                 {subModoObstetricia === "CONSULTA_RAPIDA" ? (
                   <div className="space-y-3.5">
-                    {/* PANEL 1: ANTECEDENTES GINECO-OBSTÉTRICOS & ALERGIAS */}
+                    {/* PANEL 0: FILIACIÓN SOCIOCULTURAL DE LA FICHA FÍSICA & ANTECEDENTES FAMILIARES */}
                     <div className="p-3 bg-neutral-50/70 border border-neutral-200 rounded-xl space-y-3 shadow-2xs">
                       <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5">
                         <span className="font-extrabold text-[11px] text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
                           <Activity className="w-3.5 h-3.5 text-rose-700" />
-                          1. Antecedentes Gineco-Obstétricos (AGO) & Alergias
+                          0. Filiación de la Ficha Física & Antecedentes Familiares
+                        </span>
+                        <span className="text-[9.5px] font-mono font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+                          Ficha Física Las Mellizas (Pág. 1)
+                        </span>
+                      </div>
+
+                      {/* Filiación: Ocupación, Escolaridad, Estado Civil, Acompañante */}
+                      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2.5 bg-white p-2.5 rounded-lg border border-neutral-200">
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-1">Ocupación:</label>
+                          <input
+                            type="text"
+                            disabled={isSealed}
+                            value={pacienteOcupacion}
+                            onChange={(e) => setPacienteOcupacion(e.target.value)}
+                            placeholder="Ej: Comerciante / Su casa"
+                            className="w-full p-1.5 border border-neutral-300 rounded text-xs bg-white text-neutral-900"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-1">Escolaridad / Estudios:</label>
+                          <select
+                            disabled={isSealed}
+                            value={pacienteGradoInstruccion}
+                            onChange={(e) => setPacienteGradoInstruccion(e.target.value)}
+                            className="w-full p-1.5 border border-neutral-300 rounded text-xs bg-white text-neutral-900"
+                          >
+                            <option value="">-- Seleccionar --</option>
+                            <option value="Superior Universitario">Superior Universitario</option>
+                            <option value="Superior Técnico">Superior Técnico</option>
+                            <option value="Secundaria Completa">Secundaria Completa</option>
+                            <option value="Secundaria Incompleta">Secundaria Incompleta</option>
+                            <option value="Primaria">Primaria</option>
+                            <option value="Sin Instrucción">Sin Instrucción</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-1">Estado Civil:</label>
+                          <div className="grid grid-cols-3 gap-1">
+                            {(["Soltera", "Conviviente", "Casada"] as const).map((ec) => (
+                              <button
+                                key={ec}
+                                type="button"
+                                disabled={isSealed}
+                                onClick={() => setPacienteEstadoCivil(ec)}
+                                className={`py-1 px-1 rounded text-[10px] font-bold border text-center transition cursor-pointer ${
+                                  pacienteEstadoCivil === ec
+                                    ? "bg-rose-700 text-white border-rose-800"
+                                    : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                                }`}
+                              >
+                                {ec.slice(0, 4)}..
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-1">Acompañante al Ingreso:</label>
+                          <select
+                            disabled={isSealed}
+                            value={pacienteAcompanante}
+                            onChange={(e) => setPacienteAcompanante(e.target.value)}
+                            className="w-full p-1.5 border border-neutral-300 rounded text-xs bg-white text-neutral-900"
+                          >
+                            <option value="">-- Sola / Ninguno --</option>
+                            <option value="Esposo / Pareja">Esposo / Pareja</option>
+                            <option value="Conviviente / Compañero">Conviviente / Compañero</option>
+                            <option value="Madre">Madre</option>
+                            <option value="Padre">Padre</option>
+                            <option value="Familiar">Familiar</option>
+                            <option value="Amiga / Acompañante">Amiga / Acompañante</option>
+                            <option value="Otro">Otro</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Antecedentes Familiares en Botones Clickeables */}
+                      <div className="bg-white p-2.5 rounded-lg border border-neutral-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider flex items-center gap-1">
+                            <Activity className="w-3 h-3 text-rose-600" />
+                            Antecedentes Familiares Relevantes (Click & Mark)
+                          </label>
+                          <span className="text-[9px] text-neutral-400 font-mono">Ficha Las Mellizas</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {["Ninguno", "HTA / Preeclampsia", "Diabetes Mellitus", "Tuberculosis (TBC)", "Embarazo Gemelar", "Cáncer Mama/Cérvix", "Alergias familiares"].map((ant) => {
+                            const estaMarcado = antecedentesFamiliares.includes(ant);
+                            return (
+                              <button
+                                key={ant}
+                                type="button"
+                                disabled={isSealed}
+                                onClick={() => toggleAntecedenteFamiliar(ant)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center gap-1 ${
+                                  estaMarcado
+                                    ? ant === "Ninguno"
+                                      ? "bg-emerald-600 text-white border-emerald-700"
+                                      : "bg-rose-700 text-white border-rose-800 shadow-2xs"
+                                    : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                                }`}
+                              >
+                                <span>{estaMarcado ? "✓" : "+"}</span>
+                                <span>{ant}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {antecedentesFamiliares.length > 0 && !antecedentesFamiliares.includes("Ninguno") && (
+                          <input
+                            type="text"
+                            disabled={isSealed}
+                            value={antecedentesFamiliaresDetalle}
+                            onChange={(e) => setAntecedentesFamiliaresDetalle(e.target.value)}
+                            placeholder="Detalle: ej. Madre con HTA crónica, abuela con DM tipo 2, hermana con parto gemelar..."
+                            className="w-full p-1.5 border border-neutral-300 rounded text-xs bg-white text-neutral-900 placeholder:text-neutral-300"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* PANEL 1: ANTECEDENTES OBSTÉTRICOS & ALERGIAS */}
+                    <div className="p-3 bg-neutral-50/70 border border-neutral-200 rounded-xl space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+                        <span className="font-extrabold text-[11px] text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5 text-rose-700" />
+                          1. Antecedentes Obstétricos (A.O.) & Alergias
                         </span>
                         <span className="text-[9.5px] font-mono font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
                           Ficha Clínica Las Mellizas
@@ -3394,7 +3748,7 @@ export default function HcePage() {
                       <div className="flex items-center justify-between border-b border-purple-200/80 pb-1.5">
                         <span className="font-extrabold text-[11px] text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
                           <Stethoscope className="w-3.5 h-3.5 text-purple-700" />
-                          2. Examen Ginecológico Preferencial (Espéculo & Tacto Bimanual)
+                          2. Examen Físico Obstétrico & Pélvico (Espéculo & Tacto Bimanual)
                         </span>
                         <span className="text-[9.5px] font-mono font-bold text-purple-800 bg-purple-100/80 px-2 py-0.5 rounded">
                           Evaluación Clínica en Mostrador
@@ -3572,6 +3926,131 @@ export default function HcePage() {
                       </div>
                     </div>
 
+                    {/* PANEL 2.5: PLANIFICACIÓN FAMILIAR & ANTICONCEPCIÓN (MAC) */}
+                    <div className="p-3 bg-cyan-50/50 border border-cyan-200 rounded-xl space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-cyan-200 pb-1.5">
+                        <span className="font-extrabold text-[11px] text-cyan-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-cyan-700" />
+                          2.5 Planificación Familiar & Manejo de Métodos Anticonceptivos (MAC)
+                        </span>
+                        <span className="text-[9.5px] font-mono font-bold text-cyan-800 bg-cyan-100/70 border border-cyan-300 px-2 py-0.5 rounded">
+                          Salud Sexual y Reproductiva
+                        </span>
+                      </div>
+
+                      {/* Condición de la Usuaria */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold text-cyan-900 uppercase">Condición de la Usuaria:</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                          {[
+                            { id: "INICIO", label: "Inicio de Método" },
+                            { id: "CONTINUACION", label: "Continuación / Dosis" },
+                            { id: "CAMBIO", label: "Cambio de Método" },
+                            { id: "RETIRO", label: "Retiro (DIU/Implante)" },
+                            { id: "CONSEJERIA", label: "Solo Consejería PF" },
+                          ].map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => setPfCondicionUsuaria(pfCondicionUsuaria === c.id ? "" : c.id)}
+                              className={`p-1.5 rounded-lg text-xs font-bold border transition text-center cursor-pointer ${
+                                pfCondicionUsuaria === c.id
+                                  ? "bg-cyan-700 text-white border-cyan-800 shadow-2xs"
+                                  : "bg-white text-cyan-900 border-cyan-200 hover:bg-cyan-100/50"
+                              }`}
+                            >
+                              {c.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Métodos Anticonceptivos Disponibles */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold text-cyan-900 uppercase">Método Anticonceptivo Elegido / Aplicado:</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          {[
+                            { id: "INYECTABLE_TRIMESTRAL", label: "💉 Inyectable Trimestral", desc: "Depo-Provera (90d)" },
+                            { id: "INYECTABLE_MENSUAL", label: "💉 Inyectable Mensual", desc: "Mesigyna/Cyclofem (30d)" },
+                            { id: "IMPLANTE_SUBDERMICO", label: "🛡️ Implante Subdérmico", desc: "Levonorgestrel (3 años)" },
+                            { id: "DIU_T_COBRE", label: "⚓ DIU T de Cobre 380A", desc: "Intrauterino (5 años)" },
+                            { id: "AOC_ORALES", label: "💊 Anticonceptivos Orales", desc: "Píldoras combinadas (AOC)" },
+                            { id: "AOE_EMERGENCIA", label: "🚨 Anticoncepción Emergencia", desc: "AOE Levonorgestrel 1.5mg" },
+                            { id: "PRESERVATIVO", label: "🧤 Preservativos / Barrera", desc: "Condón masculino / Doble prot." },
+                            { id: "OTRO", label: "➕ Otro Método / Natural", desc: "MELA / Abstinencia periódica" },
+                          ].map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => seleccionarMetodoPf(m.id)}
+                              className={`p-2 rounded-lg text-left text-xs font-bold border transition cursor-pointer flex flex-col justify-between ${
+                                pfMetodoElegido === m.id
+                                  ? "bg-cyan-800 text-white border-cyan-900 shadow-2xs ring-1 ring-cyan-500"
+                                  : "bg-white text-neutral-800 border-cyan-200 hover:bg-cyan-50"
+                              }`}
+                            >
+                              <span>{m.label}</span>
+                              <span className={`text-[9px] font-normal font-sans mt-0.5 ${pfMetodoElegido === m.id ? "text-cyan-100" : "text-neutral-500"}`}>{m.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Fechas de Aplicación, Próxima Dosis y Consentimiento */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-white p-2.5 rounded-lg border border-cyan-200 items-end">
+                        <div>
+                          <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">Fecha de Aplicación / Administración:</label>
+                          <input
+                            type="date"
+                            disabled={isSealed}
+                            value={pfFechaAplicacion}
+                            onChange={(e) => {
+                              setPfFechaAplicacion(e.target.value);
+                              if (pfMetodoElegido) seleccionarMetodoPf(pfMetodoElegido);
+                            }}
+                            className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-cyan-900 mb-0.5 flex items-center justify-between">
+                            <span>Próxima Cita / Próxima Dosis:</span>
+                            <span className="text-[9px] font-mono text-cyan-700">Auto-calculada</span>
+                          </label>
+                          <input
+                            type="date"
+                            disabled={isSealed}
+                            value={pfProximaCita}
+                            onChange={(e) => setPfProximaCita(e.target.value)}
+                            className="w-full p-1.5 border border-cyan-400 rounded font-mono text-xs font-bold text-cyan-950 bg-cyan-50/50"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="flex items-center gap-1.5 text-[10.5px] font-semibold text-neutral-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              disabled={isSealed}
+                              checked={pfConsejeriaBrindada}
+                              onChange={(e) => setPfConsejeriaBrindada(e.target.checked)}
+                              className="rounded text-cyan-700 w-3.5 h-3.5"
+                            />
+                            <span>Orientación y Consejería en PF brindada</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-[10.5px] font-semibold text-neutral-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              disabled={isSealed}
+                              checked={pfConsentimientoAceptado}
+                              onChange={(e) => setPfConsentimientoAceptado(e.target.checked)}
+                              className="rounded text-cyan-700 w-3.5 h-3.5"
+                            />
+                            <span>Consentimiento Informado Aceptado</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* PANEL 3: MATRIZ DE 12 DIAGNÓSTICOS FRECUENTES EN 1-CLICK (FICHA LAS MELLIZAS) */}
                     <div className="p-3 bg-amber-50/40 border border-amber-200 rounded-xl space-y-2 shadow-2xs">
                       <div className="flex items-center justify-between border-b border-amber-200 pb-1">
@@ -3673,10 +4152,10 @@ export default function HcePage() {
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
-                                onClick={() => insertarMacroExamen("Examen Ginecológico Normal: Abdomen blando, depresible, no doloroso. Genitales externos conservados. Especuloscopía: Cérvix sano eutrófico, sin sangrado. Tacto vaginal: Cuello cerrado, útero en AVF, no doloroso a movilización, anexos libres.")}
-                                className="text-[9px] bg-purple-50 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded font-semibold"
+                                onClick={() => insertarMacroExamen("Examen Obstétrico Normal: Abdomen blando, depresible, no doloroso a la palpación. Genitales externos conservados. Especuloscopía: Cérvix sano eutrófico, sin sangrado activo. Tacto vaginal: Cuello cerrado, útero en AVF, no doloroso a la movilización, anexos libres.")}
+                                className="text-[9px] bg-rose-50 text-rose-800 border border-rose-200 px-1.5 py-0.5 rounded font-semibold hover:bg-rose-100"
                               >
-                                + Gineco Normal
+                                + Examen Obstétrico Normal
                               </button>
                             </div>
                           )}
@@ -4105,93 +4584,281 @@ export default function HcePage() {
                   </div>
                 )}
 
-                {/* 2. Ecografía Obstétrica Fetal */}
+                {/* 2. Ecografía Obstétrica Fetal "Click & Mark" */}
                 {tipoEcografia === "OBSTETRICA" && (
-                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-2.5">
-                    <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
-                      <span className="font-bold text-xs text-neutral-800">Biometría Fetal Estandarizada</span>
-                      <span className="text-[10px] font-mono text-neutral-500">Curvas Hadlock</span>
+                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-3">
+                    <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+                      <span className="font-bold text-xs text-neutral-800 flex items-center gap-1.5">
+                        <Baby className="w-4 h-4 text-rose-700" />
+                        Biometría Fetal & Estática Fetal "Click & Mark" (Hadlock / SPUOG)
+                      </span>
+                      <span className="text-[10px] font-mono text-neutral-500">Apoyo Diagnóstico Prenatal</span>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                    {/* Fila A: Feto, Vitalidad, Situación, Presentación y Dorso */}
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-5 gap-2 bg-white p-2.5 rounded-lg border border-neutral-200">
                       <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">D.B.P. (mm)</label>
-                        <input
-                          type="number"
-                          disabled={isSealed}
-                          value={ecoDbp}
-                          onChange={(e) => setEcoDbp(e.target.value)}
-                          placeholder="Ej: 54"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
-                        />
+                        <label className="block text-[10px] font-bold text-neutral-600 mb-1">Feto:</label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {(["Único", "Gemelar", "Múltiple"] as const).map((f) => (
+                            <button
+                              key={f}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => setEcoObstFeto(f)}
+                              className={`py-1 px-1 rounded text-[10px] font-bold border text-center transition cursor-pointer ${
+                                ecoObstFeto === f ? "bg-rose-700 text-white border-rose-800 shadow-2xs" : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {f.slice(0, 4)}..
+                            </button>
+                          ))}
+                        </div>
                       </div>
+
                       <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Long. Femoral LF (mm)</label>
-                        <input
-                          type="number"
-                          disabled={isSealed}
-                          value={ecoLf}
-                          onChange={(e) => setEcoLf(e.target.value)}
-                          placeholder="Ej: 40"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
-                        />
+                        <label className="block text-[10px] font-bold text-neutral-600 mb-1">Situación:</label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {(["Longitudinal", "Transversa", "Oblicua"] as const).map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => setEcoObstSituacion(s)}
+                              className={`py-1 px-1 rounded text-[10px] font-bold border text-center transition cursor-pointer ${
+                                ecoObstSituacion === s ? "bg-rose-700 text-white border-rose-800 shadow-2xs" : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {s.slice(0, 4)}..
+                            </button>
+                          ))}
+                        </div>
                       </div>
+
                       <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Circ. Abdominal CA (mm)</label>
-                        <input
-                          type="number"
-                          disabled={isSealed}
-                          value={ecoCa}
-                          onChange={(e) => setEcoCa(e.target.value)}
-                          placeholder="Ej: 180"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
-                        />
+                        <label className="block text-[10px] font-bold text-neutral-600 mb-1">Presentación:</label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {(["Cefálica", "Podálica", "Transversa"] as const).map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => setEcoObstPresentacion(p)}
+                              className={`py-1 px-1 rounded text-[10px] font-bold border text-center transition cursor-pointer ${
+                                ecoObstPresentacion === p ? "bg-rose-700 text-white border-rose-800 shadow-2xs" : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {p.slice(0, 4)}..
+                            </button>
+                          ))}
+                        </div>
                       </div>
+
                       <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">P.F.E. Estimado (g)</label>
-                        <input
-                          type="number"
+                        <label className="block text-[10px] font-bold text-neutral-600 mb-1">Dorso Fetal:</label>
+                        <div className="grid grid-cols-4 gap-1">
+                          {(["Izquierdo", "Derecho", "Anterior", "Posterior"] as const).map((d) => (
+                            <button
+                              key={d}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => setEcoObstDorso(d)}
+                              className={`py-1 px-0.5 rounded text-[9.5px] font-bold border text-center transition cursor-pointer ${
+                                ecoObstDorso === d ? "bg-rose-700 text-white border-rose-800 shadow-2xs" : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {d.slice(0, 3)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-600 mb-1">Vitalidad Fetal:</label>
+                        <select
                           disabled={isSealed}
-                          value={ecoPfe}
-                          onChange={(e) => setEcoPfe(e.target.value)}
-                          placeholder="Ej: 650"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white font-bold placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
-                        />
+                          value={ecoObstVitalidad}
+                          onChange={(e) => setEcoObstVitalidad(e.target.value)}
+                          className="w-full p-1 border border-neutral-300 rounded text-xs bg-white font-semibold text-emerald-900"
+                        >
+                          <option value="Activa (Latidos y movimientos presentes)">Activa (LCF + Mov. +)</option>
+                          <option value="Sin movimientos activos">Sin mov. activos</option>
+                          <option value="Bradicardia fetal (<110 lpm)">Bradicardia (&lt;110 lpm)</option>
+                          <option value="Taquicardia fetal (>160 lpm)">Taquicardia (&gt;160 lpm)</option>
+                          <option value="Sin latidos / Óbito fetal">Sin latidos / Óbito</option>
+                        </select>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1">
-                      <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Frec. Cardíaca Fetal (lpm)</label>
-                        <input
-                          type="number"
-                          disabled={isSealed}
-                          value={ecoFcf}
-                          onChange={(e) => setEcoFcf(e.target.value)}
-                          placeholder="Ej: 140"
-                          className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
-                        />
+                    {/* Fila B: Biometría Fetal con Botón Hadlock */}
+                    <div className="bg-white p-2.5 rounded-lg border border-neutral-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider">
+                          Biometría Fetal (mm) & Peso Fetal Estimado (g)
+                        </span>
+                        {!isSealed && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const calc = calcularHadlockPfe(ecoDbp, ecoLf, ecoCa);
+                              if (calc) setEcoPfe(calc);
+                            }}
+                            className="text-[9.5px] font-bold bg-sky-50 text-sky-800 border border-sky-200 px-2 py-0.5 rounded flex items-center gap-1 hover:bg-sky-100 transition"
+                          >
+                            <Calculator className="w-3 h-3 text-sky-700" />
+                            Calcular PFE Hadlock
+                          </button>
+                        )}
                       </div>
-                      <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Placenta</label>
+
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+                        <div>
+                          <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">D.B.P. (mm)</label>
+                          <input
+                            type="number"
+                            disabled={isSealed}
+                            value={ecoDbp}
+                            onChange={(e) => {
+                              setEcoDbp(e.target.value);
+                              const pfe = calcularHadlockPfe(e.target.value, ecoLf, ecoCa);
+                              if (pfe) setEcoPfe(pfe);
+                            }}
+                            placeholder="Ej: 54"
+                            className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Long. Femoral LF (mm)</label>
+                          <input
+                            type="number"
+                            disabled={isSealed}
+                            value={ecoLf}
+                            onChange={(e) => {
+                              setEcoLf(e.target.value);
+                              const pfe = calcularHadlockPfe(ecoDbp, e.target.value, ecoCa);
+                              if (pfe) setEcoPfe(pfe);
+                            }}
+                            placeholder="Ej: 40"
+                            className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Circ. Abdominal CA (mm)</label>
+                          <input
+                            type="number"
+                            disabled={isSealed}
+                            value={ecoCa}
+                            onChange={(e) => {
+                              setEcoCa(e.target.value);
+                              const pfe = calcularHadlockPfe(ecoDbp, ecoLf, e.target.value);
+                              if (pfe) setEcoPfe(pfe);
+                            }}
+                            placeholder="Ej: 180"
+                            className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-emerald-800 mb-0.5 font-bold">P.F.E. Hadlock (g)</label>
+                          <input
+                            type="number"
+                            disabled={isSealed}
+                            value={ecoPfe}
+                            onChange={(e) => setEcoPfe(e.target.value)}
+                            placeholder="Ej: 650"
+                            className="w-full px-2 py-1 border border-emerald-300 rounded font-mono text-xs bg-emerald-50/50 font-bold text-emerald-950"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">F.C.F. (lpm)</label>
+                          <input
+                            type="number"
+                            disabled={isSealed}
+                            value={ecoFcf}
+                            onChange={(e) => setEcoFcf(e.target.value)}
+                            placeholder="Ej: 140"
+                            className="w-full px-2 py-1 border border-neutral-300 rounded font-mono text-xs bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Fila C: Placenta & Líquido Amniótico Click & Mark */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 bg-white p-2.5 rounded-lg border border-neutral-200">
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-neutral-700 font-bold uppercase">Placenta (Localización & Grannum):</label>
+                        <div className="flex flex-wrap gap-1">
+                          {(["Fúndica posterior", "Fúndica anterior", "Fúndica", "Previa marginal"] as const).map((loc) => (
+                            <button
+                              key={loc}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => {
+                                setEcoObstPlacentaLoc(loc);
+                                setEcoPlacenta(`Normoinserta ${loc} ${ecoObstPlacentaGrado}`);
+                              }}
+                              className={`py-0.5 px-2 rounded text-[10px] font-bold border transition cursor-pointer ${
+                                ecoObstPlacentaLoc === loc ? "bg-rose-700 text-white border-rose-800" : "bg-neutral-50 border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {loc}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-1 items-center">
+                          {(["Grado 0", "Grado I", "Grado II", "Grado III"] as const).map((gr) => (
+                            <button
+                              key={gr}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => {
+                                setEcoObstPlacentaGrado(gr);
+                                setEcoPlacenta(`Normoinserta ${ecoObstPlacentaLoc} ${gr}`);
+                              }}
+                              className={`py-0.5 px-2 rounded text-[9.5px] font-bold border transition cursor-pointer ${
+                                ecoObstPlacentaGrado === gr ? "bg-rose-700 text-white border-rose-800" : "bg-neutral-50 border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {gr}
+                            </button>
+                          ))}
+                        </div>
                         <input
                           type="text"
                           disabled={isSealed}
                           value={ecoPlacenta}
                           onChange={(e) => setEcoPlacenta(e.target.value)}
-                          placeholder="Ej: Normoinserta posterior fúndica Grado I..."
-                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
+                          placeholder="Texto libre de placenta..."
+                          className="w-full px-2 py-1 border border-neutral-200 rounded text-xs bg-white text-neutral-900"
                         />
                       </div>
-                      <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Líquido Amniótico (ILA)</label>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] text-neutral-700 font-bold uppercase">Líquido Amniótico (ILA):</label>
+                        <div className="flex flex-wrap gap-1">
+                          {(["Normal", "Oligohidramnios Leve", "Oligohidramnios Severo", "Polihidramnios"] as const).map((liq) => (
+                            <button
+                              key={liq}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => {
+                                setEcoObstLiquidoVol(liq);
+                                setEcoIla(liq === "Normal" ? "Volumen normal (ILA adecuado 12-14 cm)" : `${liq} confirmado`);
+                              }}
+                              className={`py-0.5 px-2 rounded text-[10px] font-bold border transition cursor-pointer ${
+                                ecoObstLiquidoVol === liq ? "bg-rose-700 text-white border-rose-800" : "bg-neutral-50 border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {liq}
+                            </button>
+                          ))}
+                        </div>
                         <input
                           type="text"
                           disabled={isSealed}
                           value={ecoIla}
                           onChange={(e) => setEcoIla(e.target.value)}
                           placeholder="Ej: Volumen normal (ILA 12 cm)..."
-                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
+                          className="w-full px-2 py-1 border border-neutral-200 rounded text-xs bg-white text-neutral-900"
                         />
                       </div>
                     </div>
@@ -4470,24 +5137,92 @@ export default function HcePage() {
                   </div>
                 )}
 
-                {/* 7. Ecografía Transvaginal / Pélvica Ginecológica */}
+                {/* 7. Ecografía Transvaginal / Pélvica "Click & Mark" */}
                 {tipoEcografia === "TRANSVAGINAL" && (
-                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-2.5">
-                    <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
-                      <span className="font-bold text-xs text-neutral-800">Evaluación Ultrasonográfica Transvaginal / Pélvica</span>
-                      <span className="text-[10px] font-mono text-neutral-500">Gineco-Ecografía</span>
+                  <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200 space-y-3">
+                    <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+                      <span className="font-bold text-xs text-neutral-800 flex items-center gap-1.5">
+                        <Activity className="w-4 h-4 text-purple-700" />
+                        Evaluación Ultrasonográfica Transvaginal / Pélvica "Click & Mark"
+                      </span>
+                      <span className="text-[10px] font-mono text-neutral-500">IOTA / MUSA</span>
+                    </div>
+
+                    {/* Casillas Rápidas: Útero Posición, Miometrio y Endometrio */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 bg-white p-2.5 rounded-lg border border-neutral-200">
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-600 mb-1">Útero (Posición):</label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {(["AVF", "RVF", "Indiferente"] as const).map((pos) => (
+                            <button
+                              key={pos}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => {
+                                setEcoTvUteroPos(pos);
+                                setEcoUtero(`Útero en ${pos}, contornos regulares, ${ecoTvMiometrio.toLowerCase()}`);
+                              }}
+                              className={`py-1 px-1 rounded text-[10px] font-bold border text-center transition cursor-pointer ${
+                                ecoTvUteroPos === pos ? "bg-purple-700 text-white border-purple-800 shadow-2xs" : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {pos}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-600 mb-1">Miometrio:</label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {(["Homogéneo", "Heterogéneo", "Miomatoso"] as const).map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => {
+                                setEcoTvMiometrio(m);
+                                setEcoUtero(`Útero en ${ecoTvUteroPos}, ${m.toLowerCase()}`);
+                              }}
+                              className={`py-1 px-1 rounded text-[10px] font-bold border text-center transition cursor-pointer ${
+                                ecoTvMiometrio === m ? "bg-purple-700 text-white border-purple-800 shadow-2xs" : "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100"
+                              }`}
+                            >
+                              {m.slice(0, 5)}..
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-neutral-600 mb-1">Endometrio (Fase):</label>
+                        <select
+                          disabled={isSealed}
+                          value={ecoTvEndometrioFase}
+                          onChange={(e) => {
+                            setEcoTvEndometrioFase(e.target.value);
+                            setEcoEndometrio(`8.0 mm, aspecto ${e.target.value.toLowerCase()}`);
+                          }}
+                          className="w-full p-1 border border-neutral-300 rounded text-xs bg-white font-semibold"
+                        >
+                          <option value="Proliferativo trilaminar">Proliferativo trilaminar</option>
+                          <option value="Secretor hiperecogénico">Secretor hiperecogénico</option>
+                          <option value="Atrófico (<4mm)">Atrófico (&lt;4mm)</option>
+                          <option value="Engrosado / Sospecha pólipo">Engrosado / Sospecha pólipo</option>
+                        </select>
+                      </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Útero (Posición & Morfología)</label>
+                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Útero (Dimensiones & Morfología)</label>
                         <input
                           type="text"
                           disabled={isSealed}
                           value={ecoUtero}
                           onChange={(e) => setEcoUtero(e.target.value)}
                           placeholder="Ej: En AVF, contornos regulares, 72 x 36 x 40 mm..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300"
                         />
                       </div>
                       <div>
@@ -4498,45 +5233,101 @@ export default function HcePage() {
                           value={ecoEndometrio}
                           onChange={(e) => setEcoEndometrio(e.target.value)}
                           placeholder="Ej: 8.2 mm, trilaminar proliferativo..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
+                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300"
                         />
                       </div>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Ovario Derecho</label>
+                    {/* Casillas Ovarios y Douglas */}
+                    <div className="grid md:grid-cols-2 gap-3 bg-white p-2.5 rounded-lg border border-neutral-200">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] text-neutral-600 font-semibold">Ovario Derecho:</label>
+                          <div className="flex gap-1">
+                            {(["Normal", "Poliquístico", "Quiste"] as const).map((pat) => (
+                              <button
+                                key={pat}
+                                type="button"
+                                disabled={isSealed}
+                                onClick={() => {
+                                  setEcoTvOvarioDerPatron(pat);
+                                  setEcoOvarioDer(pat === "Normal" ? "28 x 16 mm, parénquima folicular habitual" : pat === "Poliquístico" ? "Aumentado (11 cc), microfolículos periféricos (Rotterdam)" : "Presencia de quiste simple anecoico");
+                                }}
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${ecoTvOvarioDerPatron === pat ? "bg-purple-700 text-white" : "bg-neutral-50 text-neutral-600"}`}
+                              >
+                                {pat}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <input
                           type="text"
                           disabled={isSealed}
                           value={ecoOvarioDer}
                           onChange={(e) => setEcoOvarioDer(e.target.value)}
-                          placeholder="Ej: 28 x 16 mm, parénquima folicular habitual..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
+                          placeholder="Ej: 28 x 16 mm, folículos normales..."
+                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white"
                         />
                       </div>
-                      <div>
-                        <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Ovario Izquierdo</label>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] text-neutral-600 font-semibold">Ovario Izquierdo:</label>
+                          <div className="flex gap-1">
+                            {(["Normal", "Poliquístico", "Quiste"] as const).map((pat) => (
+                              <button
+                                key={pat}
+                                type="button"
+                                disabled={isSealed}
+                                onClick={() => {
+                                  setEcoTvOvarioIzqPatron(pat);
+                                  setEcoOvarioIzq(pat === "Normal" ? "26 x 15 mm, folículos normales" : pat === "Poliquístico" ? "Aumentado (10.5 cc), microfolículos periféricos (Rotterdam)" : "Presencia de quiste simple anecoico");
+                                }}
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${ecoTvOvarioIzqPatron === pat ? "bg-purple-700 text-white" : "bg-neutral-50 text-neutral-600"}`}
+                              >
+                                {pat}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <input
                           type="text"
                           disabled={isSealed}
                           value={ecoOvarioIzq}
                           onChange={(e) => setEcoOvarioIzq(e.target.value)}
                           placeholder="Ej: 26 x 15 mm, folículos normales..."
-                          className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
+                          className="w-full px-2 py-1 border border-neutral-300 rounded text-xs bg-white"
                         />
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] text-neutral-600 mb-0.5 font-semibold">Fondo de Saco de Douglas</label>
+                    <div className="bg-white p-2.5 rounded-lg border border-neutral-200 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-neutral-700 font-bold uppercase">Fondo de Saco de Douglas:</label>
+                        <div className="flex gap-1">
+                          {(["Libre", "Líquido escaso", "Líquido patológico"] as const).map((d) => (
+                            <button
+                              key={d}
+                              type="button"
+                              disabled={isSealed}
+                              onClick={() => {
+                                setEcoTvDouglas(d);
+                                setEcoDouglas(d === "Libre" ? "Libre, sin líquido coleccionado" : d === "Líquido escaso" ? "Líquido libre laminar escaso fisiológico" : "Colección líquida patológica en fondo de saco");
+                              }}
+                              className={`px-2 py-0.5 rounded text-[9.5px] font-bold border ${ecoTvDouglas === d ? "bg-purple-700 text-white" : "bg-neutral-50 text-neutral-600"}`}
+                            >
+                              {d}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <input
                         type="text"
                         disabled={isSealed}
                         value={ecoDouglas}
                         onChange={(e) => setEcoDouglas(e.target.value)}
                         placeholder="Ej: Libre, sin líquido coleccionado..."
-                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white placeholder:text-neutral-300 placeholder:font-normal placeholder:italic"
+                        className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white"
                       />
                     </div>
 
@@ -5486,6 +6277,297 @@ export default function HcePage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* BOTÓN FLOTANTE: CALCULADORA CLÍNICA & ECOGRÁFICA */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          type="button"
+          onClick={() => setCalculadoraOpen(!calculadoraOpen)}
+          className="bg-neutral-900 hover:bg-black text-white px-4 py-2.5 rounded-full shadow-xl border border-neutral-700 font-bold text-xs flex items-center gap-2 transition hover:scale-105 cursor-pointer ring-2 ring-rose-500/30"
+        >
+          <Calculator className="w-4 h-4 text-rose-400" />
+          <span>Calculadora Clínica</span>
+          {calculadoraOpen && <span className="text-[10px] bg-rose-800 px-1.5 py-0.2 rounded-full">Abierta</span>}
+        </button>
+      </div>
+
+      {/* MODAL CALCULADORA CLÍNICA & ECOGRÁFICA INTERACTIVA */}
+      {calculadoraOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-end sm:justify-center p-3 sm:p-4 z-50">
+          <div className="bg-white rounded-2xl p-4 sm:p-5 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-neutral-200 space-y-3.5">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700">
+                  <Calculator className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-neutral-900 leading-tight">Calculadora Clínica & Ecográfica</h3>
+                  <p className="text-[10px] text-neutral-500">Herramienta biométrica de apoyo profesional en tiempo real</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCalculadoraOpen(false)}
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Pestañas de la Calculadora */}
+            <div className="flex items-center gap-1 p-1 bg-neutral-100 rounded-xl">
+              {[
+                { id: "GESTACIONAL", label: "👶 FUR / Gestacional" },
+                { id: "HADLOCK", label: "📏 Hadlock PFE" },
+                { id: "PBF", label: "💓 PBF Manning" },
+                { id: "PROSTATA", label: "🩺 Próstata Elipsoide" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setCalcTab(tab.id as any)}
+                  className={`flex-1 py-1.5 px-1 text-center text-[10.5px] font-bold rounded-lg transition cursor-pointer ${
+                    calcTab === tab.id
+                      ? "bg-white text-neutral-900 shadow-xs"
+                      : "text-neutral-600 hover:text-neutral-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* TAB 1: GESTACIONAL (FUM / NAEGELE) */}
+            {calcTab === "GESTACIONAL" && (
+              <div className="space-y-3 bg-rose-50/40 p-3 rounded-xl border border-rose-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-rose-950 uppercase">Regla de Naegele & Edad Gestacional</span>
+                  <span className="text-[9px] font-mono text-rose-700">Obstetricia</span>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-600 mb-1">Fecha de Última Menstruación (FUM):</label>
+                  <input
+                    type="date"
+                    value={fur}
+                    onChange={(e) => handleFurChange(e.target.value)}
+                    className="w-full p-2 border border-neutral-300 rounded-lg text-xs bg-white font-mono"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2 bg-white p-2.5 rounded-lg border border-rose-100">
+                  <div>
+                    <span className="text-[9.5px] text-neutral-500 font-bold block">Edad Gestacional Hoy:</span>
+                    <span className="text-sm font-extrabold text-rose-900 font-mono">{eg || "-- sem"}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9.5px] text-neutral-500 font-bold block">Fecha Probable Parto:</span>
+                    <span className="text-sm font-extrabold text-emerald-900 font-mono">{fpp || "--"}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCalculadoraOpen(false);
+                  }}
+                  className="w-full py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-bold transition shadow-xs"
+                >
+                  ✓ Aplicado a la Ficha Obstétrica
+                </button>
+              </div>
+            )}
+
+            {/* TAB 2: HADLOCK PFE */}
+            {calcTab === "HADLOCK" && (
+              <div className="space-y-3 bg-sky-50/40 p-3 rounded-xl border border-sky-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-sky-950 uppercase">Fórmula de Hadlock (DBP + LF + CA)</span>
+                  <span className="text-[9px] font-mono text-sky-700">PFE en gramos</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">DBP (mm):</label>
+                    <input
+                      type="number"
+                      value={ecoDbp}
+                      onChange={(e) => {
+                        setEcoDbp(e.target.value);
+                        const c = calcularHadlockPfe(e.target.value, ecoLf, ecoCa);
+                        if (c) setEcoPfe(c);
+                      }}
+                      placeholder="Ej: 54"
+                      className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">LF (mm):</label>
+                    <input
+                      type="number"
+                      value={ecoLf}
+                      onChange={(e) => {
+                        setEcoLf(e.target.value);
+                        const c = calcularHadlockPfe(ecoDbp, e.target.value, ecoCa);
+                        if (c) setEcoPfe(c);
+                      }}
+                      placeholder="Ej: 40"
+                      className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">CA (mm):</label>
+                    <input
+                      type="number"
+                      value={ecoCa}
+                      onChange={(e) => {
+                        setEcoCa(e.target.value);
+                        const c = calcularHadlockPfe(ecoDbp, ecoLf, e.target.value);
+                        if (c) setEcoPfe(c);
+                      }}
+                      placeholder="Ej: 180"
+                      className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="p-3 bg-white rounded-lg border border-sky-200 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-neutral-500 font-bold block">Peso Fetal Estimado:</span>
+                    <span className="text-xl font-black text-sky-900 font-mono">{ecoPfe ? `${ecoPfe} g` : "Ingrese biometría"}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const c = calcularHadlockPfe(ecoDbp, ecoLf, ecoCa);
+                      if (c) setEcoPfe(c);
+                      setCalculadoraOpen(false);
+                    }}
+                    className="px-3 py-1.5 bg-sky-700 hover:bg-sky-800 text-white rounded-lg text-xs font-bold transition shadow-xs"
+                  >
+                    ✓ Aplicar a Ecografía
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: PBF MANNING /10 */}
+            {calcTab === "PBF" && (
+              <div className="space-y-3 bg-emerald-50/40 p-3 rounded-xl border border-emerald-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-950 uppercase">Perfil Biofísico Fetal (Manning /10)</span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-900">
+                    Score: {pbfResp + pbfMov + pbfTono + pbfNst + pbfIlaScore} / 10 pts
+                  </span>
+                </div>
+                <div className="space-y-1.5 bg-white p-2.5 rounded-lg border border-emerald-100 text-xs">
+                  {[
+                    { label: "Movimientos Respiratorios (≥ 30s continuos)", val: pbfResp, set: setPbfResp },
+                    { label: "Movimientos Corporales Gruesos (≥ 3 en 30 min)", val: pbfMov, set: setPbfMov },
+                    { label: "Tono Fetal (Extensión activa con retorno a flexión)", val: pbfTono, set: setPbfTono },
+                    { label: "Reactividad Cardíaca (NST reactivo con aceleraciones)", val: pbfNst, set: setPbfNst },
+                    { label: "Líquido Amniótico (Pozo vertical ≥ 2 cm o ILA > 8cm)", val: pbfIlaScore, set: setPbfIlaScore },
+                  ].map((param, i) => (
+                    <div key={i} className="flex items-center justify-between p-1 border-b border-neutral-100 last:border-0">
+                      <span className="text-[11px] text-neutral-800">{param.label}</span>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => param.set(0)}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded ${param.val === 0 ? "bg-rose-700 text-white" : "bg-neutral-100 text-neutral-600"}`}
+                        >
+                          0 pts
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => param.set(2)}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded ${param.val === 2 ? "bg-emerald-700 text-white" : "bg-neutral-100 text-neutral-600"}`}
+                        >
+                          2 pts
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-2.5 rounded-lg border text-xs font-semibold flex items-center justify-between bg-white">
+                  <div>
+                    <span className="text-[10px] text-neutral-500 block">Diagnóstico del Bienestar Fetal:</span>
+                    <span className={`font-bold ${pbfResp + pbfMov + pbfTono + pbfNst + pbfIlaScore >= 8 ? "text-emerald-800" : "text-rose-800"}`}>
+                      {pbfResp + pbfMov + pbfTono + pbfNst + pbfIlaScore >= 8
+                        ? "Bienestar Fetal Conservado (Normal)"
+                        : pbfResp + pbfMov + pbfTono + pbfNst + pbfIlaScore === 6
+                        ? "Sospecha de asfixia crónica (Reevaluar en 24h)"
+                        : "Asfixia fetal severa (Alto riesgo)"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const total = pbfResp + pbfMov + pbfTono + pbfNst + pbfIlaScore;
+                      const textoPbf = `Perfil Biofísico Fetal (Manning): ${total}/10 pts (${total >= 8 ? "Bienestar fetal conservado" : "Sospecha de alteración perinatal"}).`;
+                      setConclusionEcografica((prev) => prev ? `${prev}\n${textoPbf}` : textoPbf);
+                      setCalculadoraOpen(false);
+                    }}
+                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs"
+                  >
+                    ✓ Copiar a Conclusión
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: PRÓSTATA ELIPSOIDE & RPM */}
+            {calcTab === "PROSTATA" && (
+              <div className="space-y-3 bg-neutral-50 p-3 rounded-xl border border-neutral-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-neutral-900 uppercase">Volumen Prostático Elipsoide</span>
+                  <span className="text-[10px] font-mono text-neutral-500">Vol = DT × DAP × DL × 0.52</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">DT (mm):</label>
+                    <input
+                      type="number"
+                      value={prostataDt}
+                      onChange={(e) => setProstataDt(e.target.value)}
+                      placeholder="46"
+                      className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">DAP (mm):</label>
+                    <input
+                      type="number"
+                      value={prostataDap}
+                      onChange={(e) => setProstataDap(e.target.value)}
+                      placeholder="38"
+                      className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 mb-0.5">DL (mm):</label>
+                    <input
+                      type="number"
+                      value={prostataDl}
+                      onChange={(e) => setProstataDl(e.target.value)}
+                      placeholder="42"
+                      className="w-full p-1.5 border border-neutral-300 rounded font-mono text-xs bg-white"
+                    />
+                  </div>
+                </div>
+                <div className="p-2.5 bg-white rounded-lg border border-neutral-200 flex items-center justify-between">
+                  <div>
+                    <span className="text-[9.5px] text-neutral-500 font-bold block">Volumen Calculado:</span>
+                    <span className="text-lg font-black text-neutral-900 font-mono">{volumenProstataCc} cc ({gradoHbp})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCalculadoraOpen(false)}
+                    className="px-3 py-1.5 bg-neutral-900 hover:bg-black text-white rounded-lg text-xs font-bold transition shadow-xs"
+                  >
+                    ✓ Cerrar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
