@@ -123,7 +123,7 @@ export default function SplitLoginView() {
     if (!isEmailAutorizado(emailNorm)) {
       setLoading(false);
       setErrorMsg(
-        "Correo no reconocido en el padrón institucional. Verifique que esté escrito en minúsculas y sin tildes (ejemplo: admision.viv1@lasmellizasperu.com o admision.ind1@lasmellizasperu.com)."
+        "Correo no reconocido en el padrón institucional. Verifique que sus credenciales estén correctamente escritas, en minúsculas y sin espacios."
       );
       return;
     }
@@ -428,12 +428,12 @@ export default function SplitLoginView() {
                       .replace(/\s+/g, "");
                     setEmail(sanitized);
                   }}
-                  placeholder="usuario@lasmellizasperu.com"
+                  placeholder="usuario@ejemplo.com"
                   className="w-full pl-10 pr-4 py-3 rounded-2xl border border-neutral-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand-800 focus:border-transparent transition bg-neutral-50/50 text-neutral-900 placeholder:text-neutral-400"
                 />
               </div>
               <p className="text-[10px] text-neutral-400 mt-1">
-                Escribir en minúsculas y sin tildes (ej: <span className="font-semibold text-neutral-600">admision.viv1@lasmellizasperu.com</span>)
+                Ingrese su correo asignado en minúsculas y sin espacios.
               </p>
             </div>
 
